@@ -1,6 +1,10 @@
 """DeviceWorker — runs VentoClient I/O on a dedicated QThread."""
 from __future__ import annotations
 
+import ipaddress
+import socket
+
+import netifaces
 from PySide6.QtCore import QObject, Signal, Slot
 
 from blauberg_vento import VentoClient
@@ -31,11 +35,38 @@ class DeviceWorker(QObject):
     def do_discover(self):
         try:
             devices = VentoClient.discover(timeout=2.0)
+            subnet_devices = self._subnet_discover()
+            known_ids = {d.device_id for d in devices}
+            devices += [d for d in subnet_devices if d.device_id not in known_ids]
             self.discovery_result.emit(devices)
         except VentoError as exc:
             self.error.emit(f"Discovery failed: {exc}")
         except Exception as exc:
             self.error.emit(f"Unexpected discovery error: {exc}")
+
+    def _subnet_discover(self) -> list:
+        """Fallback: broadcast to the local subnet's broadcast address."""
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+                s.connect(("8.8.8.8", 80))
+                local_ip = s.getsockname()[0]
+
+            netmask = None
+            for iface in netifaces.interfaces():
+                for addr in netifaces.ifaddresses(iface).get(netifaces.AF_INET, []):
+                    if addr.get("addr") == local_ip:
+                        netmask = addr.get("netmask")
+                        break
+                if netmask:
+                    break
+
+            if not netmask:
+                return []
+
+            network = ipaddress.IPv4Network(f"{local_ip}/{netmask}", strict=False)
+            return VentoClient.discover(broadcast=str(network.broadcast_address), timeout=2.0)
+        except Exception:
+            return []
 
     @Slot()
     def do_docker_discover(self):

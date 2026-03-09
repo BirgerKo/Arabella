@@ -55,7 +55,7 @@ class ConnectDialog(QDialog):
 
         self._device_list = QListWidget()
         self._device_list.setMinimumHeight(100)
-        self._device_list.itemSelectionChanged.connect(self._on_disc_selection)
+        self._device_list.itemChanged.connect(self._update_connect_btn)
         disc_layout.addWidget(self._device_list)
 
         btn_row = QHBoxLayout()
@@ -131,25 +131,30 @@ class ConnectDialog(QDialog):
     # Public: call after accept() to retrieve connection params
     # ------------------------------------------------------------------
 
-    def connection_params(self) -> tuple[str, str, str]:
-        """Returns (host, device_id, password). Priority: history > discovered > manual."""
+    def connection_params_list(self) -> list[tuple[str, str, str]]:
+        """Returns list of (host, device_id, password). Priority: history > discovered > manual."""
         pw = self._pw_edit.text() or "1111"
 
         hist_sel = self._hist_list.selectedItems()
         if hist_sel:
             entry: HistoryEntry = hist_sel[0].data(Qt.ItemDataRole.UserRole)
-            return entry.ip, entry.device_id, pw
+            return [(entry.ip, entry.device_id, pw)]
 
-        disc_sel = self._device_list.selectedItems()
-        if disc_sel:
-            dev: DiscoveredDevice = disc_sel[0].data(Qt.ItemDataRole.UserRole)
-            return dev.ip, dev.device_id, pw
+        checked = []
+        for i in range(self._device_list.count()):
+            item = self._device_list.item(i)
+            if item.checkState() == Qt.CheckState.Checked:
+                dev: DiscoveredDevice = item.data(Qt.ItemDataRole.UserRole)
+                checked.append((dev.ip, dev.device_id, pw))
+        if checked:
+            return checked
 
-        return (
-            self._ip_edit.text().strip(),
-            self._id_edit.text().strip(),
-            pw,
-        )
+        ip = self._ip_edit.text().strip()
+        device_id = self._id_edit.text().strip()
+        if ip and device_id:
+            return [(ip, device_id, pw)]
+
+        return []
 
     # ------------------------------------------------------------------
     # History helpers
@@ -175,12 +180,6 @@ class ConnectDialog(QDialog):
             # Pre-fill password from the history entry
             entry: HistoryEntry = selected[0].data(Qt.ItemDataRole.UserRole)
             self._pw_edit.setText(entry.password)
-        self._update_connect_btn()
-
-    @Slot()
-    def _on_disc_selection(self) -> None:
-        if self._device_list.selectedItems():
-            self._hist_list.clearSelection()
         self._update_connect_btn()
 
     @Slot()
@@ -215,13 +214,21 @@ class ConnectDialog(QDialog):
     @Slot(list)
     def _on_discovery_result(self, devices: list[DiscoveredDevice]):
         self._device_list.clear()
-        if not devices:
-            self._status_lbl.setText("No devices found on this network.")
+        history_ids = {e.device_id for e in (self._history.entries if self._history else [])}
+        new_devices = [d for d in devices if d.device_id not in history_ids]
+        if not new_devices:
+            self._status_lbl.setText(
+                "No devices found. The fans may be blocked by your firewall — "
+                "check your firewall settings and ensure UDP broadcast traffic "
+                "from your local subnet is allowed."
+            )
         else:
-            self._status_lbl.setText(f"Found {len(devices)} device(s):")
-            for dev in devices:
+            self._status_lbl.setText(f"Found {len(new_devices)} device(s):")
+            for dev in new_devices:
                 item = QListWidgetItem(f"{dev.unit_type_name}  —  {dev.ip}")
                 item.setData(Qt.ItemDataRole.UserRole, dev)
+                item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+                item.setCheckState(Qt.CheckState.Checked)
                 self._device_list.addItem(item)
         self._update_connect_btn()
 
@@ -231,12 +238,19 @@ class ConnectDialog(QDialog):
 
     def _update_connect_btn(self):
         has_hist   = bool(self._hist_list.selectedItems())
-        has_disc   = bool(self._device_list.selectedItems())
+        checked_count = sum(
+            1 for i in range(self._device_list.count())
+            if self._device_list.item(i).checkState() == Qt.CheckState.Checked
+        )
         has_manual = (
             bool(self._ip_edit.text().strip()) and
             bool(self._id_edit.text().strip())
         )
-        self._connect_btn.setEnabled(has_hist or has_disc or has_manual)
+        self._connect_btn.setEnabled(has_hist or checked_count > 0 or has_manual)
+        if not has_hist and checked_count > 1:
+            self._connect_btn.setText(f"Connect ({checked_count})")
+        else:
+            self._connect_btn.setText("Connect")
 
     # ------------------------------------------------------------------
     # Thread teardown — called on accept, reject, and X-button close
