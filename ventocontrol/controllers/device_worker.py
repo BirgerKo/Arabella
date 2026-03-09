@@ -1,7 +1,7 @@
 """DeviceWorker — runs VentoClient I/O on a dedicated QThread."""
 from __future__ import annotations
 
-from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
+from PySide6.QtCore import QObject, Signal, Slot
 
 from blauberg_vento import VentoClient
 from blauberg_vento.exceptions import VentoError
@@ -13,11 +13,11 @@ class DeviceWorker(QObject):
     """All blocking VentoClient calls happen here (runs in its own QThread)."""
 
     # Outgoing signals
-    discovery_result = pyqtSignal(list)          # list[DiscoveredDevice]
-    connected        = pyqtSignal(object)        # DeviceState on first successful poll
-    state_updated    = pyqtSignal(object)        # DeviceState
-    error            = pyqtSignal(str)           # human-readable error text
-    command_done     = pyqtSignal()              # a write command completed OK
+    discovery_result = Signal(list)          # list[DiscoveredDevice]
+    connected        = Signal(object)        # DeviceState on first successful poll
+    state_updated    = Signal(object)        # DeviceState
+    error            = Signal(str)           # human-readable error text
+    command_done     = Signal()              # a write command completed OK
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -27,7 +27,7 @@ class DeviceWorker(QObject):
     # Discovery & Connection
     # ------------------------------------------------------------------
 
-    @pyqtSlot()
+    @Slot()
     def do_discover(self):
         try:
             devices = VentoClient.discover(timeout=2.0)
@@ -37,7 +37,7 @@ class DeviceWorker(QObject):
         except Exception as exc:
             self.error.emit(f"Unexpected discovery error: {exc}")
 
-    @pyqtSlot()
+    @Slot()
     def do_docker_discover(self):
         """Probe loopback alias IPs 127.0.0.11 … 127.0.0.41 directly.
 
@@ -58,7 +58,7 @@ class DeviceWorker(QObject):
                 break
         self.discovery_result.emit(devices)
 
-    @pyqtSlot(str, str, str)
+    @Slot(str, str, str)
     def do_connect(self, host: str, device_id: str, password: str):
         try:
             self._client = VentoClient(
@@ -80,7 +80,7 @@ class DeviceWorker(QObject):
     # Polling
     # ------------------------------------------------------------------
 
-    @pyqtSlot()
+    @Slot()
     def do_poll(self):
         if self._client is None:
             return
@@ -109,36 +109,36 @@ class DeviceWorker(QObject):
         except Exception as exc:
             self.error.emit(f"Unexpected error: {exc}")
 
-    @pyqtSlot(bool)
+    @Slot(bool)
     def do_set_power(self, on: bool):
         if on:
             self._run(self._client.turn_on)
         else:
             self._run(self._client.turn_off)
 
-    @pyqtSlot(int)
+    @Slot(int)
     def do_set_speed(self, speed: int):
         self._run(self._client.set_speed, speed)
 
-    @pyqtSlot(int)
+    @Slot(int)
     def do_set_manual_speed(self, value: int):
         self._run(self._client.set_manual_speed, value)
 
-    @pyqtSlot(int)
+    @Slot(int)
     def do_set_mode(self, mode: int):
         self._run(self._client.set_mode, mode)
 
-    @pyqtSlot(bool)
+    @Slot(bool)
     def do_set_boost(self, on: bool):
         self._run(
             self._client.write_params_with_response,
             {Param.BOOST_STATUS: int(on)},
         )
 
-    @pyqtSlot(int)
+    @Slot(int)
     def do_set_humidity_sensor(self, state: int):
         self._run(self._client.set_humidity_sensor, state)
 
-    @pyqtSlot(int)
+    @Slot(int)
     def do_set_humidity_threshold(self, rh: int):
         self._run(self._client.set_humidity_threshold, rh)

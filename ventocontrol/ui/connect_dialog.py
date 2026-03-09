@@ -1,8 +1,8 @@
 """ConnectDialog — device discovery + manual entry."""
 from __future__ import annotations
 
-from PyQt6.QtCore import Qt, QThread, pyqtSlot
-from PyQt6.QtWidgets import (
+from PySide6.QtCore import Qt, QThread, Slot
+from PySide6.QtWidgets import (
     QDialog, QDialogButtonBox, QGroupBox, QHBoxLayout,
     QLabel, QLineEdit, QListWidget, QListWidgetItem,
     QPushButton, QVBoxLayout,
@@ -166,7 +166,7 @@ class ConnectDialog(QDialog):
             self._hist_list.addItem(item)
         self._hist_group.setVisible(bool(entries))
 
-    @pyqtSlot()
+    @Slot()
     def _on_hist_selection(self) -> None:
         selected = self._hist_list.selectedItems()
         if selected:
@@ -177,13 +177,13 @@ class ConnectDialog(QDialog):
             self._pw_edit.setText(entry.password)
         self._update_connect_btn()
 
-    @pyqtSlot()
+    @Slot()
     def _on_disc_selection(self) -> None:
         if self._device_list.selectedItems():
             self._hist_list.clearSelection()
         self._update_connect_btn()
 
-    @pyqtSlot()
+    @Slot()
     def _on_clear_history(self) -> None:
         if self._history:
             self._history.clear()
@@ -199,7 +199,7 @@ class ConnectDialog(QDialog):
         self._device_list.clear()
         self._update_connect_btn()
         # Invoke on worker thread
-        from PyQt6.QtCore import QMetaObject, Qt as _Qt
+        from PySide6.QtCore import QMetaObject, Qt as _Qt
         QMetaObject.invokeMethod(self._worker, "do_discover",
                                  _Qt.ConnectionType.QueuedConnection)
 
@@ -208,11 +208,11 @@ class ConnectDialog(QDialog):
         self._status_lbl.setText("Scanning Docker fans…")
         self._device_list.clear()
         self._update_connect_btn()
-        from PyQt6.QtCore import QMetaObject, Qt as _Qt
+        from PySide6.QtCore import QMetaObject, Qt as _Qt
         QMetaObject.invokeMethod(self._worker, "do_docker_discover",
                                  _Qt.ConnectionType.QueuedConnection)
 
-    @pyqtSlot(list)
+    @Slot(list)
     def _on_discovery_result(self, devices: list[DiscoveredDevice]):
         self._device_list.clear()
         if not devices:
@@ -225,7 +225,7 @@ class ConnectDialog(QDialog):
                 self._device_list.addItem(item)
         self._update_connect_btn()
 
-    @pyqtSlot(str)
+    @Slot(str)
     def _on_discovery_error(self, msg: str):
         self._status_lbl.setText(f"Scan error: {msg}")
 

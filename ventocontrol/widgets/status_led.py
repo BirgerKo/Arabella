@@ -1,9 +1,9 @@
 """StatusLED — small circular indicator widget."""
 from __future__ import annotations
 
-from PyQt6.QtCore import QSize, Qt
-from PyQt6.QtGui import QColor, QPainter, QRadialGradient
-from PyQt6.QtWidgets import QWidget
+from PySide6.QtCore import QSize, Qt
+from PySide6.QtGui import QColor, QPainter, QRadialGradient
+from PySide6.QtWidgets import QWidget
 
 # Colour presets
 LED_COLOURS = {

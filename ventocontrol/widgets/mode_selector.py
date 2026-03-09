@@ -1,8 +1,8 @@
 """ModeSelector — exclusive toggle group for operation mode."""
 from __future__ import annotations
 
-from PyQt6.QtCore import pyqtSignal
-from PyQt6.QtWidgets import QButtonGroup, QHBoxLayout, QPushButton, QWidget
+from PySide6.QtCore import Signal
+from PySide6.QtWidgets import QButtonGroup, QHBoxLayout, QPushButton, QWidget
 
 _MODES = {
     0: ("Ventilation", "Vent"),
@@ -14,7 +14,7 @@ _MODES = {
 class ModeSelector(QWidget):
     """Emits mode_changed(int) with 0=Vent, 1=HR, 2=Supply."""
 
-    mode_changed = pyqtSignal(int)
+    mode_changed = Signal(int)
 
     def __init__(self, parent=None):
         super().__init__(parent)

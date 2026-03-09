@@ -4,9 +4,9 @@ from __future__ import annotations
 import time
 from typing import Optional
 
-from PyQt6.QtCore import Qt, QThread, QTimer, pyqtSignal, pyqtSlot
-from PyQt6.QtGui import QAction
-from PyQt6.QtWidgets import (
+from PySide6.QtCore import Qt, QThread, QTimer, Signal, Slot
+from PySide6.QtGui import QAction
+from PySide6.QtWidgets import (
     QDialog, QFrame, QGroupBox, QHBoxLayout, QLabel,
     QMainWindow, QMenu, QPushButton,
     QStatusBar, QVBoxLayout, QWidget,
@@ -46,15 +46,15 @@ _QS_UNASSIGNED = (
 
 class MainWindow(QMainWindow):
     # ── Command signals (emitted on main thread, received on worker thread) ──
-    _sig_connect        = pyqtSignal(str, str, str)
-    _sig_poll           = pyqtSignal()
-    _sig_set_power      = pyqtSignal(bool)
-    _sig_set_speed      = pyqtSignal(int)
-    _sig_set_manual_spd = pyqtSignal(int)
-    _sig_set_mode       = pyqtSignal(int)
-    _sig_set_boost      = pyqtSignal(bool)
-    _sig_set_hum_sensor = pyqtSignal(int)
-    _sig_set_hum_thresh = pyqtSignal(int)
+    _sig_connect        = Signal(str, str, str)
+    _sig_poll           = Signal()
+    _sig_set_power      = Signal(bool)
+    _sig_set_speed      = Signal(int)
+    _sig_set_manual_spd = Signal(int)
+    _sig_set_mode       = Signal(int)
+    _sig_set_boost      = Signal(bool)
+    _sig_set_hum_sensor = Signal(int)
+    _sig_set_hum_thresh = Signal(int)
 
     def __init__(
         self,
@@ -306,7 +306,7 @@ class MainWindow(QMainWindow):
     # Slots — device state
     # ------------------------------------------------------------------
 
-    @pyqtSlot(object)
+    @Slot(object)
     def _on_connected(self, state: DeviceState):
         for w in self._control_widgets():
             w.setEnabled(True)
@@ -327,16 +327,16 @@ class MainWindow(QMainWindow):
         self._rebuild_scenarios_menu()
         self._refresh_quick_buttons()
 
-    @pyqtSlot(object)
+    @Slot(object)
     def _on_state_updated(self, state: DeviceState):
         self._last_poll_time = time.monotonic()
         self._apply_state(state)
 
-    @pyqtSlot(str)
+    @Slot(str)
     def _on_error(self, msg: str):
         self.statusBar().showMessage(f"⚠  {msg}", 6000)
 
-    @pyqtSlot()
+    @Slot()
     def _on_command_done(self):
         self._sig_poll.emit()
 

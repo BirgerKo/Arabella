@@ -1,9 +1,9 @@
 """PowerButton — large circular toggle with glow effect."""
 from __future__ import annotations
 
-from PyQt6.QtCore import QSize, Qt, pyqtSignal
-from PyQt6.QtGui import QColor, QPainter, QPen, QRadialGradient
-from PyQt6.QtWidgets import QAbstractButton
+from PySide6.QtCore import QSize, Qt, Signal
+from PySide6.QtGui import QColor, QPainter, QPen, QRadialGradient
+from PySide6.QtWidgets import QAbstractButton
 
 _ON_COLOUR   = "#50fa64"   # green — icon colour when power is ON
 _OFF_COLOUR  = "#f8f8f2"   # near-white — icon colour when power is OFF
@@ -12,7 +12,7 @@ _OFF_COLOUR  = "#f8f8f2"   # near-white — icon colour when power is OFF
 class PowerButton(QAbstractButton):
     """Circular power button that glows green when ON."""
 
-    toggled_power = pyqtSignal(bool)   # emits new desired state
+    toggled_power = Signal(bool)   # emits new desired state
 
     def __init__(self, parent=None):
         super().__init__(parent)

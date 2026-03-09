@@ -1,7 +1,7 @@
 """Poller — QTimer that fires do_poll() on the DeviceWorker at a fixed interval."""
 from __future__ import annotations
 
-from PyQt6.QtCore import QObject, QTimer, pyqtSlot
+from PySide6.QtCore import QObject, QTimer, Slot
 
 
 class Poller(QObject):

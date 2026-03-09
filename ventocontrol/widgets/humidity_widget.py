@@ -1,8 +1,8 @@
 """HumidityWidget — live RH readout + sensor enable + threshold control."""
 from __future__ import annotations
 
-from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtWidgets import (
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtWidgets import (
     QCheckBox, QHBoxLayout, QLabel, QSpinBox, QVBoxLayout, QWidget,
 )
 
@@ -10,8 +10,8 @@ from PyQt6.QtWidgets import (
 class HumidityWidget(QWidget):
     """Displays current humidity and controls the sensor/threshold."""
 
-    sensor_toggled    = pyqtSignal(int)   # 0=Off, 1=On
-    threshold_changed = pyqtSignal(int)   # 40-80 %RH
+    sensor_toggled    = Signal(int)   # 0=Off, 1=On
+    threshold_changed = Signal(int)   # 40-80 %RH
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -51,7 +51,7 @@ class HumidityWidget(QWidget):
         self._threshold_spin.editingFinished.connect(self._on_threshold_changed)
 
     def _on_sensor_toggled(self, state: int):
-        enabled = state == Qt.CheckState.Checked.value
+        enabled = state == Qt.CheckState.Checked
         self.sensor_toggled.emit(1 if enabled else 0)
 
     def _on_threshold_changed(self):

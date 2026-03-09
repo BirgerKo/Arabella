@@ -1,8 +1,8 @@
 """SpeedControl — three preset speed buttons plus a manual slider."""
 from __future__ import annotations
 
-from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtWidgets import (
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtWidgets import (
     QButtonGroup, QHBoxLayout, QLabel, QPushButton,
     QSlider, QVBoxLayout, QWidget,
 )
@@ -14,8 +14,8 @@ _MANUAL_SPEED = 255
 class SpeedControl(QWidget):
     """Emits speed_changed(int 1/2/3) or manual_speed_changed(int 0-255)."""
 
-    speed_changed        = pyqtSignal(int)   # 1, 2, or 3
-    manual_speed_changed = pyqtSignal(int)   # 0-255
+    speed_changed        = Signal(int)   # 1, 2, or 3
+    manual_speed_changed = Signal(int)   # 0-255
 
     def __init__(self, parent=None):
         super().__init__(parent)
