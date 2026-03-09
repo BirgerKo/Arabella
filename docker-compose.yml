@@ -1,0 +1,88 @@
+# VentoFanSim — one container per simulated fan.
+#
+# Usage:
+#   docker compose up -d
+#   docker compose logs -f fan1 fan2 fan3   # watch simulator banners
+#   docker compose down
+#
+# One-time host setup (macOS + Docker Desktop):
+#
+#   1. Add loopback aliases (re-run after each reboot, or use setup-loopback.sh):
+#       sudo ./setup-loopback.sh
+#
+# Connect ventocontrol:
+#   • "Scan Docker fans" button — probes 127.0.0.11, 127.0.0.12, 127.0.0.13
+#   • or manually: IP=127.0.0.11, ID=SIMFAN0000000001, Password=1111
+#
+# How it works:
+#   Docker Desktop for Mac does not route bridge IPs (172.28.0.x) to the host.
+#   Each fan is instead port-mapped to a macOS loopback alias so it gets a
+#   unique IP (127.0.0.1x) at the standard port 4000.
+
+networks:
+  vento:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/24
+          gateway: 172.28.0.1
+
+services:
+
+  # ── Simulated fans ───────────────────────────────────────────────────────────
+  # Each service runs a single SimDevice.  FAN_INDEX sets the device-ID offset:
+  #   FAN_INDEX=0  →  SIMFAN0000000001
+  #   FAN_INDEX=1  →  SIMFAN0000000002
+  #   FAN_INDEX=2  →  SIMFAN0000000003
+  #
+  # The port mapping binds the container's UDP port 4000 to a loopback alias
+  # on the host, giving each fan a unique IP at the standard port 4000.
+
+  fan1:
+    build: .
+    container_name: vento-fan1
+    hostname: fan1
+    environment:
+      FAN_INDEX: "0"
+      DEVICE_PREFIX: "DOCKER"   # device ID → DOCKER0000000001
+      UNIT_TYPE: "5"            # Vento Expert A30 W V.2
+    ports:
+      - "127.0.0.11:4000:4000/udp"
+    networks:
+      vento:
+        ipv4_address: 172.28.0.11
+    restart: unless-stopped
+
+  fan2:
+    build: .
+    container_name: vento-fan2
+    hostname: fan2
+    environment:
+      FAN_INDEX: "1"
+      DEVICE_PREFIX: "DOCKER"   # device ID → DOCKER0000000002
+      UNIT_TYPE: "5"            # Vento Expert A30 W V.2
+    ports:
+      - "127.0.0.12:4000:4000/udp"
+    networks:
+      vento:
+        ipv4_address: 172.28.0.12
+    restart: unless-stopped
+
+  fan3:
+    build: .
+    container_name: vento-fan3
+    hostname: fan3
+    environment:
+      FAN_INDEX: "2"
+      DEVICE_PREFIX: "DOCKER"   # device ID → DOCKER0000000003
+      UNIT_TYPE: "5"            # Vento Expert A30 W V.2
+    ports:
+      - "127.0.0.13:4000:4000/udp"
+    networks:
+      vento:
+        ipv4_address: 172.28.0.13
+    restart: unless-stopped
+
+  # To add a fourth fan:
+  #   1. copy the fan3 block, change container_name/hostname/FAN_INDEX/ipv4_address/port alias
+  #   2. run:  sudo ifconfig lo0 alias 127.0.0.14
