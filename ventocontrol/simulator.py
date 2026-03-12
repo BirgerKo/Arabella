@@ -48,7 +48,13 @@ SIM_ID_PREFIX = 'SIMFAN'   # 6-char prefix; total device ID is always 16 chars
 
 # Fan RPM targets for preset speeds: (fan1, fan2)
 _RPM_TARGETS = {1: (640, 560), 2: (1260, 1100), 3: (1860, 1640)}
-_RAMP_RATE   = 80.0        # RPM/s
+_RAMP_RATE             = 80.0   # RPM/s
+_MANUAL_RPM_MAX_FAN1   = 2000   # RPM at manual speed 255 for fan 1
+_MANUAL_RPM_MAX_FAN2   = 1800   # RPM at manual speed 255 for fan 2
+_RPM_NOISE_STDDEV      = 2.5    # Gaussian jitter added when fans are spinning
+_HUMIDITY_NOISE_STDDEV = 0.06   # Gaussian humidity drift per second
+_STATUS_INTERVAL       = 5.0    # Seconds between periodic console status lines
+_SELECT_TIMEOUT        = 0.05   # Seconds to wait in select() per main-loop tick
 
 def _make_sim_id(index: int, prefix: str = SIM_ID_PREFIX) -> str:
     """Return a unique 16-char device ID for the n-th virtual device (0-based)."""
@@ -201,6 +207,10 @@ class SimDevice:
     demo looks more realistic.
     """
 
+    _MODE_NAMES  = {0: 'Ventilation', 1: 'HeatRecovery', 2: 'Supply'}
+    _SPEED_NAMES = {1: 'Spd1', 2: 'Spd2', 3: 'Spd3', 255: 'Man'}
+    _ALARM_NAMES = {0: 'OK', 1: 'ALARM', 2: 'Warn'}
+
     # Initial variety per index slot (wraps around for index >= 3)
     _VARIANTS = [
         dict(speed=1, mode=0, humidity=48.0, power=False),   # #1 — off, slow
@@ -311,26 +321,28 @@ class SimDevice:
         if not power:
             target_rpm_fan1 = target_rpm_fan2 = 0
         elif speed == 255:
-            target_rpm_fan1 = int(manual / 255.0 * 2000)
-            target_rpm_fan2 = int(manual / 255.0 * 1800)
+            target_rpm_fan1 = int(manual / 255.0 * _MANUAL_RPM_MAX_FAN1)
+            target_rpm_fan2 = int(manual / 255.0 * _MANUAL_RPM_MAX_FAN2)
         else:
             target_rpm_fan1, target_rpm_fan2 = _RPM_TARGETS.get(speed, _RPM_TARGETS[2])
 
-        def _ramp(cur: float, tgt: float) -> float:
-            diff = tgt - cur
-            step = min(abs(diff), _RAMP_RATE * dt)
-            moved = cur + (step if diff > 0 else (-step if diff < 0 else 0))
-            if power and tgt > 0:
-                moved += random.gauss(0, 2.5)
-            return max(0.0, moved)
-
-        self._fan1_rpm = _ramp(self._fan1_rpm, target_rpm_fan1)
-        self._fan2_rpm = _ramp(self._fan2_rpm, target_rpm_fan2)
+        self._fan1_rpm = self._apply_rpm_ramp(self._fan1_rpm, target_rpm_fan1, dt, bool(power))
+        self._fan2_rpm = self._apply_rpm_ramp(self._fan2_rpm, target_rpm_fan2, dt, bool(power))
         self._state[Param.FAN1_SPEED] = struct.pack('<H', int(self._fan1_rpm))
         self._state[Param.FAN2_SPEED] = struct.pack('<H', int(self._fan2_rpm))
 
+    @staticmethod
+    def _apply_rpm_ramp(current: float, target: float, dt: float, spinning: bool) -> float:
+        """Step current RPM toward target at _RAMP_RATE, adding jitter when spinning."""
+        diff = target - current
+        step = min(abs(diff), _RAMP_RATE * dt)
+        updated = current + (step if diff > 0 else (-step if diff < 0 else 0))
+        if spinning and target > 0:
+            updated += random.gauss(0, _RPM_NOISE_STDDEV)
+        return max(0.0, updated)
+
     def _tick_humidity(self, dt: float) -> None:
-        self._humidity += random.gauss(0, 0.06) * dt
+        self._humidity += random.gauss(0, _HUMIDITY_NOISE_STDDEV) * dt
         self._humidity  = max(30.0, min(95.0, self._humidity))
         rh = int(self._humidity)
         self._state[Param.CURRENT_HUMIDITY] = bytes([rh])
@@ -405,6 +417,11 @@ class SimDevice:
         int(Func.DECREMENT):  _handle_decrement,
     }
 
+    def respond_to_discovery(self, requested: list[int], addr: tuple,
+                             sock: socket.socket) -> None:
+        """Send a discovery response for the given params (called by the server)."""
+        self._send_response(requested, addr, sock)
+
     def _send_response(self, requested: list[int], addr: tuple,
                        sock: socket.socket) -> None:
         resp_data = _build_response_data(requested, self._state)
@@ -416,40 +433,42 @@ class SimDevice:
     # ------------------------------------------------------------------
 
     def _apply_writes(self, updates: dict[int, bytes]) -> None:
+        # Factory reset wipes state entirely — process it first and stop.
+        factory_reset_value = updates.get(int(Param.FACTORY_RESET))
+        if factory_reset_value is not None:
+            self._write_factory_reset(factory_reset_value)
+            return
+
         for param_int, value_bytes in updates.items():
             special = self._WRITE_HANDLERS.get(param_int)
-            if special and special(self, value_bytes):
-                return  # factory reset signals early exit via True
-            elif not special:
+            if special:
+                special(self, value_bytes)
+            else:
                 try:
                     self._state[Param(param_int)] = value_bytes
                 except ValueError:
                     pass
 
-    def _write_power(self, value_bytes: bytes) -> bool:
+    def _write_power(self, value_bytes: bytes) -> None:
         if value_bytes == b'\x02':                      # toggle
             cur = self._state.get(Param.POWER, b'\x00')[0]
             self._state[Param.POWER] = bytes([0 if cur else 1])
         else:
             self._state[Param.POWER] = value_bytes
-        return False
 
-    def _write_filter_reset(self, _value: bytes) -> bool:
+    def _write_filter_reset(self, _value: bytes) -> None:
         self._state[Param.FILTER_COUNTDOWN] = b'\x00\x00\xB4'
         self._state[Param.FILTER_INDICATOR] = b'\x00'
-        return False
 
-    def _write_reset_alarms(self, _value: bytes) -> bool:
+    def _write_reset_alarms(self, _value: bytes) -> None:
         self._state[Param.ALARM_STATUS] = b'\x00'
-        return False
 
-    def _write_factory_reset(self, _value: bytes) -> bool:
+    def _write_factory_reset(self, _value: bytes) -> None:
         print(f'  [#{self.index + 1}] Factory reset — restoring defaults')
         self._fan1_rpm = self._fan2_rpm = 0.0
         variant = self._VARIANTS[self.index % len(self._VARIANTS)]
         self._humidity = variant['humidity']
         self._state = self._make_initial_state(variant)
-        return True  # signals _apply_writes to stop processing further params
 
     _WRITE_HANDLERS = {
         int(Param.POWER):         _write_power,
@@ -492,17 +511,13 @@ class SimDevice:
         rh   = self._state[Param.CURRENT_HUMIDITY][0]
         al   = self._state[Param.ALARM_STATUS][0]
 
-        mode_n = {0: 'Ventilation', 1: 'HeatRecovery', 2: 'Supply'}
-        spd_n  = {1: 'Spd1', 2: 'Spd2', 3: 'Spd3', 255: 'Man'}
-        al_n   = {0: 'OK', 1: 'ALARM', 2: 'Warn'}
-        pwr_s  = '\033[32mON \033[0m' if pwr else '\033[31mOFF\033[0m'
-
-        ts = datetime.now().strftime('%H:%M:%S')
+        pwr_s = '\033[32mON \033[0m' if pwr else '\033[31mOFF\033[0m'
+        ts    = datetime.now().strftime('%H:%M:%S')
         print(f'  [{ts}] #{self.index + 1} Power:{pwr_s} '
-              f'{spd_n.get(spd, str(spd)):<4}  '
-              f'{mode_n.get(mode, "?"):<12}  '
+              f'{self._SPEED_NAMES.get(spd, str(spd)):<4}  '
+              f'{self._MODE_NAMES.get(mode, "?"):<12}  '
               f'Fan1:{rpm1:>5} RPM  Fan2:{rpm2:>5} RPM  '
-              f'RH:{rh:>3}%  {al_n.get(al, "?")}')
+              f'RH:{rh:>3}%  {self._ALARM_NAMES.get(al, "?")}')
 
 
 # ---------------------------------------------------------------------------
@@ -559,12 +574,12 @@ class VentoFanSim:
             for dev in self._devices:
                 dev.tick(dt)
 
-            if now - last_status >= 5.0:
+            if now - last_status >= _STATUS_INTERVAL:
                 last_status = now
                 for dev in self._devices:
                     dev.print_status()
 
-            r, _, _ = select.select([self._sock], [], [], 0.05)
+            r, _, _ = select.select([self._sock], [], [], _SELECT_TIMEOUT)
             if r:
                 try:
                     raw, addr = self._sock.recvfrom(1024)
@@ -595,7 +610,7 @@ class VentoFanSim:
             requested = _parse_read_request_data(data)
             _log('DISC ', addr, self._devices[0].get_state_snapshot(requested[:4]))
             for dev in self._devices:
-                dev._send_response(requested, addr, self._sock)
+                dev.respond_to_discovery(requested, addr, self._sock)
 
         else:
             # ── Directed packet: route to the matching device ───────
@@ -615,11 +630,9 @@ class VentoFanSim:
 def _get_lan_ip() -> str:
     """Best-effort: return the machine's primary LAN IP address."""
     try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(('8.8.8.8', 80))
-        ip = s.getsockname()[0]
-        s.close()
-        return ip
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(('8.8.8.8', 80))
+            return s.getsockname()[0]
     except OSError:
         return '127.0.0.1'
 
