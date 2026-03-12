@@ -9,8 +9,9 @@ Development is assisted by AI language models.
 | Package | Description |
 |---------|-------------|
 | `blauberg_vento/` | Pure-Python UDP API library (no dependencies) |
-| `ventocontrol/` | PyQt6 desktop GUI — macOS, Windows, Linux |
+| `ventocontrol/` | PySide6 desktop GUI — macOS, Windows, Linux |
 | `ventocontrol/simulator.py` | Software fan simulator for development without hardware |
+| `webdashboard/` | React + FastAPI web dashboard — same palette as the desktop GUI |
 
 ## Install
 
@@ -50,6 +51,45 @@ ventosim --count 3
 ```bash
 pytest
 ```
+
+## Web Dashboard
+
+### Install dependencies
+
+```bash
+pip install -e ".[web]"                     # FastAPI + uvicorn
+cd webdashboard/frontend && npm install     # React + Vite
+```
+
+### Development (with live reload)
+
+```bash
+# Terminal 1 — API backend
+python -m webdashboard
+
+# Terminal 2 — Vite dev server (proxies /api and /ws to :8080)
+cd webdashboard/frontend && npm run dev
+# Open http://localhost:5173
+```
+
+### Production build
+
+```bash
+cd webdashboard/frontend && npm run build
+python -m webdashboard
+# Open http://localhost:8080
+```
+
+### E2E tests (Playwright)
+
+```bash
+pip install pytest-playwright
+playwright install chromium
+python -m webdashboard &   # start backend first
+pytest tests/webdashboard/e2e/ --base-url http://localhost:8080
+```
+
+---
 
 ## Docker (simulated fans in containers)
 

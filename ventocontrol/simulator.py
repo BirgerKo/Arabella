@@ -142,7 +142,7 @@ def _build_response_data(requested: list[int], state: dict[int, bytes]) -> bytes
 def _log(tag: str, addr: tuple, params: Optional[dict] = None,
          prefix: str = '') -> None:
     ts = datetime.now().strftime('%H:%M:%S')
-    pre = f'{prefix} ' if prefix else ''
+    prefix_str = f'{prefix} ' if prefix else ''
     if params:
         parts = []
         for k, v in list(params.items())[:6]:
@@ -151,38 +151,38 @@ def _log(tag: str, addr: tuple, params: Optional[dict] = None,
             except ValueError:
                 name = f'0x{k:04X}'
             if v is None:
-                vs = '—'
+                value_str = '—'
             elif len(v) == 0:
-                vs = '(empty)'
+                value_str = '(empty)'
             elif len(v) <= 2:
-                vs = str(int.from_bytes(v, 'little'))
+                value_str = str(int.from_bytes(v, 'little'))
             else:
-                vs = v.hex()
-            parts.append(f'{name}={vs}')
+                value_str = v.hex()
+            parts.append(f'{name}={value_str}')
         extra = f'  +{len(params) - 6} more' if len(params) > 6 else ''
-        pstr = ', '.join(parts) + extra
+        params_str = ', '.join(parts) + extra
     else:
-        pstr = ''
-    print(f'  [{ts}] {pre}{tag:<5} {addr[0]}:{addr[1]}  {pstr}')
+        params_str = ''
+    print(f'  [{ts}] {prefix_str}{tag:<5} {addr[0]}:{addr[1]}  {params_str}')
 
 
 def _banner(lan_ip: str, devices: list['SimDevice'], port: int) -> None:
-    w = 66
+    box_width = 66
     def row(text=''):
-        pad = w - len(text) - 2
+        pad = box_width - len(text) - 2
         return f'║ {text}{" " * pad} ║'
 
     n = len(devices)
     title = f'VentoFanSim — {n} virtual Vento Expert{"s" if n > 1 else ""}'
-    print('╔' + '═' * w + '╗')
+    print('╔' + '═' * box_width + '╗')
     print(row(title))
-    print('╠' + '═' * w + '╣')
+    print('╠' + '═' * box_width + '╣')
     for d in devices:
         print(row(f'Device #{d.index + 1}  │  ID: {d.device_id}   Pwd: {d.password}'))
-    print('╠' + '═' * w + '╣')
+    print('╠' + '═' * box_width + '╣')
     print(row(f'LAN IP : {lan_ip}   Port : {port}'))
     print(row('Use auto-discovery  OR  enter ID + IP manually'))
-    print('╚' + '═' * w + '╝')
+    print('╚' + '═' * box_width + '╝')
     print()
     print('  Listening … (Ctrl+C to stop)\n')
 
@@ -207,6 +207,7 @@ class SimDevice:
         dict(speed=2, mode=1, humidity=63.0, power=True),    # #2 — running, recovery
         dict(speed=3, mode=2, humidity=72.0, power=True),    # #3 — running fast, supply
     ]
+
 
     def __init__(self, index: int, password: str = SIM_PASSWORD,
                  unit_type: int = SIM_UNIT_TYPE,
@@ -281,29 +282,39 @@ class SimDevice:
             Param.PARTY_TIMER:        b'\x00\x04',
         }
 
+    def get_state_snapshot(self, params: list[int]) -> dict[int, Optional[bytes]]:
+        """Return a {param_code: value} mapping for the given param codes."""
+        return {p: self._state.get(p) for p in params}
+
     def set_lan_ip(self, ip: str) -> None:
         try:
             parts = [int(x) for x in ip.split('.')]
             self._state[Param.WIFI_CURRENT_IP] = bytes(parts)
-        except Exception:
-            pass
+        except (ValueError, struct.error):
+            pass  # malformed IP — leave current value unchanged
 
     # ------------------------------------------------------------------
     # Physics / dynamics
     # ------------------------------------------------------------------
 
     def tick(self, dt: float) -> None:
+        self._tick_fans(dt)
+        self._tick_humidity(dt)
+        self._tick_rtc()
+        self._tick_uptime()
+
+    def _tick_fans(self, dt: float) -> None:
         power  = self._state[Param.POWER][0]
         speed  = self._state[Param.SPEED][0]
         manual = self._state[Param.MANUAL_SPEED][0]
 
         if not power:
-            t1 = t2 = 0
+            target_rpm_fan1 = target_rpm_fan2 = 0
         elif speed == 255:
-            t1 = int(manual / 255.0 * 2000)
-            t2 = int(manual / 255.0 * 1800)
+            target_rpm_fan1 = int(manual / 255.0 * 2000)
+            target_rpm_fan2 = int(manual / 255.0 * 1800)
         else:
-            t1, t2 = _RPM_TARGETS.get(speed, _RPM_TARGETS[2])
+            target_rpm_fan1, target_rpm_fan2 = _RPM_TARGETS.get(speed, _RPM_TARGETS[2])
 
         def _ramp(cur: float, tgt: float) -> float:
             diff = tgt - cur
@@ -313,12 +324,12 @@ class SimDevice:
                 moved += random.gauss(0, 2.5)
             return max(0.0, moved)
 
-        self._fan1_rpm = _ramp(self._fan1_rpm, t1)
-        self._fan2_rpm = _ramp(self._fan2_rpm, t2)
+        self._fan1_rpm = _ramp(self._fan1_rpm, target_rpm_fan1)
+        self._fan2_rpm = _ramp(self._fan2_rpm, target_rpm_fan2)
         self._state[Param.FAN1_SPEED] = struct.pack('<H', int(self._fan1_rpm))
         self._state[Param.FAN2_SPEED] = struct.pack('<H', int(self._fan2_rpm))
 
-        # Humidity drift
+    def _tick_humidity(self, dt: float) -> None:
         self._humidity += random.gauss(0, 0.06) * dt
         self._humidity  = max(30.0, min(95.0, self._humidity))
         rh = int(self._humidity)
@@ -326,17 +337,18 @@ class SimDevice:
         threshold = self._state[Param.HUMIDITY_THRESHOLD][0]
         self._state[Param.HUMIDITY_STATUS] = bytes([1 if rh >= threshold else 0])
 
-        # RTC — mirror system clock
+    def _tick_rtc(self) -> None:
         now = datetime.now()
         self._state[Param.RTC_TIME]     = bytes([now.second, now.minute, now.hour])
         self._state[Param.RTC_CALENDAR] = bytes([now.day, now.weekday() + 1,
                                                   now.month, now.year % 100])
 
-        # Machine uptime
-        up   = int(time.monotonic() - self._start)
-        m, h = (up // 60) % 60, (up // 3600) % 24
-        days = up // 86400
-        self._state[Param.MACHINE_HOURS] = bytes([m, h]) + struct.pack('<H', days)
+    def _tick_uptime(self) -> None:
+        uptime_seconds = int(time.monotonic() - self._start)
+        minutes = (uptime_seconds // 60) % 60
+        hours   = (uptime_seconds // 3600) % 24
+        days    = uptime_seconds // 86400
+        self._state[Param.MACHINE_HOURS] = bytes([minutes, hours]) + struct.pack('<H', days)
 
     # ------------------------------------------------------------------
     # Packet dispatch
@@ -345,35 +357,53 @@ class SimDevice:
     def handle(self, func_byte: int, data: bytes, addr: tuple,
                sock: socket.socket, tag_prefix: str = '') -> None:
         """Handle a verified packet that is addressed to this device."""
-        if func_byte == int(Func.READ):
-            requested = _parse_read_request_data(data)
-            _log('READ ', addr, {p: self._state.get(p) for p in requested}, tag_prefix)
-            self._send_response(requested, addr, sock)
+        handler = self._FUNC_HANDLERS.get(func_byte)
+        if handler:
+            handler(self, func_byte, data, addr, sock, tag_prefix)
 
-        elif func_byte == int(Func.WRITE):
-            updates = _parse_write_data(data)
-            self._apply_writes(updates)
-            _log('WRITE', addr, updates, tag_prefix)
+    def _handle_read(self, _func: int, data: bytes, addr: tuple,
+                     sock: socket.socket, tag_prefix: str) -> None:
+        requested = _parse_read_request_data(data)
+        _log('READ ', addr, {p: self._state.get(p) for p in requested}, tag_prefix)
+        self._send_response(requested, addr, sock)
 
-        elif func_byte == int(Func.WRITE_RESP):
-            updates = _parse_write_data(data)
-            self._apply_writes(updates)
-            _log('WRSP ', addr, updates, tag_prefix)
-            self._send_response(list(updates.keys()), addr, sock)
+    def _handle_write(self, _func: int, data: bytes, addr: tuple,
+                      sock: socket.socket, tag_prefix: str) -> None:
+        updates = _parse_write_data(data)
+        self._apply_writes(updates)
+        _log('WRITE', addr, updates, tag_prefix)
 
-        elif func_byte == int(Func.INCREMENT):
-            params = _parse_read_request_data(data)
-            for p in params:
-                self._nudge(p, +1)
-            _log('INC  ', addr, {p: self._state.get(p) for p in params}, tag_prefix)
-            self._send_response(params, addr, sock)
+    def _handle_write_resp(self, _func: int, data: bytes, addr: tuple,
+                           sock: socket.socket, tag_prefix: str) -> None:
+        updates = _parse_write_data(data)
+        self._apply_writes(updates)
+        _log('WRSP ', addr, updates, tag_prefix)
+        self._send_response(list(updates.keys()), addr, sock)
 
-        elif func_byte == int(Func.DECREMENT):
-            params = _parse_read_request_data(data)
-            for p in params:
-                self._nudge(p, -1)
-            _log('DEC  ', addr, {p: self._state.get(p) for p in params}, tag_prefix)
-            self._send_response(params, addr, sock)
+    def _handle_increment(self, _func: int, data: bytes, addr: tuple,
+                          sock: socket.socket, tag_prefix: str) -> None:
+        params = _parse_read_request_data(data)
+        for p in params:
+            self._nudge(p, +1)
+        _log('INC  ', addr, {p: self._state.get(p) for p in params}, tag_prefix)
+        self._send_response(params, addr, sock)
+
+    def _handle_decrement(self, _func: int, data: bytes, addr: tuple,
+                          sock: socket.socket, tag_prefix: str) -> None:
+        params = _parse_read_request_data(data)
+        for p in params:
+            self._nudge(p, -1)
+        _log('DEC  ', addr, {p: self._state.get(p) for p in params}, tag_prefix)
+        self._send_response(params, addr, sock)
+
+    # Wire up the dispatch table once all handler methods are defined
+    _FUNC_HANDLERS = {
+        int(Func.READ):       _handle_read,
+        int(Func.WRITE):      _handle_write,
+        int(Func.WRITE_RESP): _handle_write_resp,
+        int(Func.INCREMENT):  _handle_increment,
+        int(Func.DECREMENT):  _handle_decrement,
+    }
 
     def _send_response(self, requested: list[int], addr: tuple,
                        sock: socket.socket) -> None:
@@ -387,28 +417,46 @@ class SimDevice:
 
     def _apply_writes(self, updates: dict[int, bytes]) -> None:
         for param_int, value_bytes in updates.items():
-            if param_int == int(Param.POWER) and value_bytes == b'\x02':
-                cur = self._state.get(Param.POWER, b'\x00')[0]
-                self._state[Param.POWER] = bytes([0 if cur else 1])
-                continue
-            if param_int == int(Param.FILTER_RESET):
-                self._state[Param.FILTER_COUNTDOWN] = b'\x00\x00\xB4'
-                self._state[Param.FILTER_INDICATOR]  = b'\x00'
-                continue
-            if param_int == int(Param.RESET_ALARMS):
-                self._state[Param.ALARM_STATUS] = b'\x00'
-                continue
-            if param_int == int(Param.FACTORY_RESET):
-                print(f'  [#{self.index + 1}] Factory reset — restoring defaults')
-                self._fan1_rpm = self._fan2_rpm = 0.0
-                v = self._VARIANTS[self.index % len(self._VARIANTS)]
-                self._humidity = v['humidity']
-                self._state = self._make_initial_state(v)
-                return
-            try:
-                self._state[Param(param_int)] = value_bytes
-            except ValueError:
-                pass
+            special = self._WRITE_HANDLERS.get(param_int)
+            if special and special(self, value_bytes):
+                return  # factory reset signals early exit via True
+            elif not special:
+                try:
+                    self._state[Param(param_int)] = value_bytes
+                except ValueError:
+                    pass
+
+    def _write_power(self, value_bytes: bytes) -> bool:
+        if value_bytes == b'\x02':                      # toggle
+            cur = self._state.get(Param.POWER, b'\x00')[0]
+            self._state[Param.POWER] = bytes([0 if cur else 1])
+        else:
+            self._state[Param.POWER] = value_bytes
+        return False
+
+    def _write_filter_reset(self, _value: bytes) -> bool:
+        self._state[Param.FILTER_COUNTDOWN] = b'\x00\x00\xB4'
+        self._state[Param.FILTER_INDICATOR] = b'\x00'
+        return False
+
+    def _write_reset_alarms(self, _value: bytes) -> bool:
+        self._state[Param.ALARM_STATUS] = b'\x00'
+        return False
+
+    def _write_factory_reset(self, _value: bytes) -> bool:
+        print(f'  [#{self.index + 1}] Factory reset — restoring defaults')
+        self._fan1_rpm = self._fan2_rpm = 0.0
+        variant = self._VARIANTS[self.index % len(self._VARIANTS)]
+        self._humidity = variant['humidity']
+        self._state = self._make_initial_state(variant)
+        return True  # signals _apply_writes to stop processing further params
+
+    _WRITE_HANDLERS = {
+        int(Param.POWER):         _write_power,
+        int(Param.FILTER_RESET):  _write_filter_reset,
+        int(Param.RESET_ALARMS):  _write_reset_alarms,
+        int(Param.FACTORY_RESET): _write_factory_reset,
+    }
 
     def _nudge(self, param_int: int, delta: int) -> None:
         try:
@@ -418,18 +466,18 @@ class SimDevice:
             if meta is None or cur is None:
                 return
             val = int.from_bytes(cur, 'little') + delta
-            rng = meta.get('range')
-            if rng:
-                val = max(rng[0], min(rng[1], val))
+            value_range = meta.get('range')
+            if value_range:
+                val = max(value_range[0], min(value_range[1], val))
             choices = meta.get('values')
             if choices:
                 keys = sorted(k for k in choices if k != 255)
                 val  = max(keys[0], min(keys[-1], val))
-            sz = meta.get('size') or 1
-            if sz:
-                self._state[p] = val.to_bytes(sz, 'little')
-        except Exception:
-            pass
+            byte_size = meta.get('size') or 1
+            if byte_size:
+                self._state[p] = val.to_bytes(byte_size, 'little')
+        except (ValueError, struct.error):
+            pass  # unknown param or encoding error — skip silently
 
     # ------------------------------------------------------------------
     # Console status
@@ -539,20 +587,19 @@ class VentoFanSim:
         except VentoProtocolError:
             return
 
-        tid  = bytes(target_id)
+        target_id_bytes = bytes(target_id)
         data = bytes(raw[data_start:-2])
 
-        if tid == DEFAULT_DEVICE_ID:
+        if target_id_bytes == DEFAULT_DEVICE_ID:
             # ── Discovery broadcast: every device responds ──────────
             requested = _parse_read_request_data(data)
-            _log('DISC ', addr,
-                 {p: self._devices[0]._state.get(p) for p in requested[:4]})
+            _log('DISC ', addr, self._devices[0].get_state_snapshot(requested[:4]))
             for dev in self._devices:
                 dev._send_response(requested, addr, self._sock)
 
         else:
             # ── Directed packet: route to the matching device ───────
-            dev = self._id_map.get(tid)
+            dev = self._id_map.get(target_id_bytes)
             if dev:
                 dev.handle(func_byte, data, addr, self._sock,
                            tag_prefix=f'#{dev.index + 1}')
@@ -573,7 +620,7 @@ def _get_lan_ip() -> str:
         ip = s.getsockname()[0]
         s.close()
         return ip
-    except Exception:
+    except OSError:
         return '127.0.0.1'
 
 

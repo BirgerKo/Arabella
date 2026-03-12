@@ -1,0 +1,68 @@
+.scenario-manager {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.scenario-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow-y: auto;
+}
+
+.scenario-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  gap: 8px;
+}
+
+.scenario-name {
+  flex: 1;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scenario-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.slot-select {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text2);
+  font-family: var(--font);
+  font-size: 11px;
+  padding: 4px 6px;
+  cursor: pointer;
+}
+
+.slot-select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.scenario-actions button {
+  padding: 4px 8px;
+  font-size: 11px;
+}
+
+.empty-msg {
+  color: var(--text2);
+  font-size: 12px;
+  text-align: center;
+  padding: 20px 0;
+}

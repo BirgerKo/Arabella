@@ -1,0 +1,24 @@
+.speed-presets {
+  display: flex;
+  gap: 8px;
+}
+
+.speed-presets button {
+  flex: 1;
+  padding: 8px 0;
+}
+
+.speed-manual {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.speed-value {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--accent);
+  min-width: 28px;
+  text-align: right;
+}

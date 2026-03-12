@@ -1,0 +1,21 @@
+.status-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text2);
+}
+
+.status-led {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.status-sep { color: var(--border); }
+.status-id, .status-ip { font-family: var(--mono); }

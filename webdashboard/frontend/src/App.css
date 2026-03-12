@@ -1,0 +1,66 @@
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 100vh;
+}
+
+.app-content {
+  flex: 1;
+  max-width: 900px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+}
+
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  flex: 1;
+}
+
+.col-left {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.col-right {
+  display: flex;
+  flex-direction: column;
+}
+
+.boost-row {
+  display: flex;
+}
+
+.boost-btn {
+  width: 100%;
+}
+
+.quick-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.save-scenario-btn {
+  width: 100%;
+  padding: 10px;
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.save-scenario-btn:hover {
+  background: color-mix(in srgb, var(--accent) 15%, var(--surface2));
+}
+
+/* Responsive: single column on narrow screens */
+@media (max-width: 639px) {
+  .two-col {
+    grid-template-columns: 1fr;
+  }
+}

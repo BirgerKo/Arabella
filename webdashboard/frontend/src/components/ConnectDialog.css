@@ -1,0 +1,51 @@
+.connect-box {
+  width: 380px;
+  max-height: 90vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.connect-section { display: flex; flex-direction: column; gap: 8px; }
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.section-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text2);
+}
+
+.rescan-btn { padding: 4px 10px; font-size: 11px; }
+
+.device-list { list-style: none; display: flex; flex-direction: column; gap: 4px; }
+
+.device-item {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  text-align: left;
+}
+
+.dev-name { font-weight: 500; }
+.dev-ip   { font-family: var(--mono); font-size: 12px; color: var(--text2); }
+
+.manual-form { display: flex; flex-direction: column; gap: 8px; }
+
+.connect-error {
+  font-size: 12px;
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 10%, var(--surface2));
+  border: 1px solid color-mix(in srgb, var(--danger) 40%, transparent);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+}

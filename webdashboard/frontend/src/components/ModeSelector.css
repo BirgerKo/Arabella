@@ -1,0 +1,10 @@
+.mode-buttons {
+  display: flex;
+  gap: 6px;
+}
+
+.mode-buttons button {
+  flex: 1;
+  padding: 8px 4px;
+  font-size: 11px;
+}

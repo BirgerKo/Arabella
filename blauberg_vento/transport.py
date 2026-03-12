@@ -58,7 +58,9 @@ class AsyncVentoTransport:
     async def send_only(self, host, packet, port=DEFAULT_PORT):
         loop = asyncio.get_running_loop()
         tr, _ = await loop.create_datagram_endpoint(asyncio.DatagramProtocol, remote_addr=(host, port))
-        tr.sendto(packet); tr.close()
+        tr.sendto(packet)
+        await asyncio.sleep(0)  # yield so the event loop flushes the write buffer before closing
+        tr.close()
     async def discover(self, pkt, broadcast='255.255.255.255', port=DEFAULT_PORT, timeout=3.0, max_devices=64):
         loop = asyncio.get_running_loop(); q = asyncio.Queue()
         try: tr, _ = await loop.create_datagram_endpoint(lambda: _AsyncDiscoveryProto(q), family=socket.AF_INET, allow_broadcast=True)

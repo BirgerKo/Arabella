@@ -1,0 +1,122 @@
+/* Dracula-inspired dark theme — mirrors ventocontrol/app.py color constants */
+:root {
+  --bg:       #1e1e2e;
+  --surface:  #2a2a3e;
+  --surface2: #313145;
+  --accent:   #5e81f4;
+  --success:  #50fa7b;
+  --warning:  #ffb86c;
+  --danger:   #ff5555;
+  --text:     #f8f8f2;
+  --text2:    #6272a4;
+  --border:   #44475a;
+
+  --font: "SF Pro Display", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --mono: "SF Mono", "Menlo", "Courier New", monospace;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface2);
+  color: var(--text);
+  padding: 6px 14px;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+button:hover {
+  background: var(--surface);
+  border-color: var(--accent);
+}
+
+button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+button.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
+}
+
+button.danger {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+button.danger:hover {
+  background: var(--danger);
+  color: var(--bg);
+}
+
+input[type="text"],
+input[type="password"] {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 13px;
+  padding: 6px 10px;
+  width: 100%;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+input[type="text"]:focus,
+input[type="password"]:focus {
+  border-color: var(--accent);
+}
+
+input[type="range"] {
+  accent-color: var(--accent);
+  width: 100%;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+}
+
+.card-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text2);
+  margin-bottom: 12px;
+}
+
+label {
+  color: var(--text2);
+  font-size: 12px;
+}

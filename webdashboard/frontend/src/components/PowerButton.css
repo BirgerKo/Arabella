@@ -1,0 +1,54 @@
+.power-btn-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 0;
+}
+
+.power-btn {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: box-shadow 0.2s, background 0.2s, border-color 0.2s;
+}
+
+.power-btn svg {
+  width: 38px;
+  height: 38px;
+  transition: stroke 0.2s;
+}
+
+.power-btn.on {
+  border-color: var(--success);
+  background: color-mix(in srgb, var(--success) 12%, var(--surface));
+  box-shadow: 0 0 20px color-mix(in srgb, var(--success) 50%, transparent);
+}
+
+.power-btn.on svg {
+  stroke: var(--success);
+}
+
+.power-btn.off {
+  border-color: var(--border);
+  background: var(--surface2);
+}
+
+.power-btn.off svg {
+  stroke: var(--text);
+}
+
+.power-btn:not(:disabled):hover {
+  border-color: var(--accent);
+}
+
+.power-label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: var(--text2);
+}

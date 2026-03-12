@@ -1,0 +1,41 @@
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.modal-box {
+  width: 320px;
+}
+
+.modal-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+  position: relative;
+}
+
+.char-count {
+  position: absolute;
+  right: 0;
+  top: 0;
+  font-size: 11px;
+  color: var(--text2);
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
