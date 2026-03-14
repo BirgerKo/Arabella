@@ -186,3 +186,94 @@ async def test_broadcast_callback_called_after_command(manager):
 
     assert any(m.get("type") == "state" for m in received)
     manager.disconnect()
+
+
+# ── Fan switching ──────────────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_connect_replaces_active_device(manager):
+    """Connecting to a second device stops the first poller and activates the new state."""
+    state_a = make_state(ip="10.0.0.1", device_id="FAN-A")
+    state_b = make_state(ip="10.0.0.2", device_id="FAN-B", speed=3)
+
+    client_a = MagicMock()
+    client_a.get_state = AsyncMock(return_value=state_a)
+    client_b = MagicMock()
+    client_b.get_state = AsyncMock(return_value=state_b)
+
+    clients = iter([client_a, client_b])
+
+    with patch(
+        "webdashboard.backend.device_manager.AsyncVentoClient",
+        side_effect=lambda *a, **kw: next(clients),
+    ):
+        await manager.connect("10.0.0.1", "FAN-A")
+        poll_task_a = manager._poll_task
+
+        await manager.connect("10.0.0.2", "FAN-B")
+
+    assert manager.current_state is state_b, "Active state must be the new device"
+    assert manager.current_state.device_id == "FAN-B"
+    assert poll_task_a.done(), "Poller for device A must be cancelled after switching"
+    assert manager._poll_task is not poll_task_a, "A new poll task must be created for device B"
+
+    manager.disconnect()
+
+
+@pytest.mark.asyncio
+async def test_switch_preserves_connection_to_new_device(manager):
+    """After switching, commands go to the new device, not the old one."""
+    state_a = make_state(ip="10.0.0.1", device_id="FAN-A")
+    state_b = make_state(ip="10.0.0.2", device_id="FAN-B")
+
+    client_a = MagicMock()
+    client_a.get_state = AsyncMock(return_value=state_a)
+    client_a.turn_on   = AsyncMock()
+    client_b = MagicMock()
+    client_b.get_state = AsyncMock(return_value=state_b)
+    client_b.turn_on   = AsyncMock()
+
+    clients = iter([client_a, client_b])
+
+    with patch(
+        "webdashboard.backend.device_manager.AsyncVentoClient",
+        side_effect=lambda *a, **kw: next(clients),
+    ):
+        await manager.connect("10.0.0.1", "FAN-A")
+        await manager.connect("10.0.0.2", "FAN-B")
+        await manager.set_power(True)
+
+    client_b.turn_on.assert_awaited_once()
+    client_a.turn_on.assert_not_awaited()
+
+    manager.disconnect()
+
+
+@pytest.mark.asyncio
+async def test_switch_active_state_reflects_new_device(manager):
+    """After switching, current_state contains the new device's fields, not the old ones."""
+    state_a = make_state(ip="10.0.0.1", device_id="FAN-A", speed=1, fan1_rpm=800)
+    state_b = make_state(ip="10.0.0.2", device_id="FAN-B", speed=3, fan1_rpm=2400)
+
+    client_a = MagicMock()
+    client_a.get_state = AsyncMock(return_value=state_a)
+    client_b = MagicMock()
+    client_b.get_state = AsyncMock(return_value=state_b)
+
+    clients = iter([client_a, client_b])
+
+    with patch(
+        "webdashboard.backend.device_manager.AsyncVentoClient",
+        side_effect=lambda *a, **kw: next(clients),
+    ):
+        await manager.connect("10.0.0.1", "FAN-A")
+        assert manager.current_state.fan1_rpm == 800
+
+        await manager.connect("10.0.0.2", "FAN-B")
+
+    assert manager.current_state.ip == "10.0.0.2"
+    assert manager.current_state.device_id == "FAN-B"
+    assert manager.current_state.speed == 3
+    assert manager.current_state.fan1_rpm == 2400
+
+    manager.disconnect()

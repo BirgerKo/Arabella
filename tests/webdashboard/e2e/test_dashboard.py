@@ -137,3 +137,58 @@ def test_status_bar_shows_connected(page: Page):
     page.get_by_role("button", name="Connect").click()
 
     expect(page.get_by_text("Connected")).to_be_visible(timeout=10_000)
+
+
+# ── Fan switching ──────────────────────────────────────────────────────────────
+
+def _connect(page: Page, ip: str, device_id: str) -> None:
+    """Fill in the connect dialog and submit it."""
+    page.get_by_placeholder("IP address").fill(ip)
+    page.get_by_placeholder("Device ID").fill(device_id)
+    page.get_by_role("button", name="Connect").click()
+
+
+def test_switch_button_visible_after_connect(page: Page):
+    """The 'Switch…' button must be shown in the device header once connected."""
+    page.goto("/")
+    _connect(page, "127.0.0.1", "VENT-SIM")
+    expect(page.get_by_role("button", name="Switch")).to_be_visible(timeout=10_000)
+
+
+def test_switch_reopens_connect_dialog(page: Page):
+    """Clicking 'Switch…' must re-open the connect dialog without a full page reload."""
+    page.goto("/")
+    _connect(page, "127.0.0.1", "VENT-SIM")
+
+    page.get_by_role("button", name="Switch").click(timeout=10_000)
+    expect(page.get_by_role("dialog", name="Connect to device")).to_be_visible(timeout=5_000)
+
+
+def test_switch_between_fans(page: Page):
+    """Connecting to a second device via 'Switch…' must update the dashboard to show the new device ID."""
+    page.goto("/")
+
+    # Connect to first fan
+    _connect(page, "127.0.0.1", "VENT-SIM-1")
+    expect(page.get_by_text("VENT-SIM-1")).to_be_visible(timeout=10_000)
+
+    # Switch to second fan
+    page.get_by_role("button", name="Switch").click()
+    expect(page.get_by_role("dialog", name="Connect to device")).to_be_visible(timeout=5_000)
+    _connect(page, "127.0.0.1", "VENT-SIM-2")
+
+    # Dashboard must now show the second fan's device ID, not the first
+    expect(page.get_by_text("VENT-SIM-2")).to_be_visible(timeout=10_000)
+    expect(page.get_by_text("VENT-SIM-1")).not_to_be_visible()
+
+
+def test_switch_connect_dialog_is_prefilled_with_current_device(page: Page):
+    """The connect dialog opened via 'Switch…' must pre-populate the current device's IP and ID."""
+    page.goto("/")
+    _connect(page, "127.0.0.1", "VENT-SIM")
+    expect(page.get_by_text("VENT-SIM")).to_be_visible(timeout=10_000)
+
+    page.get_by_role("button", name="Switch").click()
+
+    expect(page.get_by_placeholder("IP address")).to_have_value("127.0.0.1", timeout=5_000)
+    expect(page.get_by_placeholder("Device ID")).to_have_value("VENT-SIM", timeout=5_000)

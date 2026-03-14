@@ -1,6 +1,6 @@
 # Test Cases — Arabella / VentoControl
 
-Human-readable catalogue of all 153 pytest test cases. Each entry describes
+Human-readable catalogue of all 220+ pytest test cases. Each entry describes
 **what** the test checks, **why** it exists, and **what result** confirms it passes.
 
 Run the full suite:
@@ -19,11 +19,12 @@ cd /Users/birger/Python/Arabella && python3.11 -m pytest -q
 | `tests/test_scenarios.py` | 6 | 32 | Scenario store CRUD, quick-slots, v1→v2 migration |
 | `tests/test_simulator.py` | 13 | 75 | Simulator ID generation, protocol helpers, SimDevice physics, VentoFanSim routing |
 | `tests/webdashboard/test_hub.py` | — | 5 | WebSocket broadcast hub: connect, disconnect, broadcast, dead socket cleanup |
-| `tests/webdashboard/test_device_manager.py` | — | 12 | DeviceManager connect/disconnect, power/speed/mode/boost commands, broadcast callback, discovery |
+| `tests/webdashboard/test_device_manager.py` | — | 15 | DeviceManager connect/disconnect, power/speed/mode/boost commands, fan switching, broadcast callback, discovery |
 | `tests/webdashboard/test_routers_commands.py` | — | 7 | Command HTTP endpoints (power/speed/mode/boost), 503 when disconnected, 422 validation |
+| `tests/webdashboard/test_routers_devices.py` | — | 10 | Device state, connect, fan switching, disconnect, and discovery HTTP endpoints |
 | `tests/webdashboard/test_routers_scenarios.py` | — | 8 | Scenario CRUD and quick-slot HTTP endpoints |
-| `tests/webdashboard/e2e/test_dashboard.py` | — | 10 | Playwright E2E: connect dialog, power toggle, speed/mode controls, scenario save+list |
-| **Total** | **28+** | **195+** | |
+| `tests/webdashboard/e2e/test_dashboard.py` | — | 14 | Playwright E2E: connect dialog, power toggle, speed/mode controls, scenario save+list, fan switching |
+| **Total** | **28+** | **220+** | |
 
 ---
 
@@ -513,6 +514,30 @@ that wraps `AsyncVentoClient`. All UDP I/O is mocked.
 | `test_require_connection_raises_when_disconnected` | Any command without a connection raises `RuntimeError` | `RuntimeError` raised |
 | `test_discover_delegates_to_client` | `DeviceManager.discover()` delegates to `AsyncVentoClient.discover()` | Returns the mocked device list |
 | `test_broadcast_callback_called_after_command` | After `set_power()`, the registered broadcast callback receives a `type: state` message | `type == "state"` in received messages |
+| `test_connect_replaces_active_device` | Connecting to a second device cancels the first poller and makes the new device active | `current_state.device_id == "FAN-B"`; old poll task is done; new poll task is different |
+| `test_switch_preserves_connection_to_new_device` | After switching, commands are sent to the second device, not the first | `client_b.turn_on` awaited; `client_a.turn_on` not called |
+| `test_switch_active_state_reflects_new_device` | After switching, `current_state` carries the new device's IP, ID, speed, and RPM values | All fields reflect device B (ip, device_id, speed, fan1_rpm) |
+
+---
+
+## tests/webdashboard/test_routers_devices.py
+
+Integration tests for the device state, connect, and discovery HTTP endpoints using
+`httpx.AsyncClient` against the FastAPI app with `DeviceManager` dependency-overridden
+by a mock. Fan-switching is covered end-to-end at the router level.
+
+| Test | Purpose | Expected result |
+|------|---------|----------------|
+| `test_get_state_returns_200_when_connected` | `GET /api/state` returns device fields when connected | HTTP 200; `connected == True`; correct `ip` and `device_id` |
+| `test_get_state_returns_503_when_disconnected` | `GET /api/state` returns 503 when no device is active | HTTP 503 |
+| `test_connect_returns_device_state` | `POST /api/connect` returns the device's initial state | HTTP 200; `device_id` matches request; `manager.connect` awaited with correct args |
+| `test_connect_uses_provided_password` | Password in the request body is forwarded to `manager.connect` | `manager.connect` awaited with the custom password |
+| `test_connect_returns_502_on_connection_error` | A connection timeout or refused error returns HTTP 502 with the error message | HTTP 502; `"Timeout"` in response detail |
+| `test_switch_fan_returns_new_device_state` | Two sequential `POST /api/connect` calls each return the state of the respective device | First response: `device_id == "FAN-A"`, `speed == 1`; second: `device_id == "FAN-B"`, `speed == 3` |
+| `test_switch_fan_connect_called_with_correct_credentials` | Each switch call forwards the exact IP, device ID, and password to `manager.connect` | `connect` awaited twice with the correct distinct credentials |
+| `test_disconnect_returns_204` | `DELETE /api/connect` calls `manager.disconnect()` and returns 204 | HTTP 204; `disconnect` called once |
+| `test_list_devices_returns_discovered` | `GET /api/devices` triggers a scan and returns a list of discovered devices | HTTP 200; two entries with correct `device_id` and `ip` |
+| `test_list_devices_returns_empty_list_when_none_found` | `GET /api/devices` returns an empty array when no devices are on the network | HTTP 200; `[] == body` |
 
 ---
 
@@ -567,3 +592,7 @@ Requires the backend (`python -m webdashboard`) and a reachable device or simula
 | `test_save_scenario_modal` | Clicking "Save as Scenario" opens the save dialog | Dialog visible |
 | `test_save_scenario_and_appears_in_list` | Saving a scenario with a name results in that name appearing in the scenario list | Text "E2E Test Scenario" visible in the page |
 | `test_status_bar_shows_connected` | After connecting, the status bar shows "Connected" | Text "Connected" visible |
+| `test_switch_button_visible_after_connect` | The "Switch…" button in the device header is visible once a fan is connected | "Switch" button visible |
+| `test_switch_reopens_connect_dialog` | Clicking "Switch…" re-opens the connect dialog without a full page reload | Connect dialog visible again |
+| `test_switch_between_fans` | After switching, the dashboard header shows the new device's ID and hides the old one | "VENT-SIM-2" visible; "VENT-SIM-1" not visible |
+| `test_switch_connect_dialog_is_prefilled_with_current_device` | The connect dialog pre-populates the current device's IP and ID when opened via "Switch…" | IP and Device ID inputs contain the connected device's values |
