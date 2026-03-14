@@ -33,7 +33,7 @@ from blauberg_vento.parameters import (
     DEFAULT_DEVICE_ID, PARAM_META, Func, Param,
 )
 from blauberg_vento.protocol import (
-    _find_data_start,   # noqa: PLC2701 — intentional use of internal helper
+    _parse_packet_header,   # noqa: PLC2701 — intentional use of internal helper
     build_packet,
     verify_checksum,
 )
@@ -598,7 +598,8 @@ class VentoFanSim:
             return
 
         try:
-            data_start, target_id, pwd, func_byte = _find_data_start(raw)
+            header = _parse_packet_header(raw)
+            data_start, target_id, pwd, func_byte = header.data_start, header.device_id, header.password, header.func_byte
         except VentoProtocolError:
             return
 
