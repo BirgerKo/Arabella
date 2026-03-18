@@ -22,10 +22,12 @@ def make_connected_manager(state_overrides=None):
     mgr = MagicMock()
     mgr.is_connected = True
     mgr.current_state = state
-    mgr.set_power  = AsyncMock()
-    mgr.set_speed  = AsyncMock()
-    mgr.set_mode   = AsyncMock()
-    mgr.set_boost  = AsyncMock()
+    mgr.set_power              = AsyncMock()
+    mgr.set_speed              = AsyncMock()
+    mgr.set_mode               = AsyncMock()
+    mgr.set_boost              = AsyncMock()
+    mgr.set_humidity_sensor    = AsyncMock()
+    mgr.set_humidity_threshold = AsyncMock()
     return mgr
 
 
@@ -100,4 +102,38 @@ async def test_invalid_mode_returns_422(client_and_mgr):
     client, _ = client_and_mgr
     async with client as c:
         resp = await c.post("/api/command/mode", json={"mode": 99})
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_set_humidity_sensor(client_and_mgr):
+    client, mgr = client_and_mgr
+    async with client as c:
+        resp = await c.post("/api/command/humidity_sensor", json={"sensor": 1})
+    assert resp.status_code == 204
+    mgr.set_humidity_sensor.assert_awaited_once_with(1)
+
+
+@pytest.mark.asyncio
+async def test_set_humidity_threshold(client_and_mgr):
+    client, mgr = client_and_mgr
+    async with client as c:
+        resp = await c.post("/api/command/humidity_threshold", json={"threshold": 65})
+    assert resp.status_code == 204
+    mgr.set_humidity_threshold.assert_awaited_once_with(65)
+
+
+@pytest.mark.asyncio
+async def test_humidity_sensor_out_of_range_returns_422(client_and_mgr):
+    client, _ = client_and_mgr
+    async with client as c:
+        resp = await c.post("/api/command/humidity_sensor", json={"sensor": 5})
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_humidity_threshold_out_of_range_returns_422(client_and_mgr):
+    client, _ = client_and_mgr
+    async with client as c:
+        resp = await c.post("/api/command/humidity_threshold", json={"threshold": 20})
     assert resp.status_code == 422

@@ -11,6 +11,8 @@ Run with:
 
 These tests use Playwright's sync API via pytest-playwright.
 """
+import re
+
 import pytest
 from playwright.sync_api import Page, expect
 
@@ -45,7 +47,7 @@ def test_power_button_visible_when_connected(page: Page):
     page.get_by_placeholder("Device ID").fill("VENT-SIM")
     page.get_by_role("button", name="Connect").click()
 
-    expect(page.get_by_role("button", name=/Turn (on|off)/i)).to_be_visible(timeout=10_000)
+    expect(page.get_by_role("button", name=re.compile(r"Turn (on|off)", re.IGNORECASE))).to_be_visible(timeout=10_000)
 
 
 def test_power_button_toggle(page: Page):
@@ -55,7 +57,7 @@ def test_power_button_toggle(page: Page):
     page.get_by_placeholder("Device ID").fill("VENT-SIM")
     page.get_by_role("button", name="Connect").click()
 
-    power_btn = page.get_by_role("button", name=/Turn (on|off)/i)
+    power_btn = page.get_by_role("button", name=re.compile(r"Turn (on|off)", re.IGNORECASE))
     expect(power_btn).to_be_visible(timeout=10_000)
     initial_label = power_btn.get_attribute("aria-label")
     power_btn.click()
@@ -111,7 +113,7 @@ def test_save_scenario_modal(page: Page):
     page.get_by_placeholder("Device ID").fill("VENT-SIM")
     page.get_by_role("button", name="Connect").click()
 
-    page.get_by_role("button", name="Save as Scenario").click(timeout=10_000)
+    page.get_by_role("button", name=re.compile(r"Scenario", re.IGNORECASE)).click(timeout=10_000)
     expect(page.get_by_role("dialog", name="Save scenario")).to_be_visible()
 
 
@@ -121,7 +123,7 @@ def test_save_scenario_and_appears_in_list(page: Page):
     page.get_by_placeholder("Device ID").fill("VENT-SIM")
     page.get_by_role("button", name="Connect").click()
 
-    page.get_by_role("button", name="Save as Scenario").click(timeout=10_000)
+    page.get_by_role("button", name=re.compile(r"Scenario", re.IGNORECASE)).click(timeout=10_000)
     page.get_by_label("Name").fill("E2E Test Scenario")
     page.get_by_role("button", name="Save").click()
 

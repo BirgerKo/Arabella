@@ -34,6 +34,9 @@ def _state_to_dict(state: DeviceState) -> dict[str, Any]:
         "operation_mode": state.operation_mode,
         "operation_mode_name": state.operation_mode_name,
         "boost_active": state.boost_active,
+        "humidity_sensor": state.humidity_sensor,
+        "humidity_threshold": state.humidity_threshold,
+        "current_humidity": state.current_humidity,
         "fan1_rpm": state.fan1_rpm,
         "fan2_rpm": state.fan2_rpm,
         "alarm_status": state.alarm_status,
@@ -106,6 +109,18 @@ class DeviceManager:
         self._require_connection()
         from blauberg_vento.parameters import Param
         await self._client.write_params({Param.BOOST_STATUS: 1 if on else 0})
+        await self._poll_after_command()
+
+    async def set_humidity_sensor(self, sensor: int) -> None:
+        """Set humidity sensor mode: 0=Off, 1=On, 2=Invert."""
+        self._require_connection()
+        await self._client.set_humidity_sensor(sensor)
+        await self._poll_after_command()
+
+    async def set_humidity_threshold(self, threshold: int) -> None:
+        """Set humidity threshold in percent relative humidity (40–80)."""
+        self._require_connection()
+        await self._client.set_humidity_threshold(threshold)
         await self._poll_after_command()
 
     # ── Discovery ─────────────────────────────────────────────────────────────

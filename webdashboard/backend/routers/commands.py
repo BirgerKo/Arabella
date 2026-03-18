@@ -5,7 +5,10 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from webdashboard.backend.dependencies import get_device_manager
 from webdashboard.backend.device_manager import DeviceManager
-from webdashboard.backend.models import BoostRequest, ModeRequest, PowerRequest, SpeedRequest
+from webdashboard.backend.models import (
+    BoostRequest, HumiditySensorRequest, HumidityThresholdRequest, ModeRequest,
+    PowerRequest, SpeedRequest,
+)
 
 router = APIRouter(prefix="/api/command", tags=["commands"])
 
@@ -62,5 +65,29 @@ async def set_boost(
     _require_connected(manager)
     try:
         await manager.set_boost(body.on)
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
+
+
+@router.post("/humidity_sensor", status_code=status.HTTP_204_NO_CONTENT)
+async def set_humidity_sensor(
+    body: HumiditySensorRequest,
+    manager: DeviceManager = Depends(get_device_manager),
+):
+    _require_connected(manager)
+    try:
+        await manager.set_humidity_sensor(body.sensor)
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
+
+
+@router.post("/humidity_threshold", status_code=status.HTTP_204_NO_CONTENT)
+async def set_humidity_threshold(
+    body: HumidityThresholdRequest,
+    manager: DeviceManager = Depends(get_device_manager),
+):
+    _require_connected(manager)
+    try:
+        await manager.set_humidity_threshold(body.threshold)
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc

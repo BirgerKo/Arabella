@@ -24,16 +24,19 @@ export const api = {
   connect:       (body)       => request('POST',   '/connect', body),
   disconnect:    ()           => request('DELETE', '/connect'),
 
-  setPower:  (on)             => request('POST', '/command/power',  { on }),
-  setSpeed:  (speed)          => request('POST', '/command/speed',  { speed }),
-  setMode:   (mode)           => request('POST', '/command/mode',   { mode }),
-  setBoost:  (on)             => request('POST', '/command/boost',  { on }),
+  setPower:             (on)        => request('POST', '/command/power',              { on }),
+  setSpeed:             (speed)     => request('POST', '/command/speed',              { speed }),
+  setMode:              (mode)      => request('POST', '/command/mode',               { mode }),
+  setBoost:             (on)        => request('POST', '/command/boost',              { on }),
+  setHumiditySensor:    (sensor)    => request('POST', '/command/humidity_sensor',    { sensor }),
+  setHumidityThreshold: (threshold) => request('POST', '/command/humidity_threshold', { threshold }),
 
   listScenarios:   ()           => request('GET',    '/scenarios'),
   saveScenario:    (name)       => request('POST',   '/scenarios',       { name }),
   updateScenario:  (name, body) => request('PUT',    `/scenarios/${encodeURIComponent(name)}`, body),
   deleteScenario:  (name)       => request('DELETE', `/scenarios/${encodeURIComponent(name)}`),
   applyScenario:   (name)       => request('POST',   `/scenarios/${encodeURIComponent(name)}/apply`),
+  addFanToScenario:(name)       => request('POST',   `/scenarios/${encodeURIComponent(name)}/add-fan`),
   getQuickSlots:   (deviceId)   => request('GET',    `/scenarios/quick-slots/${encodeURIComponent(deviceId)}`),
   setQuickSlots:   (deviceId, slots) =>
     request('PUT', `/scenarios/quick-slots/${encodeURIComponent(deviceId)}`, { slots }),

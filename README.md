@@ -52,6 +52,23 @@ ventosim --count 3
 pytest
 ```
 
+## Features
+
+Both the desktop GUI and web dashboard provide full fan control parity:
+
+| Feature | Desktop GUI | Web Dashboard |
+|---------|-------------|---------------|
+| Power on/off | ✓ | ✓ |
+| Speed (presets 1–3 + manual 0–255) | ✓ | ✓ |
+| Operation mode (Ventilation / Heat Recovery / Supply) | ✓ | ✓ |
+| Boost toggle | ✓ | ✓ |
+| Humidity sensor (Off / On / Invert) + threshold | ✓ | ✓ |
+| Real-time fan 1 / fan 2 RPM display | ✓ | ✓ |
+| Alarm indicator | ✓ | ✓ |
+| Scenario save / apply / quick-slots | ✓ | ✓ |
+| Add current fan to existing scenario | ✓ | ✓ |
+| IP address shown on hover only | ✓ | ✓ |
+
 ## Web Dashboard
 
 ### Install dependencies

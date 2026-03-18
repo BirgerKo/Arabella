@@ -18,4 +18,5 @@
 }
 
 .status-sep { color: var(--border); }
-.status-id, .status-ip { font-family: var(--mono); }
+.status-id { font-family: var(--mono); }
+.status-alarm { color: var(--danger); font-weight: 600; }

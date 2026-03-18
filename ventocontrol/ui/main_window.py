@@ -58,9 +58,9 @@ class MainWindow(QMainWindow):
 
     def __init__(
         self,
-        host: str,
-        device_id: str,
-        password: str,
+        host: str = "",
+        device_id: str = "",
+        password: str = "",
         history:  DeviceHistory  | None = None,
         registry: WindowRegistry | None = None,
         parent=None,
@@ -120,8 +120,11 @@ class MainWindow(QMainWindow):
         self._build_menu_bar()
 
         # ── Connect to device ──
-        self._start_connecting(host)
-        self._sig_connect.emit(host, device_id, password)
+        if host:
+            self._start_connecting(host)
+            self._sig_connect.emit(host, device_id, password)
+        else:
+            QTimer.singleShot(0, self._open_initial_connect_dialog)
 
         # Update "last poll" label every second
         self._tick = QTimer(self)
@@ -204,11 +207,11 @@ class MainWindow(QMainWindow):
         boost_row.addStretch()
         left.addLayout(boost_row)
 
-        # Save as Scenario button
-        self._save_scenario_btn = QPushButton("Save as Scenario…")
+        # Scenario button
+        self._save_scenario_btn = QPushButton("Scenario")
         self._save_scenario_btn.setObjectName("SaveScenarioBtn")
         self._save_scenario_btn.setEnabled(False)
-        self._save_scenario_btn.clicked.connect(self._save_scenario)
+        self._save_scenario_btn.clicked.connect(self._on_scenario_btn_clicked)
         left.addWidget(self._save_scenario_btn)
 
         left.addStretch()
@@ -348,7 +351,8 @@ class MainWindow(QMainWindow):
         self._last_state        = s
         self._current_device_id = s.device_id
         display_name = self._get_display_name(s)
-        self._device_lbl.setText(f"{display_name}  ·  {s.ip}")
+        self._device_lbl.setText(display_name)
+        self._device_lbl.setToolTip(s.ip or self._host)
         self.setWindowTitle(f"VentoControl — {display_name}")
         self._sb_id_lbl.setText(s.device_id or "—")
         self._sb_ip_lbl.setText(s.ip or self._host)
@@ -479,6 +483,51 @@ class MainWindow(QMainWindow):
     # Scenario — save
     # ------------------------------------------------------------------
 
+    def _on_scenario_btn_clicked(self) -> None:
+        """Show a menu to create a new scenario or add to an existing one."""
+        menu = QMenu(self)
+        new_act = menu.addAction("Create new scenario…")
+        new_act.triggered.connect(self._save_scenario)
+        scenarios = self._scenarios.get_scenarios()
+        if scenarios:
+            menu.addSeparator()
+            add_sub = menu.addMenu("Add to existing…")
+            for s in scenarios:
+                act = add_sub.addAction(s.name)
+                act.triggered.connect(
+                    lambda checked=False, name=s.name: self._add_to_scenario(name)
+                )
+        btn = self._save_scenario_btn
+        menu.exec(btn.mapToGlobal(btn.rect().bottomLeft()))
+
+    def _add_to_scenario(self, name: str) -> None:
+        """Add or update the current fan's state in an existing scenario."""
+        if self._last_state is None or not self._current_device_id:
+            return
+        scenarios = self._scenarios.get_scenarios()
+        target = next((s for s in scenarios if s.name == name), None)
+        if target is None:
+            return
+        s = self._last_state
+        new_fan = FanSettings(
+            device_id=self._current_device_id,
+            settings=ScenarioSettings(
+                power=s.power,
+                speed=s.speed,
+                manual_speed=s.manual_speed,
+                operation_mode=s.operation_mode,
+                boost_active=s.boost_active,
+                humidity_sensor=s.humidity_sensor,
+                humidity_threshold=s.humidity_threshold,
+            ),
+        )
+        updated_fans = [f for f in target.fans if f.device_id != self._current_device_id]
+        updated_fans.append(new_fan)
+        self._scenarios.save_scenario(ScenarioEntry(name=target.name, fans=updated_fans))
+        self._rebuild_scenarios_menu()
+        self._refresh_quick_buttons()
+        self.statusBar().showMessage(f'Added to scenario "{name}".', 3000)
+
     def _save_scenario(self) -> None:
         """Capture state from all connected windows, prompt for a name, persist."""
         if self._last_state is None or not self._current_device_id:
@@ -575,9 +624,9 @@ class MainWindow(QMainWindow):
         menu = self._scenarios_menu
         menu.clear()
 
-        act_save = QAction("Save as Scenario…", self)
+        act_save = QAction("Scenario…", self)
         act_save.setEnabled(self._last_state is not None)
-        act_save.triggered.connect(self._save_scenario)
+        act_save.triggered.connect(self._on_scenario_btn_clicked)
         menu.addAction(act_save)
 
         act_manage = QAction("Manage Scenarios…", self)
@@ -718,9 +767,25 @@ class MainWindow(QMainWindow):
         new_name = dlg.name()
         self._history.rename(self._current_device_id, new_name)
         display_name = new_name or (entry.unit_type_name if entry else "Vento Fan")
-        current_ip   = self._sb_ip_lbl.text() or self._host
-        self._device_lbl.setText(f"{display_name}  ·  {current_ip}")
+        self._device_lbl.setText(display_name)
         self.setWindowTitle(f"VentoControl — {display_name}")
+
+    def _go_to_unconnected(self) -> None:
+        """Reset the window to an unconnected state with no fan displayed."""
+        self._poller.stop()
+        for w in self._control_widgets():
+            w.setEnabled(False)
+        self._act_rename.setEnabled(False)
+        self._save_scenario_btn.setEnabled(False)
+        for btn in self._quick_btns:
+            btn.setEnabled(False)
+        self._set_status("No fan connected", "grey")
+        self.setWindowTitle("VentoControl")
+        self._device_lbl.setText("No fan connected")
+        self._sb_id_lbl.setText("—")
+        self._sb_ip_lbl.setText("—")
+        self._last_poll_time = None
+        self._current_device_id = ""
 
     def _start_connecting(self, ip: str) -> None:
         """Grey out controls and show an amber 'Connecting' status."""
@@ -736,12 +801,33 @@ class MainWindow(QMainWindow):
         self._sb_ip_lbl.setText(ip)
         self._last_poll_time = None
 
+    def _open_initial_connect_dialog(self) -> None:
+        """Auto-open connect dialog on first launch when no fan is pre-selected."""
+        dlg = ConnectDialog(self, history=self._history)
+        result = dlg.exec()
+        if result == ConnectDialog.DialogCode.Accepted:
+            host, device_id, password = dlg.connection_params()
+        elif self._history and self._history.last_used:
+            entry = self._history.last_used
+            host, device_id, password = entry.ip, entry.device_id, entry.password
+        else:
+            self.close()
+            return
+        self._host = host
+        self._password = password
+        self._start_connecting(host)
+        self._sig_connect.emit(host, device_id, password)
+
     def _switch_device(self) -> None:
         """Show the connect dialog and, if accepted, reconnect in-place."""
         self._poller.stop()
         dlg = ConnectDialog(self, history=self._history)
         if dlg.exec() != ConnectDialog.DialogCode.Accepted:
-            self._poller.start()
+            if not self._history or not self._history.last_used:
+                self._go_to_unconnected()
+                self._open_initial_connect_dialog()
+            else:
+                self._poller.start()
             return
         host, device_id, password = dlg.connection_params()
         self._host     = host

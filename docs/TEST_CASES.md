@@ -18,13 +18,14 @@ cd /Users/birger/Python/Arabella && python3.11 -m pytest -q
 | `tests/test_protocol.py` | 5 | 28 | UDP packet building, parsing, decoders, input validation |
 | `tests/test_scenarios.py` | 6 | 32 | Scenario store CRUD, quick-slots, v1→v2 migration |
 | `tests/test_simulator.py` | 13 | 75 | Simulator ID generation, protocol helpers, SimDevice physics, VentoFanSim routing |
+| `tests/test_main_window.py` | 2 | 7 | MainWindow UI: IP-on-hover label, Scenario button, add-to/update-in/no-op for scenarios |
 | `tests/webdashboard/test_hub.py` | — | 5 | WebSocket broadcast hub: connect, disconnect, broadcast, dead socket cleanup |
 | `tests/webdashboard/test_device_manager.py` | — | 15 | DeviceManager connect/disconnect, power/speed/mode/boost commands, fan switching, broadcast callback, discovery |
-| `tests/webdashboard/test_routers_commands.py` | — | 7 | Command HTTP endpoints (power/speed/mode/boost), 503 when disconnected, 422 validation |
+| `tests/webdashboard/test_routers_commands.py` | — | 11 | Command HTTP endpoints (power/speed/mode/boost/humidity), 503 when disconnected, 422 validation |
 | `tests/webdashboard/test_routers_devices.py` | — | 10 | Device state, connect, fan switching, disconnect, and discovery HTTP endpoints |
-| `tests/webdashboard/test_routers_scenarios.py` | — | 8 | Scenario CRUD and quick-slot HTTP endpoints |
+| `tests/webdashboard/test_routers_scenarios.py` | — | 11 | Scenario CRUD, quick-slot, and add-fan-to-scenario HTTP endpoints |
 | `tests/webdashboard/e2e/test_dashboard.py` | — | 14 | Playwright E2E: connect dialog, power toggle, speed/mode controls, scenario save+list, fan switching |
-| **Total** | **28+** | **220+** | |
+| **Total** | **30+** | **226+** | |
 
 ---
 
@@ -480,6 +481,39 @@ simulated discovery responses.
 
 ---
 
+## tests/test_main_window.py
+
+Tests for `ventocontrol.ui.main_window.MainWindow` — the PySide6 desktop GUI. All tests
+run with `QT_QPA_PLATFORM=offscreen` to avoid requiring a real display.
+
+---
+
+### TestDeviceLabelIpOnHover
+
+Verifies that the device name label shows only the fan's friendly name, with the IP
+address available only as a tooltip (hover-visible), not as permanent label text.
+
+| Test | Purpose | Expected result |
+|------|---------|----------------|
+| `test_label_shows_name_only` | After `_apply_state()` the label text does not contain the IP address | `"10.0.0.1"` absent from `_device_lbl.text()` |
+| `test_label_tooltip_shows_ip` | The tooltip on the device label carries the exact IP string | `_device_lbl.toolTip() == "10.0.0.1"` |
+| `test_label_text_is_fan_name` | The label displays a non-empty fan name without separator characters | text not empty; `"·"` not in text |
+
+---
+
+### TestScenarioButton
+
+Verifies the "Scenario" button and `_add_to_scenario()` logic.
+
+| Test | Purpose | Expected result |
+|------|---------|----------------|
+| `test_button_label_is_scenario` | The button that opens the scenario menu is labelled "Scenario" | `_save_scenario_btn.text() == "Scenario"` |
+| `test_add_to_scenario_adds_fan` | `_add_to_scenario("Night Mode")` merges the current fan into an existing scenario that has a different fan | Both `FANDEVICE000001` and `OTHERFAN0000001` appear in the scenario's fan list |
+| `test_add_to_scenario_updates_existing_fan` | If the current fan is already in the target scenario, calling `_add_to_scenario` replaces its entry rather than duplicating it | Exactly one entry with `device_id == "FANDEVICE000001"` |
+| `test_add_to_nonexistent_scenario_is_noop` | `_add_to_scenario("Nonexistent Scenario")` does nothing when the scenario name is not found | Scenario count unchanged |
+
+---
+
 ## tests/webdashboard/test_hub.py
 
 Tests for `webdashboard.backend.hub.ConnectionHub` — the WebSocket broadcast hub that
@@ -555,6 +589,10 @@ FastAPI app with `DeviceManager` dependency-overridden by a mock.
 | `test_set_boost` | `POST /api/command/boost {"on": true}` | HTTP 204; `set_boost` awaited with `True` |
 | `test_command_returns_503_when_disconnected` | Any command endpoint returns 503 when `is_connected == False` | HTTP 503 |
 | `test_invalid_mode_returns_422` | `mode: 99` fails Pydantic validation | HTTP 422 |
+| `test_set_humidity_sensor` | `POST /api/command/humidity_sensor {"sensor": 1}` sets humidity sensor mode | HTTP 204; `set_humidity_sensor` awaited with `1` |
+| `test_set_humidity_threshold` | `POST /api/command/humidity_threshold {"threshold": 65}` sets threshold | HTTP 204; `set_humidity_threshold` awaited with `65` |
+| `test_humidity_sensor_out_of_range_returns_422` | `sensor: 5` is outside 0–2 range | HTTP 422 |
+| `test_humidity_threshold_out_of_range_returns_422` | `threshold: 20` is below valid range 40–80 | HTTP 422 |
 
 ---
 
@@ -572,6 +610,9 @@ Integration tests for scenario CRUD and quick-slot endpoints.
 | `test_apply_scenario_not_found` | Applying a missing scenario returns 404 | HTTP 404 |
 | `test_get_quick_slots` | `GET /api/scenarios/quick-slots/VENT-01` returns the device's slot assignments | HTTP 200; `slots` has 3 elements |
 | `test_set_quick_slots` | `PUT /api/scenarios/quick-slots/VENT-01` saves new slot assignments | HTTP 200; `store.set_quick_slots` called with new list |
+| `test_add_fan_to_scenario` | `POST /api/scenarios/Night/add-fan` merges the current fan into an existing scenario | HTTP 204; `save_scenario` called with an entry containing `"VENT-01"` |
+| `test_add_fan_to_nonexistent_scenario_returns_404` | Adding a fan to a missing scenario returns 404 | HTTP 404 |
+| `test_add_fan_returns_503_when_disconnected` | `add-fan` endpoint returns 503 when no device is connected | HTTP 503 |
 
 ---
 

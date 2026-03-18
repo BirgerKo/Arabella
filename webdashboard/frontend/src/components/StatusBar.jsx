@@ -1,8 +1,9 @@
 import './StatusBar.css'
 
-export default function StatusBar({ connected, deviceId, ip }) {
+export default function StatusBar({ connected, deviceId, ip, alarmStatus, alarmName }) {
   const ledColor = connected ? 'var(--success)' : 'var(--danger)'
   const label    = connected ? 'Connected' : 'Disconnected'
+  const hasAlarm = alarmStatus != null && alarmStatus !== 0
 
   return (
     <footer className="status-bar">
@@ -15,9 +16,13 @@ export default function StatusBar({ connected, deviceId, ip }) {
       {connected && (
         <>
           <span className="status-sep">|</span>
-          <span className="status-id">{deviceId}</span>
-          <span className="status-sep">|</span>
-          <span className="status-ip">{ip}</span>
+          <span className="status-id" title={ip}>{deviceId}</span>
+          {hasAlarm && (
+            <>
+              <span className="status-sep">|</span>
+              <span className="status-alarm">{alarmName}</span>
+            </>
+          )}
         </>
       )}
     </footer>

@@ -47,6 +47,16 @@ class QuickSlotsRequest(BaseModel):
 
 # ── Response models ───────────────────────────────────────────────────────────
 
+class HumiditySensorRequest(BaseModel):
+    # 0 = Off, 1 = On, 2 = Invert
+    sensor: int = Field(..., ge=0, le=2)
+
+
+class HumidityThresholdRequest(BaseModel):
+    # Relative humidity percent: valid range 40–80
+    threshold: int = Field(..., ge=40, le=80)
+
+
 class DeviceStateResponse(BaseModel):
     connected: bool
     ip: str
@@ -57,6 +67,9 @@ class DeviceStateResponse(BaseModel):
     operation_mode: Optional[int]
     operation_mode_name: str
     boost_active: Optional[bool]
+    humidity_sensor: Optional[int] = None
+    humidity_threshold: Optional[int] = None
+    current_humidity: Optional[int] = None
     fan1_rpm: Optional[int]
     fan2_rpm: Optional[int]
     alarm_status: Optional[int]

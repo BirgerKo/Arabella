@@ -69,6 +69,8 @@ async def save_scenario(
         manual_speed=state.manual_speed,
         operation_mode=state.operation_mode,
         boost_active=state.boost_active,
+        humidity_sensor=state.humidity_sensor,
+        humidity_threshold=state.humidity_threshold,
     )
     entry = ScenarioEntry(
         name=body.name,
@@ -139,8 +141,44 @@ async def apply_scenario(
             await manager.set_mode(settings.operation_mode)
         if settings.boost_active is not None:
             await manager.set_boost(settings.boost_active)
+        if settings.humidity_sensor is not None:
+            await manager.set_humidity_sensor(settings.humidity_sensor)
+        if settings.humidity_threshold is not None:
+            await manager.set_humidity_threshold(settings.humidity_threshold)
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
+
+
+@router.post("/{name}/add-fan", status_code=status.HTTP_204_NO_CONTENT)
+async def add_fan_to_scenario(
+    name: str,
+    manager: DeviceManager = Depends(get_device_manager),
+    store: ScenarioStore = Depends(get_scenario_store),
+):
+    """Merge the current fan's state into an existing scenario (adds or replaces)."""
+    if not manager.is_connected:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                            detail="Not connected to any device")
+    scenarios = store.get_scenarios()
+    entry = next((s for s in scenarios if s.name == name), None)
+    if entry is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Scenario not found")
+    state = manager.current_state
+    new_fan = FanSettings(
+        device_id=state.device_id,
+        settings=ScenarioSettings(
+            power=state.power,
+            speed=state.speed,
+            manual_speed=state.manual_speed,
+            operation_mode=state.operation_mode,
+            boost_active=state.boost_active,
+            humidity_sensor=state.humidity_sensor,
+            humidity_threshold=state.humidity_threshold,
+        ),
+    )
+    updated_fans = [f for f in entry.fans if f.device_id != state.device_id]
+    updated_fans.append(new_fan)
+    store.save_scenario(ScenarioEntry(name=entry.name, fans=updated_fans))
 
 
 @router.get("/quick-slots/{device_id}", response_model=QuickSlotsResponse)

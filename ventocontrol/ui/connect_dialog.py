@@ -111,7 +111,7 @@ class ConnectDialog(QDialog):
         )
         self._connect_btn.setEnabled(False)
         self._button_box.addButton(QDialogButtonBox.StandardButton.Cancel)
-        self._button_box.accepted.connect(self.accept)
+        self._button_box.accepted.connect(self._on_connect_clicked)
         self._button_box.rejected.connect(self.reject)
 
         # --- Main layout ---
@@ -131,30 +131,34 @@ class ConnectDialog(QDialog):
     # Public: call after accept() to retrieve connection params
     # ------------------------------------------------------------------
 
-    def connection_params_list(self) -> list[tuple[str, str, str]]:
-        """Returns list of (host, device_id, password). Priority: history > discovered > manual."""
+    def connection_params(self) -> tuple[str, str, str]:
+        """Returns (host, device_id, password) for the selected history entry."""
         pw = self._pw_edit.text() or "1111"
-
         hist_sel = self._hist_list.selectedItems()
         if hist_sel:
             entry: HistoryEntry = hist_sel[0].data(Qt.ItemDataRole.UserRole)
-            return [(entry.ip, entry.device_id, pw)]
+            return entry.ip, entry.device_id, pw
+        ip = self._ip_edit.text().strip()
+        device_id = self._id_edit.text().strip()
+        return ip, device_id, pw
 
-        checked = []
+    @Slot()
+    def _on_connect_clicked(self) -> None:
+        """Open selected history fan, or add checked discovered fans to history."""
+        if self._hist_list.selectedItems():
+            self.accept()
+            return
+
+        # Add all checked discovered fans to history and stay open
+        pw = self._pw_edit.text() or "1111"
         for i in range(self._device_list.count()):
             item = self._device_list.item(i)
             if item.checkState() == Qt.CheckState.Checked:
                 dev: DiscoveredDevice = item.data(Qt.ItemDataRole.UserRole)
-                checked.append((dev.ip, dev.device_id, pw))
-        if checked:
-            return checked
-
-        ip = self._ip_edit.text().strip()
-        device_id = self._id_edit.text().strip()
-        if ip and device_id:
-            return [(ip, device_id, pw)]
-
-        return []
+                if self._history:
+                    self._history.record(dev.device_id, dev.ip, dev.unit_type_name, pw)
+        self._populate_history()
+        self._do_scan()
 
     # ------------------------------------------------------------------
     # History helpers
@@ -247,7 +251,9 @@ class ConnectDialog(QDialog):
             bool(self._id_edit.text().strip())
         )
         self._connect_btn.setEnabled(has_hist or checked_count > 0 or has_manual)
-        if not has_hist and checked_count > 1:
+        if has_hist:
+            self._connect_btn.setText("Open")
+        elif checked_count > 1:
             self._connect_btn.setText(f"Connect ({checked_count})")
         else:
             self._connect_btn.setText("Connect")

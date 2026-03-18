@@ -1,9 +1,11 @@
-import { useReducer, useEffect, useCallback } from 'react'
+import { useReducer, useEffect, useCallback, useRef, useState } from 'react'
 import { api, openWebSocket } from './api.js'
 import DeviceHeader from './components/DeviceHeader.jsx'
 import PowerButton from './components/PowerButton.jsx'
 import SpeedControl from './components/SpeedControl.jsx'
 import ModeSelector from './components/ModeSelector.jsx'
+import HumidityControl from './components/HumidityControl.jsx'
+import RpmDisplay from './components/RpmDisplay.jsx'
 import QuickScenarios from './components/QuickScenarios.jsx'
 import ScenarioManager from './components/ScenarioManager.jsx'
 import SaveScenarioModal from './components/SaveScenarioModal.jsx'
@@ -46,6 +48,68 @@ function reducer(state, action) {
     default:
       return state
   }
+}
+
+// ── Scenario dropdown ─────────────────────────────────────────────────────────
+
+function ScenarioDropdown({ scenarios, disabled, onCreateNew, onAddToExisting }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  useEffect(() => {
+    if (!open) return
+    function handleClick(e) {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [open])
+
+  function handleCreateNew() {
+    setOpen(false)
+    onCreateNew()
+  }
+
+  function handleAddTo(name) {
+    setOpen(false)
+    onAddToExisting(name)
+  }
+
+  return (
+    <div className="scenario-dropdown" ref={ref}>
+      <button
+        className="save-scenario-btn"
+        disabled={disabled}
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="true"
+        aria-expanded={open}
+      >
+        Scenario ▾
+      </button>
+      {open && (
+        <div className="scenario-menu">
+          <button className="scenario-menu-item" onClick={handleCreateNew}>
+            Create new scenario…
+          </button>
+          {scenarios.length > 0 && (
+            <>
+              <div className="scenario-menu-divider" />
+              <div className="scenario-menu-label">Add to existing</div>
+              {scenarios.map((s) => (
+                <button
+                  key={s.name}
+                  className="scenario-menu-item scenario-menu-item--indent"
+                  onClick={() => handleAddTo(s.name)}
+                >
+                  {s.name}
+                </button>
+              ))}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  )
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -92,12 +156,14 @@ export default function App() {
     try { await fn() } finally { dispatch({ type: 'BUSY', payload: false }) }
   }
 
-  const handlePower    = useCallback(() => run(() => api.setPower(!deviceState?.power)), [deviceState])
-  const handleSpeed    = useCallback((s) => run(() => api.setSpeed(s)), [])
-  const handleMode     = useCallback((m) => run(() => api.setMode(m)), [])
-  const handleBoost    = useCallback(() => run(() => api.setBoost(!deviceState?.boost_active)), [deviceState])
-  const handleApply    = useCallback((name) => run(() => api.applyScenario(name)), [])
-  const handleDelete   = useCallback(async (name) => {
+  const handlePower             = useCallback(() => run(() => api.setPower(!deviceState?.power)), [deviceState])
+  const handleSpeed             = useCallback((s) => run(() => api.setSpeed(s)), [])
+  const handleMode              = useCallback((m) => run(() => api.setMode(m)), [])
+  const handleBoost             = useCallback(() => run(() => api.setBoost(!deviceState?.boost_active)), [deviceState])
+  const handleHumiditySensor    = useCallback((s) => run(() => api.setHumiditySensor(s)), [])
+  const handleHumidityThreshold = useCallback((t) => run(() => api.setHumidityThreshold(t)), [])
+  const handleApply             = useCallback((name) => run(() => api.applyScenario(name)), [])
+  const handleDelete            = useCallback(async (name) => {
     await api.deleteScenario(name)
     const list = await api.listScenarios()
     dispatch({ type: 'SCENARIOS', payload: list })
@@ -112,6 +178,12 @@ export default function App() {
     const list = await api.listScenarios()
     dispatch({ type: 'SCENARIOS', payload: list })
     dispatch({ type: 'HIDE_SAVE' })
+  }, [])
+
+  const handleAddToScenario = useCallback(async (name) => {
+    await run(() => api.addFanToScenario(name))
+    const list = await api.listScenarios()
+    dispatch({ type: 'SCENARIOS', payload: list })
   }, [])
 
   const handleSetQuickSlots = useCallback(async (slots) => {
@@ -175,6 +247,14 @@ export default function App() {
                 Boost: {deviceState?.boost_active ? 'ON' : 'OFF'}
               </button>
             </div>
+            <HumidityControl
+              humiditySensor={deviceState?.humidity_sensor ?? null}
+              humidityThreshold={deviceState?.humidity_threshold ?? null}
+              currentHumidity={deviceState?.current_humidity ?? null}
+              disabled={disabled}
+              onSensorChange={handleHumiditySensor}
+              onThresholdChange={handleHumidityThreshold}
+            />
             <div className="quick-row">
               <div className="card-title">Quick scenarios</div>
               <QuickScenarios
@@ -183,17 +263,20 @@ export default function App() {
                 onApply={handleApply}
               />
             </div>
-            <button
-              className="save-scenario-btn"
+            <ScenarioDropdown
+              scenarios={scenarios}
               disabled={disabled}
-              onClick={() => dispatch({ type: 'SHOW_SAVE' })}
-            >
-              Save as Scenario
-            </button>
+              onCreateNew={() => dispatch({ type: 'SHOW_SAVE' })}
+              onAddToExisting={handleAddToScenario}
+            />
           </div>
 
-          {/* RIGHT: scenario manager */}
+          {/* RIGHT: RPM + scenario manager */}
           <div className="col-right">
+            <RpmDisplay
+              fan1Rpm={deviceState?.fan1_rpm ?? null}
+              fan2Rpm={deviceState?.fan2_rpm ?? null}
+            />
             <ScenarioManager
               scenarios={scenarios}
               quickSlots={quickSlots}
@@ -210,6 +293,8 @@ export default function App() {
         connected={connected}
         deviceId={deviceState?.device_id}
         ip={deviceState?.ip}
+        alarmStatus={deviceState?.alarm_status}
+        alarmName={deviceState?.alarm_name}
       />
     </div>
   )

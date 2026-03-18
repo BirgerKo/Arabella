@@ -1,0 +1,25 @@
+.rpm-card {
+  flex-shrink: 0;
+}
+
+.rpm-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0;
+}
+
+.rpm-row + .rpm-row {
+  border-top: 1px solid var(--border);
+}
+
+.rpm-label {
+  color: var(--text2);
+  font-size: 12px;
+}
+
+.rpm-value {
+  font-family: var(--mono);
+  font-size: 14px;
+  color: var(--accent);
+}

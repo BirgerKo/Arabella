@@ -4,8 +4,9 @@ export default function DeviceHeader({ deviceId, ip, onSwitchClick }) {
   return (
     <header className="device-header">
       <div className="device-info">
-        <span className="device-name">{deviceId || '—'}</span>
-        {ip && <span className="device-ip">{ip}</span>}
+        <span className="device-name" title={ip || ''}>
+          {deviceId || '—'}
+        </span>
       </div>
       <button className="switch-btn" onClick={onSwitchClick}>
         Switch…

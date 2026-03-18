@@ -25,10 +25,12 @@ def make_connected_manager(device_id="VENT-01"):
     mgr = MagicMock()
     mgr.is_connected = True
     mgr.current_state = state
-    mgr.set_power  = AsyncMock()
-    mgr.set_speed  = AsyncMock()
-    mgr.set_mode   = AsyncMock()
-    mgr.set_boost  = AsyncMock()
+    mgr.set_power              = AsyncMock()
+    mgr.set_speed              = AsyncMock()
+    mgr.set_mode               = AsyncMock()
+    mgr.set_boost              = AsyncMock()
+    mgr.set_humidity_sensor    = AsyncMock()
+    mgr.set_humidity_threshold = AsyncMock()
     return mgr
 
 
@@ -128,3 +130,32 @@ async def test_set_quick_slots(setup):
                            json={"slots": ["Night", None, None]})
     assert resp.status_code == 200
     store.set_quick_slots.assert_called_once_with("VENT-01", ["Night", None, None])
+
+
+@pytest.mark.asyncio
+async def test_add_fan_to_scenario(setup):
+    client, store, mgr = setup
+    async with client as c:
+        resp = await c.post("/api/scenarios/Night/add-fan")
+    assert resp.status_code == 204
+    store.save_scenario.assert_called_once()
+    saved: ScenarioEntry = store.save_scenario.call_args[0][0]
+    assert any(f.device_id == "VENT-01" for f in saved.fans)
+
+
+@pytest.mark.asyncio
+async def test_add_fan_to_nonexistent_scenario_returns_404(setup):
+    client, store, _ = setup
+    store.get_scenarios.return_value = []
+    async with client as c:
+        resp = await c.post("/api/scenarios/Missing/add-fan")
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_add_fan_returns_503_when_disconnected(setup):
+    client, store, mgr = setup
+    mgr.is_connected = False
+    async with client as c:
+        resp = await c.post("/api/scenarios/Night/add-fan")
+    assert resp.status_code == 503

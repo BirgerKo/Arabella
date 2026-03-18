@@ -47,6 +47,10 @@
   gap: 6px;
 }
 
+.scenario-dropdown {
+  position: relative;
+}
+
 .save-scenario-btn {
   width: 100%;
   padding: 10px;
@@ -56,6 +60,59 @@
 
 .save-scenario-btn:hover {
   background: color-mix(in srgb, var(--accent) 15%, var(--surface2));
+}
+
+.scenario-menu {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  z-index: 100;
+  overflow: hidden;
+}
+
+.scenario-menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  padding: 8px 14px;
+  color: var(--text);
+}
+
+.scenario-menu-item:hover {
+  background: var(--surface2);
+  border-color: transparent;
+}
+
+.scenario-menu-item--indent {
+  padding-left: 24px;
+  color: var(--text2);
+}
+
+.scenario-menu-item--indent:hover {
+  color: var(--text);
+}
+
+.scenario-menu-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 2px 0;
+}
+
+.scenario-menu-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text2);
+  padding: 6px 14px 2px;
 }
 
 /* Responsive: single column on narrow screens */
