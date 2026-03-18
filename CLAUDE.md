@@ -22,6 +22,11 @@ This file contains notes and instructions specific to the Arabella project.
 - Business logic must not depend on UI, database, or framework
 
 ## Testing
-- All code shall haveunit tests covering the functionality
-- The project shal have functional test for the functionality
+- All code shall have unit tests covering the functionality
+- The project shall have functional tests for the functionality
 - WEB interfaces are to be tested via Playwright
+
+**When to run tests**
+- Before every commit — ensure nothing is broken before checking in
+- After pulling remote changes — verify incoming code does not break existing functionality
+- After merging or rebasing — confirm the merge did not introduce regressions
