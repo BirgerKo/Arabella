@@ -9,7 +9,7 @@ This file contains notes and instructions specific to the Arabella project.
 
 ## Coding style
 **Clean Code (Robert C. Martin)**
-- all new code shall be according to Unckle Bob's Clean Code and Clean Architecture principels 
+- all code shall be according to Unckle Bob's Clean Code and Clean Architecture principels 
 - Meaningful Names: names must reveal intent; no cryptic abbreviations
 - Small functions: one responsibility, one level of abstraction
 - DRY: eliminate duplication ruthlessly
@@ -20,6 +20,11 @@ This file contains notes and instructions specific to the Arabella project.
 - Dependency Rule: source code dependencies point inward only
 - Entities → Use Cases → Interface Adapters → Frameworks (never reversed)
 - Business logic must not depend on UI, database, or framework
+
+## Code quality
+- all data/parameters that is input to the application or the API shall have input validation
+- client side validation is good. Server side validation is necesary 
+
 
 ## Testing
 - All code shall have unit tests covering the functionality
