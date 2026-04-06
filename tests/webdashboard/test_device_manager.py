@@ -159,6 +159,64 @@ async def test_require_connection_raises_when_disconnected(manager):
 
 
 @pytest.mark.asyncio
+async def test_enable_schedule(manager):
+    mock_state = make_state()
+    mock_client = MagicMock()
+    mock_client.get_state             = AsyncMock(return_value=mock_state)
+    mock_client.enable_weekly_schedule = AsyncMock()
+
+    with patch("webdashboard.backend.device_manager.AsyncVentoClient", return_value=mock_client):
+        await manager.connect("10.0.0.1", "VENT-01")
+        await manager.enable_schedule(True)
+
+    mock_client.enable_weekly_schedule.assert_awaited_once_with(True)
+    manager.disconnect()
+
+
+@pytest.mark.asyncio
+async def test_set_schedule_period(manager):
+    mock_state = make_state()
+    mock_client = MagicMock()
+    mock_client.get_state          = AsyncMock(return_value=mock_state)
+    mock_client.set_schedule_period = AsyncMock()
+
+    with patch("webdashboard.backend.device_manager.AsyncVentoClient", return_value=mock_client):
+        await manager.connect("10.0.0.1", "VENT-01")
+        await manager.set_schedule_period(0, 1, 2, 8, 30)
+
+    mock_client.set_schedule_period.assert_awaited_once_with(0, 1, 2, 8, 30)
+    manager.disconnect()
+
+
+@pytest.mark.asyncio
+async def test_sync_rtc(manager):
+    mock_state = make_state()
+    mock_client = MagicMock()
+    mock_client.get_state = AsyncMock(return_value=mock_state)
+    mock_client.sync_rtc  = AsyncMock()
+
+    with patch("webdashboard.backend.device_manager.AsyncVentoClient", return_value=mock_client):
+        await manager.connect("10.0.0.1", "VENT-01")
+        await manager.sync_rtc()
+
+    mock_client.sync_rtc.assert_awaited_once()
+    manager.disconnect()
+
+
+def test_state_to_dict_includes_schedule_fields():
+    from blauberg_vento.models import RtcTime, RtcCalendar
+    state = make_state(
+        weekly_schedule_enabled=True,
+        rtc_time=RtcTime(hours=14, minutes=30, seconds=0),
+        rtc_calendar=RtcCalendar(year=2026, month=3, day=22, day_of_week=7),
+    )
+    d = _state_to_dict(state)
+    assert d["weekly_schedule_enabled"] is True
+    assert d["rtc_time"] == "14:30:00"
+    assert d["rtc_calendar"] is not None
+
+
+@pytest.mark.asyncio
 async def test_discover_delegates_to_client():
     mock_devices = [DiscoveredDevice(ip="192.168.1.1", device_id="FAN", unit_type=3)]
     with patch(

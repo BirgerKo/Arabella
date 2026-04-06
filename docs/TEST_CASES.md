@@ -18,14 +18,14 @@ cd /Users/birger/Python/Arabella && python3.11 -m pytest -q
 | `tests/test_protocol.py` | 5 | 28 | UDP packet building, parsing, decoders, input validation |
 | `tests/test_scenarios.py` | 6 | 32 | Scenario store CRUD, quick-slots, v1→v2 migration |
 | `tests/test_simulator.py` | 13 | 75 | Simulator ID generation, protocol helpers, SimDevice physics, VentoFanSim routing |
-| `tests/test_main_window.py` | 2 | 7 | MainWindow UI: IP-on-hover label, Scenario button, add-to/update-in/no-op for scenarios |
+| `tests/test_main_window.py` | 4 | 15 | MainWindow UI: IP-on-hover label, Scenario operations, Details button; FanDetailsDialog: schedule/RTC/boost signals and refresh |
 | `tests/webdashboard/test_hub.py` | — | 5 | WebSocket broadcast hub: connect, disconnect, broadcast, dead socket cleanup |
-| `tests/webdashboard/test_device_manager.py` | — | 15 | DeviceManager connect/disconnect, power/speed/mode/boost commands, fan switching, broadcast callback, discovery |
-| `tests/webdashboard/test_routers_commands.py` | — | 11 | Command HTTP endpoints (power/speed/mode/boost/humidity), 503 when disconnected, 422 validation |
+| `tests/webdashboard/test_device_manager.py` | — | 19 | DeviceManager connect/disconnect, power/speed/mode/boost/humidity/schedule/RTC commands, fan switching, broadcast callback, discovery; `_state_to_dict` schedule fields |
+| `tests/webdashboard/test_routers_commands.py` | — | 18 | Command HTTP endpoints (power/speed/mode/boost/humidity/schedule_enable/schedule_period/sync_rtc), 503 when disconnected, 422 validation |
 | `tests/webdashboard/test_routers_devices.py` | — | 10 | Device state, connect, fan switching, disconnect, and discovery HTTP endpoints |
 | `tests/webdashboard/test_routers_scenarios.py` | — | 11 | Scenario CRUD, quick-slot, and add-fan-to-scenario HTTP endpoints |
-| `tests/webdashboard/e2e/test_dashboard.py` | — | 14 | Playwright E2E: connect dialog, power toggle, speed/mode controls, scenario save+list, fan switching |
-| **Total** | **30+** | **226+** | |
+| `tests/webdashboard/e2e/test_dashboard.py` | — | 22 | Playwright E2E: connect dialog, power toggle, speed/mode controls, scenario save+list, fan switching, Details modal open/close, schedule enable/editor, sync RTC |
+| **Total** | **30+** | **230+** | |
 
 ---
 
@@ -503,14 +503,41 @@ address available only as a tooltip (hover-visible), not as permanent label text
 
 ### TestScenarioButton
 
-Verifies the "Scenario" button and `_add_to_scenario()` logic.
+Verifies the `_add_to_scenario()` logic in MainWindow.
 
 | Test | Purpose | Expected result |
 |------|---------|----------------|
-| `test_button_label_is_scenario` | The button that opens the scenario menu is labelled "Scenario" | `_save_scenario_btn.text() == "Scenario"` |
 | `test_add_to_scenario_adds_fan` | `_add_to_scenario("Night Mode")` merges the current fan into an existing scenario that has a different fan | Both `FANDEVICE000001` and `OTHERFAN0000001` appear in the scenario's fan list |
 | `test_add_to_scenario_updates_existing_fan` | If the current fan is already in the target scenario, calling `_add_to_scenario` replaces its entry rather than duplicating it | Exactly one entry with `device_id == "FANDEVICE000001"` |
 | `test_add_to_nonexistent_scenario_is_noop` | `_add_to_scenario("Nonexistent Scenario")` does nothing when the scenario name is not found | Scenario count unchanged |
+
+---
+
+### TestDetailsButton
+
+Verifies the "Details…" button lifecycle on the main window.
+
+| Test | Purpose | Expected result |
+|------|---------|----------------|
+| `test_details_button_disabled_before_connect` | The Details… button is disabled at window creation | `isEnabled() == False` |
+| `test_details_button_enabled_after_connect` | After `_on_connected(state)` the Details… button becomes enabled | `isEnabled() == True` |
+
+---
+
+### TestFanDetailsDialog
+
+Verifies the `FanDetailsDialog` — the non-modal dialog that shows boost, humidity, RPM,
+schedule and scenario controls.
+
+| Test | Purpose | Expected result |
+|------|---------|----------------|
+| `test_schedule_buttons_present` | The dialog has all three schedule-related attributes after construction | `_sched_en_btn`, `_sched_edit_btn`, `_sync_rtc_btn` exist |
+| `test_schedule_enable_emits_signal` | `_on_schedule_enable_clicked()` emits `schedule_enable_changed` with `True` when checked | Signal received with value `True` |
+| `test_sync_rtc_emits_signal` | Clicking `_sync_rtc_btn` emits the `sync_rtc` signal | Signal received once |
+| `test_refresh_reflects_schedule_enabled` | `refresh()` with `weekly_schedule_enabled=True` checks the toggle and sets label "ON" | `isChecked() == True`; `text() == "ON"` |
+| `test_refresh_reflects_schedule_disabled` | `refresh()` with `weekly_schedule_enabled=False` unchecks toggle and sets label "OFF" | `isChecked() == False`; `text() == "OFF"` |
+| `test_refresh_updates_boost` | `refresh()` with `boost_active=True` checks the boost button and sets label "ON" | `isChecked() == True`; `text() == "ON"` |
+| `test_boost_emits_signal` | `_on_boost_clicked()` with checked state emits `boost_changed` with `True` | Signal received with value `True` |
 
 ---
 
@@ -637,3 +664,10 @@ Requires the backend (`python -m webdashboard`) and a reachable device or simula
 | `test_switch_reopens_connect_dialog` | Clicking "Switch…" re-opens the connect dialog without a full page reload | Connect dialog visible again |
 | `test_switch_between_fans` | After switching, the dashboard header shows the new device's ID and hides the old one | "VENT-SIM-2" visible; "VENT-SIM-1" not visible |
 | `test_switch_connect_dialog_is_prefilled_with_current_device` | The connect dialog pre-populates the current device's IP and ID when opened via "Switch…" | IP and Device ID inputs contain the connected device's values |
+| `test_details_button_visible_when_connected` | The "Details…" button in the device header is visible once a fan is connected | "Details…" button visible |
+| `test_details_modal_opens` | Clicking "Details…" opens the fan details modal | Dialog with `aria-label="Fan details"` visible |
+| `test_details_modal_closes_on_x` | Clicking the close button [✕] hides the fan details modal | Modal not visible |
+| `test_schedule_section_visible_in_details` | Schedule toggle, "Edit…", and "Sync RTC" buttons are visible inside the details modal | All three elements visible |
+| `test_schedule_enable_toggle` | Clicking the schedule toggle (in details modal) flips its `aria-pressed` state | `aria-pressed` changes to opposite value within 8 s |
+| `test_schedule_editor_opens` | Clicking "Edit…" (in details modal) opens the schedule editor modal | Dialog with `aria-label="Weekly schedule editor"` visible |
+| `test_sync_rtc_button_clickable` | "Sync RTC" (in details modal) is enabled and clicking it does not show an error | Button remains visible after click |

@@ -41,6 +41,9 @@ def _state_to_dict(state: DeviceState) -> dict[str, Any]:
         "fan2_rpm": state.fan2_rpm,
         "alarm_status": state.alarm_status,
         "alarm_name": state.alarm_name,
+        "weekly_schedule_enabled": state.weekly_schedule_enabled,
+        "rtc_time": str(state.rtc_time) if state.rtc_time else None,
+        "rtc_calendar": str(state.rtc_calendar) if state.rtc_calendar else None,
     }
 
 
@@ -121,6 +124,37 @@ class DeviceManager:
         """Set humidity threshold in percent relative humidity (40–80)."""
         self._require_connection()
         await self._client.set_humidity_threshold(threshold)
+        await self._poll_after_command()
+
+    async def enable_schedule(self, enabled: bool) -> None:
+        """Enable or disable the weekly schedule."""
+        self._require_connection()
+        await self._client.enable_weekly_schedule(enabled)
+        await self._poll_after_command()
+
+    async def set_schedule_period(
+        self, day: int, period: int, speed: int, end_h: int, end_m: int
+    ) -> None:
+        """Write one schedule period to the device."""
+        self._require_connection()
+        await self._client.set_schedule_period(day, period, speed, end_h, end_m)
+
+    async def get_full_schedule(self) -> list[list]:
+        """Read all 32 schedule periods (8 day groups × 4 periods) from the device."""
+        self._require_connection()
+        result = []
+        for day in range(8):
+            row = []
+            for period in range(1, 5):
+                sp = await self._client.get_schedule_period(day, period)
+                row.append(sp)
+            result.append(row)
+        return result
+
+    async def sync_rtc(self) -> None:
+        """Synchronise the device real-time clock to system time."""
+        self._require_connection()
+        await self._client.sync_rtc()
         await self._poll_after_command()
 
     # ── Discovery ─────────────────────────────────────────────────────────────

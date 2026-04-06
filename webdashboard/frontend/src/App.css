@@ -7,7 +7,7 @@
 
 .app-content {
   flex: 1;
-  max-width: 900px;
+  max-width: 480px;
   width: 100%;
   margin: 0 auto;
   padding: 16px;
@@ -15,26 +15,10 @@
   flex-direction: column;
 }
 
-.two-col {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-  flex: 1;
-}
-
-.col-left {
+.col-main {
   display: flex;
   flex-direction: column;
   gap: 12px;
-}
-
-.col-right {
-  display: flex;
-  flex-direction: column;
-}
-
-.boost-row {
-  display: flex;
 }
 
 .boost-btn {
@@ -46,6 +30,50 @@
   flex-direction: column;
   gap: 6px;
 }
+
+.device-info-row {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  padding-top: 4px;
+  border-top: 1px solid var(--border);
+}
+
+.device-info-id {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.device-info-ip {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text2);
+}
+
+.schedule-controls {
+  display: flex;
+  gap: 6px;
+}
+
+.schedule-toggle,
+.schedule-edit-btn,
+.sync-rtc-btn {
+  flex: 1;
+  font-size: 13px;
+}
+
+.schedule-toggle.active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 15%, var(--surface2));
+  color: var(--accent);
+}
+
+.rtc-display {
+  font-size: 11px;
+  color: var(--text2);
+}
+
 
 .scenario-dropdown {
   position: relative;

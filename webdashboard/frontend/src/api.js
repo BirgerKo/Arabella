@@ -31,6 +31,11 @@ export const api = {
   setHumiditySensor:    (sensor)    => request('POST', '/command/humidity_sensor',    { sensor }),
   setHumidityThreshold: (threshold) => request('POST', '/command/humidity_threshold', { threshold }),
 
+  enableSchedule:     (enabled)                          => request('POST', '/command/schedule_enable', { enabled }),
+  setSchedulePeriod:  (day, period, speed, end_h, end_m) => request('POST', '/command/schedule_period', { day, period, speed, end_h, end_m }),
+  getSchedule:        ()                                 => request('GET',  '/command/schedule'),
+  syncRtc:            ()                                 => request('POST', '/command/sync_rtc'),
+
   listScenarios:   ()           => request('GET',    '/scenarios'),
   saveScenario:    (name)       => request('POST',   '/scenarios',       { name }),
   updateScenario:  (name, body) => request('PUT',    `/scenarios/${encodeURIComponent(name)}`, body),

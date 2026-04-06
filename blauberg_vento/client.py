@@ -315,6 +315,25 @@ class VentoClient:
         _check_range('end_m', end_m, 0, 59)
         self.write_params({Param.SCHEDULE_SETUP: bytes([day, period, speed, 0, end_m, end_h])})
 
+    def get_schedule_period(self, day: int, period: int) -> SchedulePeriod:
+        """Read back a single schedule period from the device.
+
+        Reads are indexed by writing day+period as selector bytes, then
+        reading the response which includes the stored speed and end time.
+        """
+        _check_range('day', day, 0, 9)
+        _check_range('period', period, 1, 4)
+        raw = self.write_params_with_response(
+            {Param.SCHEDULE_SETUP: bytes([day, period, 0, 0, 0, 0])}
+        )
+        decoded = decode_schedule(raw[Param.SCHEDULE_SETUP])
+        return SchedulePeriod(
+            period_number=decoded['period'],
+            end_hours=decoded['end_hours'],
+            end_minutes=decoded['end_minutes'],
+            speed=decoded['speed'],
+        )
+
     def sync_rtc(self) -> None:
         self.set_rtc(datetime.now())
 
@@ -553,6 +572,29 @@ class AsyncVentoClient:
 
     async def enable_weekly_schedule(self, enabled: bool) -> None:
         await self.write_params({Param.WEEKLY_SCHEDULE_EN: 1 if enabled else 0})
+
+    async def set_schedule_period(self, day: int, period: int, speed: int, end_h: int, end_m: int) -> None:
+        _check_range('day', day, 0, 9)
+        _check_range('period', period, 1, 4)
+        _check_range('speed', speed, 0, 3)
+        _check_range('end_h', end_h, 0, 23)
+        _check_range('end_m', end_m, 0, 59)
+        await self.write_params({Param.SCHEDULE_SETUP: bytes([day, period, speed, 0, end_m, end_h])})
+
+    async def get_schedule_period(self, day: int, period: int) -> SchedulePeriod:
+        """Read back a single schedule period from the device."""
+        _check_range('day', day, 0, 9)
+        _check_range('period', period, 1, 4)
+        raw = await self.write_params_with_response(
+            {Param.SCHEDULE_SETUP: bytes([day, period, 0, 0, 0, 0])}
+        )
+        decoded = decode_schedule(raw[Param.SCHEDULE_SETUP])
+        return SchedulePeriod(
+            period_number=decoded['period'],
+            end_hours=decoded['end_hours'],
+            end_minutes=decoded['end_minutes'],
+            speed=decoded['speed'],
+        )
 
     async def set_boost_delay(self, minutes: int) -> None:
         _check_range('boost_delay', minutes, 0, 60)

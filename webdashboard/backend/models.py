@@ -57,6 +57,33 @@ class HumidityThresholdRequest(BaseModel):
     threshold: int = Field(..., ge=40, le=80)
 
 
+class EnableScheduleRequest(BaseModel):
+    enabled: bool
+
+
+class SchedulePeriodRequest(BaseModel):
+    # Day group: 0=Weekdays, 1=Mon … 7=Sun
+    day: int = Field(..., ge=0, le=7)
+    # Period within the day (1–4)
+    period: int = Field(..., ge=1, le=4)
+    # Speed: 0=Standby, 1=Speed 1, 2=Speed 2, 3=Speed 3
+    speed: int = Field(..., ge=0, le=3)
+    end_h: int = Field(..., ge=0, le=23)
+    end_m: int = Field(..., ge=0, le=59)
+
+
+class SchedulePeriodData(BaseModel):
+    speed: int
+    end_h: int
+    end_m: int
+
+
+class ScheduleResponse(BaseModel):
+    # Outer list: 8 day groups (0=Weekdays, 1=Mon … 7=Sun).
+    # Inner list: 4 periods per day group.
+    periods: list[list[SchedulePeriodData]]
+
+
 class DeviceStateResponse(BaseModel):
     connected: bool
     ip: str
@@ -74,6 +101,9 @@ class DeviceStateResponse(BaseModel):
     fan2_rpm: Optional[int]
     alarm_status: Optional[int]
     alarm_name: str
+    weekly_schedule_enabled: Optional[bool] = None
+    rtc_time: Optional[str] = None
+    rtc_calendar: Optional[str] = None
 
 
 class DiscoveredDeviceResponse(BaseModel):

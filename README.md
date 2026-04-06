@@ -34,6 +34,31 @@ client.turn_on()
 client.set_speed(2)
 ```
 
+# Running the applications
+
+## Environment setup
+
+All application entry points (`ventocontrol`, `ventosim`, `pytest`, etc.) are
+installed inside the project's virtual environment.  You must activate it once
+per terminal session before running any of the commands below.
+
+```bash
+# From the Arabella project root:
+source .venv/bin/activate
+```
+
+> **First time only** — create the virtual environment and install all
+> dependencies:
+> ```bash
+> python3 -m venv .venv
+> source .venv/bin/activate
+> pip install -e ".[dev,gui,web]"
+> cd webdashboard/frontend && npm install && cd ../..
+> ```
+
+Once the environment is active your prompt will show `(.venv)` and all
+commands below will work directly.
+
 ## Run the GUI
 
 ```bash
@@ -54,18 +79,28 @@ pytest
 
 ## Features
 
-Both the desktop GUI and web dashboard provide full fan control parity:
+Both the desktop GUI and web dashboard provide full fan control parity with a clean
+two-level layout: daily controls on the main view, deeper settings in a "Details…" modal.
 
+### Main view (always visible)
 | Feature | Desktop GUI | Web Dashboard |
 |---------|-------------|---------------|
 | Power on/off | ✓ | ✓ |
-| Speed (presets 1–3 + manual 0–255) | ✓ | ✓ |
+| Speed presets (1–3) | ✓ | ✓ |
 | Operation mode (Ventilation / Heat Recovery / Supply) | ✓ | ✓ |
+| Quick-scenario slots (Q1–Q3) | ✓ | ✓ |
+| Connection / alarm status | ✓ | ✓ |
+
+### Details modal (click "Details…" in the device header)
+| Feature | Desktop GUI | Web Dashboard |
+|---------|-------------|---------------|
 | Boost toggle | ✓ | ✓ |
 | Humidity sensor (Off / On / Invert) + threshold | ✓ | ✓ |
 | Real-time fan 1 / fan 2 RPM display | ✓ | ✓ |
-| Alarm indicator | ✓ | ✓ |
-| Scenario save / apply / quick-slots | ✓ | ✓ |
+| Weekly schedule enable / disable | ✓ | ✓ |
+| Weekly schedule editor (8 day-groups × 4 periods) | ✓ | ✓ |
+| Sync device RTC to system time | ✓ | ✓ |
+| Scenario save / apply / manage | ✓ | ✓ |
 | Add current fan to existing scenario | ✓ | ✓ |
 | IP address shown on hover only | ✓ | ✓ |
 

@@ -194,3 +194,86 @@ def test_switch_connect_dialog_is_prefilled_with_current_device(page: Page):
 
     expect(page.get_by_placeholder("IP address")).to_have_value("127.0.0.1", timeout=5_000)
     expect(page.get_by_placeholder("Device ID")).to_have_value("VENT-SIM", timeout=5_000)
+
+
+# ── Details modal ───────────────────────────────────────────────────────────────
+
+def _open_details(page: Page) -> None:
+    """Click the Details… button to open the fan details modal."""
+    page.get_by_role("button", name="Details…").click(timeout=10_000)
+    expect(page.get_by_role("dialog", name="Fan details")).to_be_visible(timeout=5_000)
+
+
+def test_details_button_visible_when_connected(page: Page):
+    """Details… button is rendered after connecting."""
+    page.goto("/")
+    _connect(page, "127.0.0.1", "VENT-SIM")
+    expect(page.get_by_role("button", name="Details…")).to_be_visible(timeout=10_000)
+
+
+def test_details_modal_opens(page: Page):
+    """Clicking Details… opens the fan details modal."""
+    page.goto("/")
+    _connect(page, "127.0.0.1", "VENT-SIM")
+    _open_details(page)
+
+
+def test_details_modal_closes_on_x(page: Page):
+    """Clicking the close button hides the fan details modal."""
+    page.goto("/")
+    _connect(page, "127.0.0.1", "VENT-SIM")
+    _open_details(page)
+    page.get_by_role("button", name="Close details").click()
+    expect(page.get_by_role("dialog", name="Fan details")).not_to_be_visible(timeout=5_000)
+
+
+# ── Schedule / RTC (inside Details modal) ──────────────────────────────────────
+
+def test_schedule_section_visible_in_details(page: Page):
+    """Schedule controls are visible inside the fan details modal."""
+    page.goto("/")
+    _connect(page, "127.0.0.1", "VENT-SIM")
+    _open_details(page)
+
+    expect(page.get_by_role("button", name=re.compile(r"Schedule:", re.IGNORECASE))).to_be_visible(timeout=5_000)
+    expect(page.get_by_role("button", name="Edit…")).to_be_visible()
+    expect(page.get_by_role("button", name="Sync RTC")).to_be_visible()
+
+
+def test_schedule_enable_toggle(page: Page):
+    """Clicking the Schedule toggle in the details modal changes its pressed state."""
+    page.goto("/")
+    _connect(page, "127.0.0.1", "VENT-SIM")
+    _open_details(page)
+
+    toggle = page.get_by_role("button", name=re.compile(r"Schedule:", re.IGNORECASE))
+    expect(toggle).to_be_visible(timeout=5_000)
+
+    initial = toggle.get_attribute("aria-pressed")
+    toggle.click()
+
+    expected = "false" if initial == "true" else "true"
+    expect(toggle).to_have_attribute("aria-pressed", expected, timeout=8_000)
+
+
+def test_schedule_editor_opens(page: Page):
+    """Clicking 'Edit…' in the details modal opens the schedule editor dialog."""
+    page.goto("/")
+    _connect(page, "127.0.0.1", "VENT-SIM")
+    _open_details(page)
+
+    page.get_by_role("button", name="Edit…").click()
+    expect(page.get_by_role("dialog", name="Weekly schedule editor")).to_be_visible()
+
+
+def test_sync_rtc_button_clickable(page: Page):
+    """Sync RTC button in the details modal responds to a click without error."""
+    page.goto("/")
+    _connect(page, "127.0.0.1", "VENT-SIM")
+    _open_details(page)
+
+    sync_btn = page.get_by_role("button", name="Sync RTC")
+    expect(sync_btn).to_be_enabled(timeout=5_000)
+    sync_btn.click()
+    # No error dialog should appear — details modal remains visible
+    expect(page.get_by_role("button", name="Sync RTC")).to_be_visible(timeout=5_000)

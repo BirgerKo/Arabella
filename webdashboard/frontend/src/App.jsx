@@ -4,25 +4,27 @@ import DeviceHeader from './components/DeviceHeader.jsx'
 import PowerButton from './components/PowerButton.jsx'
 import SpeedControl from './components/SpeedControl.jsx'
 import ModeSelector from './components/ModeSelector.jsx'
-import HumidityControl from './components/HumidityControl.jsx'
-import RpmDisplay from './components/RpmDisplay.jsx'
 import QuickScenarios from './components/QuickScenarios.jsx'
-import ScenarioManager from './components/ScenarioManager.jsx'
 import SaveScenarioModal from './components/SaveScenarioModal.jsx'
 import ConnectDialog from './components/ConnectDialog.jsx'
 import StatusBar from './components/StatusBar.jsx'
+import ScheduleEditor from './components/ScheduleEditor.jsx'
+import FanDetailsModal from './components/FanDetailsModal.jsx'
 import './App.css'
 
 // ── Reducer ───────────────────────────────────────────────────────────────────
 
 const INITIAL = {
-  deviceState: null,   // DeviceStateResponse | null
-  scenarios:   [],
-  quickSlots:  [null, null, null],
-  showConnect: true,
-  showSave:    false,
-  busy:        false,
-  wsConnected: false,
+  deviceState:     null,   // DeviceStateResponse | null
+  scenarios:       [],
+  quickSlots:      [null, null, null],
+  schedulePeriods: null,   // null = not loaded; array = loaded from device
+  showConnect:     true,
+  showSave:        false,
+  showSchedule:    false,
+  showDetails:     false,
+  busy:            false,
+  wsConnected:     false,
 }
 
 function reducer(state, action) {
@@ -41,6 +43,16 @@ function reducer(state, action) {
       return { ...state, showSave: true }
     case 'HIDE_SAVE':
       return { ...state, showSave: false }
+    case 'SHOW_SCHEDULE':
+      return { ...state, showSchedule: true, schedulePeriods: null }
+    case 'SCHEDULE_LOADED':
+      return { ...state, schedulePeriods: action.payload }
+    case 'HIDE_SCHEDULE':
+      return { ...state, showSchedule: false, schedulePeriods: null }
+    case 'SHOW_DETAILS':
+      return { ...state, showDetails: true }
+    case 'HIDE_DETAILS':
+      return { ...state, showDetails: false }
     case 'BUSY':
       return { ...state, busy: action.payload }
     case 'WS_CONNECTED':
@@ -50,73 +62,11 @@ function reducer(state, action) {
   }
 }
 
-// ── Scenario dropdown ─────────────────────────────────────────────────────────
-
-function ScenarioDropdown({ scenarios, disabled, onCreateNew, onAddToExisting }) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef(null)
-
-  useEffect(() => {
-    if (!open) return
-    function handleClick(e) {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false)
-    }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [open])
-
-  function handleCreateNew() {
-    setOpen(false)
-    onCreateNew()
-  }
-
-  function handleAddTo(name) {
-    setOpen(false)
-    onAddToExisting(name)
-  }
-
-  return (
-    <div className="scenario-dropdown" ref={ref}>
-      <button
-        className="save-scenario-btn"
-        disabled={disabled}
-        onClick={() => setOpen((o) => !o)}
-        aria-haspopup="true"
-        aria-expanded={open}
-      >
-        Scenario ▾
-      </button>
-      {open && (
-        <div className="scenario-menu">
-          <button className="scenario-menu-item" onClick={handleCreateNew}>
-            Create new scenario…
-          </button>
-          {scenarios.length > 0 && (
-            <>
-              <div className="scenario-menu-divider" />
-              <div className="scenario-menu-label">Add to existing</div>
-              {scenarios.map((s) => (
-                <button
-                  key={s.name}
-                  className="scenario-menu-item scenario-menu-item--indent"
-                  onClick={() => handleAddTo(s.name)}
-                >
-                  {s.name}
-                </button>
-              ))}
-            </>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function App() {
   const [state, dispatch] = useReducer(reducer, INITIAL)
-  const { deviceState, scenarios, quickSlots, showConnect, showSave, busy } = state
+  const { deviceState, scenarios, quickSlots, schedulePeriods, showConnect, showSave, showSchedule, showDetails, busy } = state
 
   // Load initial state and scenarios on mount
   useEffect(() => {
@@ -153,7 +103,9 @@ export default function App() {
 
   async function run(fn) {
     dispatch({ type: 'BUSY', payload: true })
-    try { await fn() } finally { dispatch({ type: 'BUSY', payload: false }) }
+    try { await fn() }
+    catch (e) { console.error('Command failed:', e) }
+    finally { dispatch({ type: 'BUSY', payload: false }) }
   }
 
   const handlePower             = useCallback(() => run(() => api.setPower(!deviceState?.power)), [deviceState])
@@ -192,6 +144,28 @@ export default function App() {
     dispatch({ type: 'QUICK_SLOTS', payload: r.slots })
   }, [deviceState?.device_id])
 
+  const handleScheduleEnable = useCallback(
+    () => run(() => api.enableSchedule(!deviceState?.weekly_schedule_enabled)),
+    [deviceState?.weekly_schedule_enabled],
+  )
+
+  const handleSetSchedulePeriod = useCallback(
+    (day, period, speed, end_h, end_m) => api.setSchedulePeriod(day, period, speed, end_h, end_m),
+    [],
+  )
+
+  const handleSyncRtc = useCallback(() => run(() => api.syncRtc()), [])
+
+  const handleScheduleEdit = useCallback(async () => {
+    dispatch({ type: 'SHOW_SCHEDULE' })
+    try {
+      const data = await api.getSchedule()
+      dispatch({ type: 'SCHEDULE_LOADED', payload: data.periods })
+    } catch (e) {
+      console.error('Failed to load schedule:', e)
+    }
+  }, [])
+
   const connected = !!deviceState?.connected
   const disabled  = !connected || busy
 
@@ -209,83 +183,78 @@ export default function App() {
           onCancel={() => dispatch({ type: 'HIDE_SAVE' })}
         />
       )}
+      {showSchedule && (
+        <ScheduleEditor
+          initialPeriods={schedulePeriods}
+          onApply={handleSetSchedulePeriod}
+          onClose={() => dispatch({ type: 'HIDE_SCHEDULE' })}
+          busy={busy}
+        />
+      )}
+      {showDetails && (
+        <FanDetailsModal
+          deviceState={deviceState}
+          disabled={disabled}
+          scenarios={scenarios}
+          quickSlots={quickSlots}
+          onBoost={handleBoost}
+          onHumiditySensor={handleHumiditySensor}
+          onHumidityThreshold={handleHumidityThreshold}
+          onScheduleEnable={handleScheduleEnable}
+          onScheduleEdit={handleScheduleEdit}
+          onSyncRtc={handleSyncRtc}
+          onCreateNewScenario={() => dispatch({ type: 'SHOW_SAVE' })}
+          onAddToExisting={handleAddToScenario}
+          onApplyScenario={handleApply}
+          onDeleteScenario={handleDelete}
+          onSetQuickSlot={handleSetQuickSlots}
+          onClose={() => dispatch({ type: 'HIDE_DETAILS' })}
+        />
+      )}
 
       <div className="app-content">
         <DeviceHeader
           deviceId={deviceState?.device_id}
           ip={deviceState?.ip}
           onSwitchClick={() => dispatch({ type: 'SHOW_CONNECT' })}
+          onDetailsClick={() => dispatch({ type: 'SHOW_DETAILS' })}
         />
 
-        <div className="two-col">
-          {/* LEFT: controls */}
-          <div className="col-left">
-            <PowerButton
-              isOn={!!deviceState?.power}
+        <div className="col-main">
+          <PowerButton
+            isOn={!!deviceState?.power}
+            disabled={disabled}
+            onClick={handlePower}
+          />
+          <SpeedControl
+            speed={deviceState?.speed ?? null}
+            manualSpeed={deviceState?.manual_speed ?? null}
+            disabled={disabled}
+            onSpeedChange={handleSpeed}
+          />
+          <ModeSelector
+            mode={deviceState?.operation_mode ?? null}
+            disabled={disabled}
+            onModeChange={handleMode}
+            scheduleEnabled={deviceState?.weekly_schedule_enabled ?? false}
+            onScheduleToggle={handleScheduleEnable}
+          />
+          <div className="quick-row">
+            <div className="card-title">Quick scenarios</div>
+            <QuickScenarios
+              slots={quickSlots}
               disabled={disabled}
-              onClick={handlePower}
-            />
-            <SpeedControl
-              speed={deviceState?.speed ?? null}
-              manualSpeed={deviceState?.manual_speed ?? null}
-              disabled={disabled}
-              onSpeedChange={handleSpeed}
-            />
-            <ModeSelector
-              mode={deviceState?.operation_mode ?? null}
-              disabled={disabled}
-              onModeChange={handleMode}
-            />
-            <div className="boost-row">
-              <button
-                className={deviceState?.boost_active ? 'active boost-btn' : 'boost-btn'}
-                disabled={disabled}
-                onClick={handleBoost}
-                aria-pressed={!!deviceState?.boost_active}
-                style={deviceState?.boost_active ? { borderColor: 'var(--warning)', background: 'color-mix(in srgb, var(--warning) 15%, var(--surface2))' } : {}}
-              >
-                Boost: {deviceState?.boost_active ? 'ON' : 'OFF'}
-              </button>
-            </div>
-            <HumidityControl
-              humiditySensor={deviceState?.humidity_sensor ?? null}
-              humidityThreshold={deviceState?.humidity_threshold ?? null}
-              currentHumidity={deviceState?.current_humidity ?? null}
-              disabled={disabled}
-              onSensorChange={handleHumiditySensor}
-              onThresholdChange={handleHumidityThreshold}
-            />
-            <div className="quick-row">
-              <div className="card-title">Quick scenarios</div>
-              <QuickScenarios
-                slots={quickSlots}
-                disabled={disabled}
-                onApply={handleApply}
-              />
-            </div>
-            <ScenarioDropdown
-              scenarios={scenarios}
-              disabled={disabled}
-              onCreateNew={() => dispatch({ type: 'SHOW_SAVE' })}
-              onAddToExisting={handleAddToScenario}
-            />
-          </div>
-
-          {/* RIGHT: RPM + scenario manager */}
-          <div className="col-right">
-            <RpmDisplay
-              fan1Rpm={deviceState?.fan1_rpm ?? null}
-              fan2Rpm={deviceState?.fan2_rpm ?? null}
-            />
-            <ScenarioManager
-              scenarios={scenarios}
-              quickSlots={quickSlots}
               onApply={handleApply}
-              onDelete={handleDelete}
-              onSetQuickSlot={handleSetQuickSlots}
-              disabled={disabled}
             />
           </div>
+          {connected && (
+            <div className="device-info-row">
+              <span className="device-info-id">{deviceState?.device_id}</span>
+              {deviceState?.ip && (
+                <span className="device-info-ip">{deviceState.ip}</span>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

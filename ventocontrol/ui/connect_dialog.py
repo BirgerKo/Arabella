@@ -37,6 +37,7 @@ class ConnectDialog(QDialog):
         self._hist_list = QListWidget()
         self._hist_list.setMaximumHeight(120)
         self._hist_list.itemSelectionChanged.connect(self._on_hist_selection)
+        self._hist_list.itemDoubleClicked.connect(self._on_hist_double_clicked)
         hist_layout.addWidget(self._hist_list)
         clear_row = QHBoxLayout()
         clear_row.addStretch()
@@ -56,6 +57,7 @@ class ConnectDialog(QDialog):
         self._device_list = QListWidget()
         self._device_list.setMinimumHeight(100)
         self._device_list.itemChanged.connect(self._update_connect_btn)
+        self._device_list.itemDoubleClicked.connect(self._on_disc_double_clicked)
         disc_layout.addWidget(self._device_list)
 
         btn_row = QHBoxLayout()
@@ -186,6 +188,29 @@ class ConnectDialog(QDialog):
             self._pw_edit.setText(entry.password)
         self._update_connect_btn()
 
+    @Slot(object)
+    def _on_hist_double_clicked(self, _item: QListWidgetItem) -> None:
+        """Connect immediately when a history entry is double-clicked."""
+        self.accept()
+
+    @Slot(object)
+    def _on_disc_double_clicked(self, item: QListWidgetItem) -> None:
+        """Connect immediately when a discovered device is double-clicked.
+
+        Records the device to history (file I/O only — no widget changes during
+        the event handler) and populates the manual-entry fields so that
+        connection_params() can read them on accept().
+        """
+        dev: DiscoveredDevice = item.data(Qt.ItemDataRole.UserRole)
+        if dev is None:
+            return
+        pw = self._pw_edit.text() or "1111"
+        if self._history:
+            self._history.record(dev.device_id, dev.ip, dev.unit_type_name, pw)
+        self._ip_edit.setText(dev.ip)
+        self._id_edit.setText(dev.device_id)
+        self.accept()
+
     @Slot()
     def _on_clear_history(self) -> None:
         if self._history:
@@ -263,12 +288,19 @@ class ConnectDialog(QDialog):
     # ------------------------------------------------------------------
 
     def _stop_thread(self) -> None:
-        """Stop the discovery thread.  Uses terminate() if it won't quit cleanly."""
-        if self._thread.isRunning():
-            self._thread.quit()
-            if not self._thread.wait(400):   # 400 ms grace – discovery is ≤2 s
-                self._thread.terminate()
-                self._thread.wait(1000)
+        """Ask the discovery thread to exit and wait for a clean stop.
+
+        We never call terminate() — it force-kills the UDP socket
+        mid-operation, leaving Qt's GLib socket-notifier with a freed
+        GSource pointer (the 'g_source_unref_internal' assertion on Linux).
+
+        Instead we rely on the discovery timeout being short (1 s) so the
+        blocking wait here is at most ~1.2 s, which is acceptable.
+        """
+        if not self._thread.isRunning():
+            return
+        self._thread.quit()
+        self._thread.wait(1500)  # discovery is ≤1 s; no terminate() needed
 
     def accept(self) -> None:
         self._stop_thread()

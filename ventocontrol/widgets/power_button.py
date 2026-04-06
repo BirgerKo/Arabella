@@ -5,8 +5,12 @@ from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtGui import QColor, QPainter, QPen, QRadialGradient
 from PySide6.QtWidgets import QAbstractButton
 
-_ON_COLOUR   = "#50fa64"   # green — icon colour when power is ON
-_OFF_COLOUR  = "#f8f8f2"   # near-white — icon colour when power is OFF
+_ON_COLOUR        = "#50fa64"   # green — border/icon colour when power is ON
+_OFF_COLOUR       = "#f8f8f2"   # near-white — icon colour when power is OFF
+_OFF_BORDER       = "#444455"   # grey — circle border when power is OFF
+_ON_TINT_ALPHA    = 31          # 12 % of 255 — green fill tint when ON
+_GLOW_INNER_ALPHA = 80          # inner glow opacity
+_GLOW_OUTER_ALPHA = 0           # outer glow (fully transparent)
 
 
 class PowerButton(QAbstractButton):
@@ -41,15 +45,32 @@ class PowerButton(QAbstractButton):
         cx, cy = w / 2, h / 2
         r = min(w, h) / 2 - 4
 
-        # Soft green glow halo when ON (background stays transparent)
- #       if self._on:
- #           glow = QRadialGradient(cx, cy, r * 1.5)
- #           glow.setColorAt(0.0, QColor(_ON_COLOUR + "50"))
- #           glow.setColorAt(1.0, QColor(_ON_COLOUR + "00"))
- #           painter.setPen(Qt.PenStyle.NoPen)
- #           painter.setBrush(glow)
- #           painter.drawEllipse(int(cx - r * 1.5), int(cy - r * 1.5),
- #                               int(r * 3), int(r * 3))
+        on_colour = QColor(_ON_COLOUR)
+
+        # Radial glow halo when ON
+        if self._on:
+            glow = QRadialGradient(cx, cy, r * 1.5)
+            glow_inner = QColor(on_colour)
+            glow_inner.setAlpha(_GLOW_INNER_ALPHA)
+            glow_outer = QColor(on_colour)
+            glow_outer.setAlpha(_GLOW_OUTER_ALPHA)
+            glow.setColorAt(0.0, glow_inner)
+            glow.setColorAt(1.0, glow_outer)
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(glow)
+            painter.drawEllipse(int(cx - r * 1.5), int(cy - r * 1.5),
+                                int(r * 3), int(r * 3))
+
+        # Circle: green tinted fill + border when ON; grey border when OFF
+        border_colour = on_colour if self._on else QColor(_OFF_BORDER)
+        painter.setPen(QPen(border_colour, 2, Qt.PenStyle.SolidLine))
+        if self._on:
+            tint = QColor(on_colour)
+            tint.setAlpha(_ON_TINT_ALPHA)
+            painter.setBrush(tint)
+        else:
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.drawEllipse(int(cx - r), int(cy - r), int(r * 2), int(r * 2))
 
         # Power icon: green when ON, near-white when OFF
         icon_colour = _ON_COLOUR if self._on else _OFF_COLOUR
@@ -64,7 +85,7 @@ class PowerButton(QAbstractButton):
         painter.drawArc(
             int(cx - arc_r), int(cy - arc_r),
             arc_r * 2, arc_r * 2,
-            210 * 16, 300 * 16,   # from 210° clockwise 300°
+            120 * 16, 300 * 16,   # 120° → 60°, gap centred at 90° (top)
         )
 
     def sizeHint(self) -> QSize:

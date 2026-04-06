@@ -15,6 +15,7 @@ from ventocontrol.history import DeviceHistory
 from ventocontrol.scenarios import (
     FanSettings, ScenarioEntry, ScenarioSettings, ScenarioStore,
 )
+from ventocontrol.ui.fan_details_dialog import FanDetailsDialog
 from ventocontrol.ui.main_window import MainWindow
 
 
@@ -80,12 +81,9 @@ class TestDeviceLabelIpOnHover:
         assert "·" not in window._device_lbl.text()
 
 
-# ── Requirement 2: Scenario button ───────────────────────────────────────────
+# ── Requirement 2: Scenario operations ───────────────────────────────────────
 
 class TestScenarioButton:
-
-    def test_button_label_is_scenario(self, window):
-        assert window._save_scenario_btn.text() == "Scenario"
 
     def test_add_to_scenario_adds_fan(self, window, tmp_path, monkeypatch):
         """_add_to_scenario merges current fan into an existing scenario."""
@@ -148,3 +146,89 @@ class TestScenarioButton:
         before = len(window._scenarios.get_scenarios())
         window._add_to_scenario("Nonexistent Scenario")
         assert len(window._scenarios.get_scenarios()) == before
+
+
+# ── Details button ────────────────────────────────────────────────────────────
+
+class TestDetailsButton:
+
+    def test_details_button_disabled_before_connect(self, window):
+        """Details button is disabled until a device connects."""
+        assert not window._details_btn.isEnabled()
+
+    def test_details_button_enabled_after_connect(self, window):
+        """Details button becomes enabled once connected."""
+        state = _make_state()
+        window._on_connected(state)
+        assert window._details_btn.isEnabled()
+
+
+# ── FanDetailsDialog ──────────────────────────────────────────────────────────
+
+@pytest.fixture
+def details_dialog(qapp, tmp_path):
+    import ventocontrol.scenarios as _s
+    original = _s._SCENARIOS_FILE
+    _s._SCENARIOS_FILE = tmp_path / "scenarios.json"
+    dlg = FanDetailsDialog(title="Test Fan", scenarios=ScenarioStore())
+    yield dlg
+    dlg.close()
+    _s._SCENARIOS_FILE = original
+
+
+class TestFanDetailsDialog:
+
+    def test_schedule_buttons_present(self, details_dialog):
+        """Schedule controls exist in the details dialog."""
+        assert hasattr(details_dialog, '_sched_en_btn')
+        assert hasattr(details_dialog, '_sched_edit_btn')
+        assert hasattr(details_dialog, '_sync_rtc_btn')
+
+    def test_schedule_enable_emits_signal(self, details_dialog, qapp):
+        """Clicking the schedule enable button emits the schedule-enable signal."""
+        received = []
+        details_dialog.schedule_enable_changed.connect(lambda v: received.append(v))
+        details_dialog._sched_en_btn.setChecked(True)
+        details_dialog._on_schedule_enable_clicked()
+        assert received == [True]
+
+    def test_sync_rtc_emits_signal(self, details_dialog, qapp):
+        """Clicking Sync RTC emits the sync_rtc signal."""
+        emitted = []
+        details_dialog.sync_rtc.connect(lambda: emitted.append(True))
+        details_dialog._sync_rtc_btn.click()
+        assert emitted == [True]
+
+    def test_refresh_reflects_schedule_enabled(self, details_dialog):
+        state = DeviceState(
+            ip="192.168.1.1", device_id="TESTDEVICE000001",
+            weekly_schedule_enabled=True,
+        )
+        details_dialog.refresh(state)
+        assert details_dialog._sched_en_btn.isChecked()
+        assert details_dialog._sched_en_btn.text() == "ON"
+
+    def test_refresh_reflects_schedule_disabled(self, details_dialog):
+        state = DeviceState(
+            ip="192.168.1.1", device_id="TESTDEVICE000001",
+            weekly_schedule_enabled=False,
+        )
+        details_dialog.refresh(state)
+        assert not details_dialog._sched_en_btn.isChecked()
+        assert details_dialog._sched_en_btn.text() == "OFF"
+
+    def test_refresh_updates_boost(self, details_dialog):
+        state = DeviceState(
+            ip="192.168.1.1", device_id="TESTDEVICE000001",
+            boost_active=True,
+        )
+        details_dialog.refresh(state)
+        assert details_dialog._boost_btn.isChecked()
+        assert details_dialog._boost_btn.text() == "ON"
+
+    def test_boost_emits_signal(self, details_dialog, qapp):
+        received = []
+        details_dialog.boost_changed.connect(lambda v: received.append(v))
+        details_dialog._boost_btn.setChecked(True)
+        details_dialog._on_boost_clicked()
+        assert received == [True]

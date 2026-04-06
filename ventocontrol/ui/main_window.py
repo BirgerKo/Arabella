@@ -7,7 +7,7 @@ from typing import Optional
 from PySide6.QtCore import Qt, QThread, QTimer, Signal, Slot
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
-    QDialog, QFrame, QGroupBox, QHBoxLayout, QLabel,
+    QDialog, QGroupBox, QHBoxLayout, QLabel,
     QMainWindow, QMenu, QPushButton,
     QStatusBar, QVBoxLayout, QWidget,
 )
@@ -20,16 +20,16 @@ from ventocontrol.registry import WindowRegistry
 from ventocontrol.scenarios import (
     FanSettings, ScenarioEntry, ScenarioSettings, ScenarioStore,
 )
+from ventocontrol.controllers.poller import Poller
 from ventocontrol.ui.connect_dialog import ConnectDialog
+from ventocontrol.ui.fan_details_dialog import FanDetailsDialog
 from ventocontrol.ui.rename_dialog import RenameDialog
+from ventocontrol.ui.schedule_dialog import ScheduleDialog
 from ventocontrol.ui.scenario_dialog import (
     ManageScenariosDialog, SaveScenarioDialog,
 )
-from ventocontrol.controllers.poller import Poller
-from ventocontrol.widgets.humidity_widget import HumidityWidget
 from ventocontrol.widgets.mode_selector import ModeSelector
 from ventocontrol.widgets.power_button import PowerButton
-from ventocontrol.widgets.rpm_display import RPMDisplay
 from ventocontrol.widgets.speed_control import SpeedControl
 from ventocontrol.widgets.status_led import StatusLED
 
@@ -44,6 +44,10 @@ _QS_UNASSIGNED = (
 )
 
 
+def _schedule_btn_text(enabled: bool) -> str:
+    return f"Schedule\n{'ON' if enabled else 'OFF'}"
+
+
 class MainWindow(QMainWindow):
     # ── Command signals (emitted on main thread, received on worker thread) ──
     _sig_connect        = Signal(str, str, str)
@@ -52,9 +56,11 @@ class MainWindow(QMainWindow):
     _sig_set_speed      = Signal(int)
     _sig_set_manual_spd = Signal(int)
     _sig_set_mode       = Signal(int)
-    _sig_set_boost      = Signal(bool)
-    _sig_set_hum_sensor = Signal(int)
-    _sig_set_hum_thresh = Signal(int)
+    _sig_set_boost         = Signal(bool)
+    _sig_set_hum_sensor    = Signal(int)
+    _sig_set_hum_thresh    = Signal(int)
+    _sig_set_schedule_en   = Signal(bool)
+    _sig_get_schedule      = Signal()
 
     def __init__(
         self,
@@ -67,7 +73,7 @@ class MainWindow(QMainWindow):
     ):
         super().__init__(parent)
         self.setWindowTitle("VentoControl")
-        self.setMinimumSize(680, 460)
+        self.setMinimumSize(380, 460)
 
         self._host              = host
         self._password          = password
@@ -79,9 +85,11 @@ class MainWindow(QMainWindow):
         self._child_windows: list[MainWindow]      = []
 
         # Global scenario store (shared across all windows via same file)
-        self._scenarios   = ScenarioStore()
+        self._scenarios      = ScenarioStore()
         # Quick-slot buttons — built in _build_ui
-        self._quick_btns: list[QPushButton] = []
+        self._quick_btns: list[QPushButton]          = []
+        self._fan_details_dlg: Optional[FanDetailsDialog] = None
+        self._schedule_dlg:    Optional[ScheduleDialog]   = None
 
         # Register with the window registry so multi-fan scenarios can find us
         if self._registry is not None:
@@ -97,6 +105,7 @@ class MainWindow(QMainWindow):
         self._worker.state_updated.connect(self._on_state_updated)
         self._worker.error.connect(self._on_error)
         self._worker.command_done.connect(self._on_command_done)
+        self._worker.connection_failed.connect(self._on_connection_failed)
 
         # UI → Worker
         self._sig_connect.connect(self._worker.do_connect)
@@ -108,6 +117,9 @@ class MainWindow(QMainWindow):
         self._sig_set_boost.connect(self._worker.do_set_boost)
         self._sig_set_hum_sensor.connect(self._worker.do_set_humidity_sensor)
         self._sig_set_hum_thresh.connect(self._worker.do_set_humidity_threshold)
+        self._sig_set_schedule_en.connect(self._worker.do_set_schedule_enabled)
+        self._sig_get_schedule.connect(self._worker.do_get_full_schedule)
+        self._worker.schedule_loaded.connect(self._on_schedule_loaded)
 
         self._thread.start()
 
@@ -139,29 +151,34 @@ class MainWindow(QMainWindow):
     def _build_ui(self):
         central = QWidget()
         self.setCentralWidget(central)
-        root = QHBoxLayout(central)
+        root = QVBoxLayout(central)
         root.setContentsMargins(16, 16, 16, 16)
-        root.setSpacing(16)
+        root.setSpacing(12)
 
-        # ── LEFT COLUMN ──
-        left = QVBoxLayout()
-        left.setSpacing(12)
-
+        # Device header row
         device_row = QHBoxLayout()
         self._device_lbl = QLabel("Connecting…")
         self._device_lbl.setObjectName("DeviceHeader")
         device_row.addWidget(self._device_lbl)
         device_row.addStretch()
+        self._details_btn = QPushButton("Details…")
+        self._details_btn.setObjectName("DetailsBtn")
+        self._details_btn.setToolTip(
+            "Show fan details: boost, humidity, RPM, schedule, scenarios"
+        )
+        self._details_btn.setEnabled(False)
+        self._details_btn.clicked.connect(self._open_fan_details)
+        device_row.addWidget(self._details_btn)
         self._switch_btn = QPushButton("Switch…")
         self._switch_btn.setObjectName("SwitchBtn")
         self._switch_btn.setToolTip("Connect to a different device")
         self._switch_btn.clicked.connect(self._switch_device)
         device_row.addWidget(self._switch_btn)
-        left.addLayout(device_row)
+        root.addLayout(device_row)
 
         self._power_btn = PowerButton()
         self._power_btn.toggled_power.connect(self._on_power_toggled)
-        left.addWidget(self._power_btn, 0, Qt.AlignmentFlag.AlignLeft)
+        root.addWidget(self._power_btn, 0, Qt.AlignmentFlag.AlignLeft)
 
         speed_box = QGroupBox("Speed")
         speed_layout = QVBoxLayout(speed_box)
@@ -169,17 +186,27 @@ class MainWindow(QMainWindow):
         self._speed_ctrl.speed_changed.connect(self._on_speed_changed)
         self._speed_ctrl.manual_speed_changed.connect(self._on_manual_speed_changed)
         speed_layout.addWidget(self._speed_ctrl)
-        left.addWidget(speed_box)
+        root.addWidget(speed_box)
 
-        # Mode group — includes quick-scenario buttons below the mode selector
+        # Mode group — mode selector + schedule on/off toggle
         mode_box = QGroupBox("Mode")
         mode_layout = QVBoxLayout(mode_box)
         self._mode_sel = ModeSelector()
         self._mode_sel.mode_changed.connect(self._on_mode_changed)
         mode_layout.addWidget(self._mode_sel)
 
-        quick_row = QHBoxLayout()
-        quick_row.setSpacing(4)
+        self._sched_en_btn = QPushButton(_schedule_btn_text(False))
+        self._sched_en_btn.setCheckable(True)
+        self._sched_en_btn.setObjectName("ScheduleEnBtn")
+        self._sched_en_btn.setEnabled(False)
+        self._sched_en_btn.clicked.connect(self._on_schedule_enable_clicked)
+        mode_layout.addWidget(self._sched_en_btn)
+        root.addWidget(mode_box)
+
+        # Quick scenarios — separate group below Mode
+        quick_box = QGroupBox("Quick Scenarios")
+        quick_layout = QHBoxLayout(quick_box)
+        quick_layout.setSpacing(4)
         self._quick_btns = []
         for i in range(3):
             btn = QPushButton(f"Q{i + 1}")
@@ -193,56 +220,10 @@ class MainWindow(QMainWindow):
                 lambda pos, idx=i: self._on_quick_context(idx, pos)
             )
             self._quick_btns.append(btn)
-            quick_row.addWidget(btn)
-        mode_layout.addLayout(quick_row)
-        left.addWidget(mode_box)
+            quick_layout.addWidget(btn)
+        root.addWidget(quick_box)
 
-        boost_row = QHBoxLayout()
-        boost_row.addWidget(QLabel("Boost:"))
-        self._boost_btn = QPushButton("OFF")
-        self._boost_btn.setCheckable(True)
-        self._boost_btn.setObjectName("BoostBtn")
-        self._boost_btn.clicked.connect(self._on_boost_clicked)
-        boost_row.addWidget(self._boost_btn)
-        boost_row.addStretch()
-        left.addLayout(boost_row)
-
-        # Scenario button
-        self._save_scenario_btn = QPushButton("Scenario")
-        self._save_scenario_btn.setObjectName("SaveScenarioBtn")
-        self._save_scenario_btn.setEnabled(False)
-        self._save_scenario_btn.clicked.connect(self._on_scenario_btn_clicked)
-        left.addWidget(self._save_scenario_btn)
-
-        left.addStretch()
-        root.addLayout(left, 2)
-
-        # ── DIVIDER ──
-        line = QFrame()
-        line.setFrameShape(QFrame.Shape.VLine)
-        line.setObjectName("Divider")
-        root.addWidget(line)
-
-        # ── RIGHT COLUMN ──
-        right = QVBoxLayout()
-        right.setSpacing(12)
-
-        rpm_box = QGroupBox("Fan Speed")
-        rpm_row = QHBoxLayout(rpm_box)
-        self._fan1 = RPMDisplay("Fan 1")
-        self._fan2 = RPMDisplay("Fan 2")
-        rpm_row.addWidget(self._fan1)
-        rpm_row.addWidget(self._fan2)
-        right.addWidget(rpm_box)
-
-        hum_box = QGroupBox("Humidity")
-        hum_layout = QVBoxLayout(hum_box)
-        self._hum_widget = HumidityWidget()
-        self._hum_widget.sensor_toggled.connect(self._on_humidity_sensor)
-        self._hum_widget.threshold_changed.connect(self._on_humidity_threshold)
-        hum_layout.addWidget(self._hum_widget)
-        right.addWidget(hum_box)
-
+        # Status group box
         stat_box = QGroupBox("Status")
         stat_layout = QVBoxLayout(stat_box)
 
@@ -262,9 +243,8 @@ class MainWindow(QMainWindow):
         alarm_row.addStretch()
         stat_layout.addLayout(alarm_row)
 
-        right.addWidget(stat_box)
-        right.addStretch()
-        root.addLayout(right, 3)
+        root.addWidget(stat_box)
+        root.addStretch()
 
     def _build_status_bar(self):
         sb = QStatusBar()
@@ -314,7 +294,6 @@ class MainWindow(QMainWindow):
         for w in self._control_widgets():
             w.setEnabled(True)
         self._act_rename.setEnabled(True)
-        self._save_scenario_btn.setEnabled(True)
         self._set_status("Connected", "green")
         self._poller.start()
         self._apply_state(state)
@@ -343,6 +322,17 @@ class MainWindow(QMainWindow):
     def _on_command_done(self):
         self._sig_poll.emit()
 
+    @Slot(str)
+    def _on_connection_failed(self, _msg: str):
+        """Handle a failed connection attempt.
+
+        Resets the window to an unconnected state and shows a clear
+        message so the user knows they can use Switch… to retry.
+        """
+        self._go_to_unconnected()
+        self._device_lbl.setText("Device not found or connected yet…")
+        self.statusBar().showMessage("Connection failed — use Switch… to try again", 0)
+
     # ------------------------------------------------------------------
     # State → UI
     # ------------------------------------------------------------------
@@ -368,18 +358,12 @@ class MainWindow(QMainWindow):
         if s.operation_mode is not None:
             self._mode_sel.set_mode(s.operation_mode)
 
-        if s.boost_active is not None:
-            self._boost_btn.setChecked(s.boost_active)
-            self._boost_btn.setText("ON" if s.boost_active else "OFF")
+        if s.weekly_schedule_enabled is not None:
+            self._sched_en_btn.setChecked(s.weekly_schedule_enabled)
+            self._sched_en_btn.setText(_schedule_btn_text(s.weekly_schedule_enabled))
 
-        self._fan1.set_rpm(s.fan1_rpm)
-        self._fan2.set_rpm(s.fan2_rpm)
-
-        self._hum_widget.set_humidity(s.current_humidity)
-        if s.humidity_sensor is not None:
-            self._hum_widget.set_sensor_enabled(bool(s.humidity_sensor))
-        if s.humidity_threshold is not None:
-            self._hum_widget.set_threshold(s.humidity_threshold)
+        if self._fan_details_dlg is not None and self._fan_details_dlg.isVisible():
+            self._fan_details_dlg.refresh(s)
 
         if s.alarm_status == 0:
             self._alarm_led.set_ok();      self._alarm_lbl.setText("OK")
@@ -418,16 +402,73 @@ class MainWindow(QMainWindow):
     def _on_mode_changed(self, mode: int):
         self._sig_set_mode.emit(mode)
 
-    def _on_boost_clicked(self):
-        on = self._boost_btn.isChecked()
-        self._boost_btn.setText("ON" if on else "OFF")
-        self._sig_set_boost.emit(on)
+    def _on_schedule_enable_clicked(self) -> None:
+        enabled = self._sched_en_btn.isChecked()
+        self._sched_en_btn.setText(_schedule_btn_text(enabled))
+        self._sig_set_schedule_en.emit(enabled)
 
-    def _on_humidity_sensor(self, state: int):
-        self._sig_set_hum_sensor.emit(state)
+    def _open_fan_details(self) -> None:
+        """Open (or bring to front) the fan details dialog."""
+        if self._fan_details_dlg is not None and self._fan_details_dlg.isVisible():
+            self._fan_details_dlg.raise_()
+            self._fan_details_dlg.activateWindow()
+            return
 
-    def _on_humidity_threshold(self, rh: int):
-        self._sig_set_hum_thresh.emit(rh)
+        display_name = (
+            self._get_display_name(self._last_state)
+            if self._last_state else "Fan Details"
+        )
+        dlg = FanDetailsDialog(
+            title=display_name,
+            scenarios=self._scenarios,
+            parent=self,
+        )
+        dlg.boost_changed.connect(self._worker.do_set_boost)
+        dlg.hum_sensor_changed.connect(self._worker.do_set_humidity_sensor)
+        dlg.hum_threshold_changed.connect(self._worker.do_set_humidity_threshold)
+        dlg.schedule_enable_changed.connect(self._worker.do_set_schedule_enabled)
+        dlg.schedule_period_changed.connect(self._worker.do_set_schedule_period)
+        dlg.schedule_edit_requested.connect(self._on_schedule_edit_requested)
+        dlg.sync_rtc.connect(self._worker.do_sync_rtc)
+        dlg.save_scenario_requested.connect(self._save_scenario)
+        dlg.add_to_scenario_requested.connect(self._add_to_scenario)
+        dlg.finished.connect(self._on_fan_details_closed)
+
+        if self._last_state is not None:
+            dlg.refresh(self._last_state)
+
+        self._fan_details_dlg = dlg
+        dlg.show()
+
+    def _on_fan_details_closed(self) -> None:
+        """Clean up after the fan details dialog closes."""
+        self._fan_details_dlg = None
+
+    def _on_schedule_edit_requested(self) -> None:
+        """Open the schedule editor and trigger a full-schedule read from the device."""
+        if self._schedule_dlg is not None and self._schedule_dlg.isVisible():
+            self._schedule_dlg.raise_()
+            self._schedule_dlg.activateWindow()
+            return
+        dlg = ScheduleDialog(parent=self)
+        dlg.period_changed.connect(self._worker.do_set_schedule_period)
+        dlg.finished.connect(self._on_schedule_dialog_closed)
+        self._schedule_dlg = dlg
+        dlg.show()
+        self._sig_get_schedule.emit()
+
+    def _on_schedule_dialog_closed(self) -> None:
+        self._schedule_dlg = None
+
+    @Slot(object)
+    def _on_schedule_loaded(self, schedule: dict) -> None:
+        """Receive full schedule (or partial on error) and populate the open editor.
+
+        Always calls load() so the dialog leaves the loading state even when
+        the device read failed — the user can still edit from empty defaults.
+        """
+        if self._schedule_dlg is not None and self._schedule_dlg.isVisible():
+            self._schedule_dlg.load(schedule)
 
     # ------------------------------------------------------------------
     # Scenario — apply settings to this window
@@ -624,9 +665,9 @@ class MainWindow(QMainWindow):
         menu = self._scenarios_menu
         menu.clear()
 
-        act_save = QAction("Scenario…", self)
+        act_save = QAction("Save Scenario…", self)
         act_save.setEnabled(self._last_state is not None)
-        act_save.triggered.connect(self._on_scenario_btn_clicked)
+        act_save.triggered.connect(self._save_scenario)
         menu.addAction(act_save)
 
         act_manage = QAction("Manage Scenarios…", self)
@@ -739,8 +780,8 @@ class MainWindow(QMainWindow):
 
     def _control_widgets(self):
         """Return the interactive control widgets (used for enable/disable)."""
-        return (self._power_btn, self._speed_ctrl,
-                self._mode_sel, self._boost_btn, self._hum_widget)
+        return (self._power_btn, self._speed_ctrl, self._mode_sel,
+                self._sched_en_btn, self._details_btn)
 
     def _get_display_name(self, state: DeviceState) -> str:
         """Return the user-set name if available, otherwise the unit type name."""
@@ -776,7 +817,6 @@ class MainWindow(QMainWindow):
         for w in self._control_widgets():
             w.setEnabled(False)
         self._act_rename.setEnabled(False)
-        self._save_scenario_btn.setEnabled(False)
         for btn in self._quick_btns:
             btn.setEnabled(False)
         self._set_status("No fan connected", "grey")
@@ -792,7 +832,6 @@ class MainWindow(QMainWindow):
         for w in self._control_widgets():
             w.setEnabled(False)
         self._act_rename.setEnabled(False)
-        self._save_scenario_btn.setEnabled(False)
         for btn in self._quick_btns:
             btn.setEnabled(False)
         self._set_status("Connecting…", "amber")

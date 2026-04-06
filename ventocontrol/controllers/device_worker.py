@@ -17,11 +17,13 @@ class DeviceWorker(QObject):
     """All blocking VentoClient calls happen here (runs in its own QThread)."""
 
     # Outgoing signals
-    discovery_result = Signal(list)          # list[DiscoveredDevice]
-    connected        = Signal(object)        # DeviceState on first successful poll
-    state_updated    = Signal(object)        # DeviceState
-    error            = Signal(str)           # human-readable error text
-    command_done     = Signal()              # a write command completed OK
+    discovery_result   = Signal(list)        # list[DiscoveredDevice]
+    connected          = Signal(object)      # DeviceState on first successful poll
+    state_updated      = Signal(object)      # DeviceState
+    error              = Signal(str)         # human-readable error text
+    command_done       = Signal()            # a write command completed OK
+    schedule_loaded    = Signal(object)      # dict {(day, period): SchedulePeriod}
+    connection_failed  = Signal(str)         # emitted only when do_connect fails
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -34,7 +36,7 @@ class DeviceWorker(QObject):
     @Slot()
     def do_discover(self):
         try:
-            devices = VentoClient.discover(timeout=2.0)
+            devices = VentoClient.discover(timeout=1.0)
             subnet_devices = self._subnet_discover()
             known_ids = {d.device_id for d in devices}
             devices += [d for d in subnet_devices if d.device_id not in known_ids]
@@ -64,7 +66,7 @@ class DeviceWorker(QObject):
                 return []
 
             network = ipaddress.IPv4Network(f"{local_ip}/{netmask}", strict=False)
-            return VentoClient.discover(broadcast=str(network.broadcast_address), timeout=2.0)
+            return VentoClient.discover(broadcast=str(network.broadcast_address), timeout=1.0)
         except Exception:
             return []
 
@@ -102,10 +104,14 @@ class DeviceWorker(QObject):
             self.connected.emit(state)
         except VentoError as exc:
             self._client = None
-            self.error.emit(f"Connection failed: {exc}")
+            msg = f"Connection failed: {exc}"
+            self.error.emit(msg)
+            self.connection_failed.emit(msg)
         except Exception as exc:
             self._client = None
-            self.error.emit(f"Unexpected connection error: {exc}")
+            msg = f"Unexpected connection error: {exc}"
+            self.error.emit(msg)
+            self.connection_failed.emit(msg)
 
     # ------------------------------------------------------------------
     # Polling
@@ -173,3 +179,43 @@ class DeviceWorker(QObject):
     @Slot(int)
     def do_set_humidity_threshold(self, rh: int):
         self._run(self._client.set_humidity_threshold, rh)
+
+    @Slot(bool)
+    def do_set_schedule_enabled(self, enabled: bool):
+        self._run(self._client.enable_weekly_schedule, enabled)
+
+    @Slot(int, int, int, int, int)
+    def do_set_schedule_period(self, day: int, period: int, speed: int, end_h: int, end_m: int):
+        self._run(self._client.set_schedule_period, day, period, speed, end_h, end_m)
+
+    @Slot()
+    def do_get_full_schedule(self):
+        """Read all 32 schedule periods (8 day groups × 4 periods) from the device.
+
+        Always emits ``schedule_loaded`` — with whatever periods were read
+        successfully — so the dialog never hangs in loading state.  Individual
+        read failures are reported via ``error`` but do not abort the load.
+        """
+        if self._client is None:
+            self.error.emit("Not connected")
+            self.schedule_loaded.emit({})
+            return
+        schedule: dict = {}
+        for day in range(8):
+            for period in range(1, 5):
+                try:
+                    sp = self._client.get_schedule_period(day, period)
+                    schedule[(day, period)] = sp
+                except VentoError as exc:
+                    self.error.emit(f"Schedule read failed (day {day}, period {period}): {exc}")
+                    self.schedule_loaded.emit(schedule)
+                    return
+                except Exception as exc:
+                    self.error.emit(f"Unexpected schedule error: {exc}")
+                    self.schedule_loaded.emit(schedule)
+                    return
+        self.schedule_loaded.emit(schedule)
+
+    @Slot()
+    def do_sync_rtc(self):
+        self._run(self._client.sync_rtc)
