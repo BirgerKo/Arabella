@@ -7,7 +7,7 @@ from blauberg_vento.models import DeviceState, DiscoveredDevice
 from webdashboard.backend.device_manager import DeviceManager, _state_to_dict
 
 
-def make_state(**kw):
+def _make_state(**kw):
     defaults = dict(
         ip="10.0.0.1",
         device_id="VENT-01",
@@ -29,7 +29,7 @@ def manager():
 
 
 def test_state_to_dict_maps_fields():
-    state = make_state()
+    state = _make_state()
     d = _state_to_dict(state)
     assert d["connected"] is True
     assert d["ip"] == "10.0.0.1"
@@ -46,7 +46,7 @@ def test_initially_not_connected(manager):
 
 @pytest.mark.asyncio
 async def test_connect_sets_state_and_starts_polling(manager):
-    mock_state = make_state()
+    mock_state = _make_state()
     mock_client = MagicMock()
     mock_client.get_state = AsyncMock(return_value=mock_state)
 
@@ -63,7 +63,7 @@ async def test_connect_sets_state_and_starts_polling(manager):
 
 @pytest.mark.asyncio
 async def test_disconnect_clears_state(manager):
-    mock_state = make_state()
+    mock_state = _make_state()
     mock_client = MagicMock()
     mock_client.get_state = AsyncMock(return_value=mock_state)
 
@@ -77,7 +77,7 @@ async def test_disconnect_clears_state(manager):
 
 @pytest.mark.asyncio
 async def test_set_power_calls_turn_on(manager):
-    mock_state = make_state(power=False)
+    mock_state = _make_state(power=False)
     mock_client = MagicMock()
     mock_client.get_state = AsyncMock(return_value=mock_state)
     mock_client.turn_on   = AsyncMock()
@@ -94,7 +94,7 @@ async def test_set_power_calls_turn_on(manager):
 
 @pytest.mark.asyncio
 async def test_set_power_calls_turn_off(manager):
-    mock_state = make_state(power=True)
+    mock_state = _make_state(power=True)
     mock_client = MagicMock()
     mock_client.get_state = AsyncMock(return_value=mock_state)
     mock_client.turn_off  = AsyncMock()
@@ -109,7 +109,7 @@ async def test_set_power_calls_turn_off(manager):
 
 @pytest.mark.asyncio
 async def test_set_speed_preset(manager):
-    mock_state = make_state()
+    mock_state = _make_state()
     mock_client = MagicMock()
     mock_client.get_state  = AsyncMock(return_value=mock_state)
     mock_client.set_speed  = AsyncMock()
@@ -124,7 +124,7 @@ async def test_set_speed_preset(manager):
 
 @pytest.mark.asyncio
 async def test_set_speed_manual(manager):
-    mock_state = make_state()
+    mock_state = _make_state()
     mock_client = MagicMock()
     mock_client.get_state       = AsyncMock(return_value=mock_state)
     mock_client.set_manual_speed = AsyncMock()
@@ -139,7 +139,7 @@ async def test_set_speed_manual(manager):
 
 @pytest.mark.asyncio
 async def test_set_mode(manager):
-    mock_state = make_state()
+    mock_state = _make_state()
     mock_client = MagicMock()
     mock_client.get_state = AsyncMock(return_value=mock_state)
     mock_client.set_mode  = AsyncMock()
@@ -230,7 +230,7 @@ async def test_discover_delegates_to_client():
 
 @pytest.mark.asyncio
 async def test_broadcast_callback_called_after_command(manager):
-    mock_state = make_state()
+    mock_state = _make_state()
     mock_client = MagicMock()
     mock_client.get_state = AsyncMock(return_value=mock_state)
     mock_client.turn_on   = AsyncMock()
@@ -251,8 +251,8 @@ async def test_broadcast_callback_called_after_command(manager):
 @pytest.mark.asyncio
 async def test_connect_replaces_active_device(manager):
     """Connecting to a second device stops the first poller and activates the new state."""
-    state_a = make_state(ip="10.0.0.1", device_id="FAN-A")
-    state_b = make_state(ip="10.0.0.2", device_id="FAN-B", speed=3)
+    state_a = _make_state(ip="10.0.0.1", device_id="FAN-A")
+    state_b = _make_state(ip="10.0.0.2", device_id="FAN-B", speed=3)
 
     client_a = MagicMock()
     client_a.get_state = AsyncMock(return_value=state_a)
@@ -281,8 +281,8 @@ async def test_connect_replaces_active_device(manager):
 @pytest.mark.asyncio
 async def test_switch_preserves_connection_to_new_device(manager):
     """After switching, commands go to the new device, not the old one."""
-    state_a = make_state(ip="10.0.0.1", device_id="FAN-A")
-    state_b = make_state(ip="10.0.0.2", device_id="FAN-B")
+    state_a = _make_state(ip="10.0.0.1", device_id="FAN-A")
+    state_b = _make_state(ip="10.0.0.2", device_id="FAN-B")
 
     client_a = MagicMock()
     client_a.get_state = AsyncMock(return_value=state_a)
@@ -310,8 +310,8 @@ async def test_switch_preserves_connection_to_new_device(manager):
 @pytest.mark.asyncio
 async def test_switch_active_state_reflects_new_device(manager):
     """After switching, current_state contains the new device's fields, not the old ones."""
-    state_a = make_state(ip="10.0.0.1", device_id="FAN-A", speed=1, fan1_rpm=800)
-    state_b = make_state(ip="10.0.0.2", device_id="FAN-B", speed=3, fan1_rpm=2400)
+    state_a = _make_state(ip="10.0.0.1", device_id="FAN-A", speed=1, fan1_rpm=800)
+    state_b = _make_state(ip="10.0.0.2", device_id="FAN-B", speed=3, fan1_rpm=2400)
 
     client_a = MagicMock()
     client_a.get_state = AsyncMock(return_value=state_a)

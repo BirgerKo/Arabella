@@ -18,10 +18,22 @@ from playwright.sync_api import Page, expect
 
 BASE = "http://localhost:8080"
 
+_DEFAULT_IP        = "127.0.0.1"
+_DEFAULT_DEVICE_ID = "VENT-SIM"
+
 
 @pytest.fixture(scope="session")
 def browser_context_args(browser_context_args):
     return {**browser_context_args, "base_url": BASE}
+
+
+# ── Private helpers ─────────────────────────────────────────────────────────────
+
+def _connect(page: Page, ip: str = _DEFAULT_IP, device_id: str = _DEFAULT_DEVICE_ID) -> None:
+    """Fill in the connect dialog and submit it."""
+    page.get_by_placeholder("IP address").fill(ip)
+    page.get_by_placeholder("Device ID").fill(device_id)
+    page.get_by_role("button", name="Connect").click()
 
 
 # ── Connect dialog ─────────────────────────────────────────────────────────────
@@ -33,6 +45,7 @@ def test_connect_dialog_shown_on_load(page: Page):
 
 
 def test_connect_dialog_has_rescan_button(page: Page):
+    """Rescan button is present in the connect dialog."""
     page.goto("/")
     expect(page.get_by_role("button", name="Rescan")).to_be_visible()
 
@@ -42,20 +55,14 @@ def test_connect_dialog_has_rescan_button(page: Page):
 def test_power_button_visible_when_connected(page: Page):
     """Power button is rendered after connecting."""
     page.goto("/")
-    # Connect via the manual form using the simulator defaults
-    page.get_by_placeholder("IP address").fill("127.0.0.1")
-    page.get_by_placeholder("Device ID").fill("VENT-SIM")
-    page.get_by_role("button", name="Connect").click()
-
+    _connect(page)
     expect(page.get_by_role("button", name=re.compile(r"Turn (on|off)", re.IGNORECASE))).to_be_visible(timeout=10_000)
 
 
 def test_power_button_toggle(page: Page):
     """Clicking the power button changes its state."""
     page.goto("/")
-    page.get_by_placeholder("IP address").fill("127.0.0.1")
-    page.get_by_placeholder("Device ID").fill("VENT-SIM")
-    page.get_by_role("button", name="Connect").click()
+    _connect(page)
 
     power_btn = page.get_by_role("button", name=re.compile(r"Turn (on|off)", re.IGNORECASE))
     expect(power_btn).to_be_visible(timeout=10_000)
@@ -70,22 +77,18 @@ def test_power_button_toggle(page: Page):
 # ── Speed control ──────────────────────────────────────────────────────────────
 
 def test_speed_preset_buttons_visible(page: Page):
+    """Speed preset buttons 1, 2, and 3 appear after connecting."""
     page.goto("/")
-    page.get_by_placeholder("IP address").fill("127.0.0.1")
-    page.get_by_placeholder("Device ID").fill("VENT-SIM")
-    page.get_by_role("button", name="Connect").click()
-
+    _connect(page)
     expect(page.get_by_role("button", name="1").first).to_be_visible(timeout=10_000)
     expect(page.get_by_role("button", name="2").first).to_be_visible()
     expect(page.get_by_role("button", name="3").first).to_be_visible()
 
 
 def test_speed_preset_activates(page: Page):
+    """Clicking a speed preset marks it as pressed."""
     page.goto("/")
-    page.get_by_placeholder("IP address").fill("127.0.0.1")
-    page.get_by_placeholder("Device ID").fill("VENT-SIM")
-    page.get_by_role("button", name="Connect").click()
-
+    _connect(page)
     btn2 = page.get_by_role("button", name="2").first
     expect(btn2).to_be_visible(timeout=10_000)
     btn2.click()
@@ -95,11 +98,9 @@ def test_speed_preset_activates(page: Page):
 # ── Mode selector ──────────────────────────────────────────────────────────────
 
 def test_mode_buttons_present(page: Page):
+    """All three operation-mode buttons are visible after connecting."""
     page.goto("/")
-    page.get_by_placeholder("IP address").fill("127.0.0.1")
-    page.get_by_placeholder("Device ID").fill("VENT-SIM")
-    page.get_by_role("button", name="Connect").click()
-
+    _connect(page)
     expect(page.get_by_role("button", name="Ventilation")).to_be_visible(timeout=10_000)
     expect(page.get_by_role("button", name="Heat Recovery")).to_be_visible()
     expect(page.get_by_role("button", name="Supply")).to_be_visible()
@@ -108,59 +109,46 @@ def test_mode_buttons_present(page: Page):
 # ── Scenarios ──────────────────────────────────────────────────────────────────
 
 def test_save_scenario_modal(page: Page):
+    """'Save as Scenario' opens the save dialog."""
     page.goto("/")
-    page.get_by_placeholder("IP address").fill("127.0.0.1")
-    page.get_by_placeholder("Device ID").fill("VENT-SIM")
-    page.get_by_role("button", name="Connect").click()
-
+    _connect(page)
     page.get_by_role("button", name=re.compile(r"Scenario", re.IGNORECASE)).click(timeout=10_000)
     expect(page.get_by_role("dialog", name="Save scenario")).to_be_visible()
 
 
 def test_save_scenario_and_appears_in_list(page: Page):
+    """A saved scenario appears in the scenario list."""
     page.goto("/")
-    page.get_by_placeholder("IP address").fill("127.0.0.1")
-    page.get_by_placeholder("Device ID").fill("VENT-SIM")
-    page.get_by_role("button", name="Connect").click()
-
+    _connect(page)
     page.get_by_role("button", name=re.compile(r"Scenario", re.IGNORECASE)).click(timeout=10_000)
     page.get_by_label("Name").fill("E2E Test Scenario")
     page.get_by_role("button", name="Save").click()
-
     expect(page.get_by_text("E2E Test Scenario")).to_be_visible(timeout=5_000)
 
 
 # ── Status bar ─────────────────────────────────────────────────────────────────
 
 def test_status_bar_shows_connected(page: Page):
+    """Status bar reflects the connected state."""
     page.goto("/")
-    page.get_by_placeholder("IP address").fill("127.0.0.1")
-    page.get_by_placeholder("Device ID").fill("VENT-SIM")
-    page.get_by_role("button", name="Connect").click()
-
+    _connect(page)
     expect(page.get_by_text("Connected")).to_be_visible(timeout=10_000)
 
 
 # ── Fan switching ──────────────────────────────────────────────────────────────
 
-def _connect(page: Page, ip: str, device_id: str) -> None:
-    """Fill in the connect dialog and submit it."""
-    page.get_by_placeholder("IP address").fill(ip)
-    page.get_by_placeholder("Device ID").fill(device_id)
-    page.get_by_role("button", name="Connect").click()
-
 
 def test_switch_button_visible_after_connect(page: Page):
     """The 'Switch…' button must be shown in the device header once connected."""
     page.goto("/")
-    _connect(page, "127.0.0.1", "VENT-SIM")
+    _connect(page)
     expect(page.get_by_role("button", name="Switch")).to_be_visible(timeout=10_000)
 
 
 def test_switch_reopens_connect_dialog(page: Page):
     """Clicking 'Switch…' must re-open the connect dialog without a full page reload."""
     page.goto("/")
-    _connect(page, "127.0.0.1", "VENT-SIM")
+    _connect(page)
 
     page.get_by_role("button", name="Switch").click(timeout=10_000)
     expect(page.get_by_role("dialog", name="Connect to device")).to_be_visible(timeout=5_000)
@@ -187,7 +175,7 @@ def test_switch_between_fans(page: Page):
 def test_switch_connect_dialog_is_prefilled_with_current_device(page: Page):
     """The connect dialog opened via 'Switch…' must pre-populate the current device's IP and ID."""
     page.goto("/")
-    _connect(page, "127.0.0.1", "VENT-SIM")
+    _connect(page)
     expect(page.get_by_text("VENT-SIM")).to_be_visible(timeout=10_000)
 
     page.get_by_role("button", name="Switch").click()

@@ -23,8 +23,12 @@ This file contains notes and instructions specific to the Arabella project.
 
 ## Code quality
 - all data/parameters that is input to the application or the API shall have input validation
-- client side validation is good. Server side validation is necesary 
+- client side validation is good. Server side validation is necesary
 
+## Code execution
+- Require python 3.11 or later for the project
+- Use python3 as base for executing commands on Mac.
+- Use latest available pyton as base for executing commandfs on Linux and Windows
 
 ## Testing
 - All code shall have unit tests covering the functionality
