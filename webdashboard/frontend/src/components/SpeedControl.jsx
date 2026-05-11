@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import './SpeedControl.css'
 
 const PRESETS = [1, 2, 3]
@@ -6,6 +6,10 @@ const PRESETS = [1, 2, 3]
 export default function SpeedControl({ speed, manualSpeed, disabled, onSpeedChange }) {
   const isManual = speed === 255
   const [sliderVal, setSliderVal] = useState(manualSpeed ?? 128)
+
+  useEffect(() => {
+    if (manualSpeed != null) setSliderVal(manualSpeed)
+  }, [manualSpeed])
 
   function handlePreset(preset) {
     onSpeedChange(preset)

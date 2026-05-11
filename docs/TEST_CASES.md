@@ -25,13 +25,18 @@ cd /Users/birger/Python/Arabella && python3.11 -m pytest -q
 | `tests/webdashboard/test_routers_devices.py` | — | 10 | Device state, connect, fan switching, disconnect, and discovery HTTP endpoints |
 | `tests/webdashboard/test_routers_scenarios.py` | — | 11 | Scenario CRUD, quick-slot, and add-fan-to-scenario HTTP endpoints |
 | `tests/webdashboard/e2e/test_dashboard.py` | — | 22 | Playwright E2E: connect dialog, power toggle, speed/mode controls, scenario save+list, fan switching, Details modal open/close, schedule enable/editor, sync RTC |
+| `webdashboard/frontend/tests/connect.spec.js` | — | 6 | Playwright E2E (React UI): connect dialog shown when disconnected, device scan, discovered-device click, manual form, error display, Switch button |
+| `webdashboard/frontend/tests/controls.spec.js` | — | 9 | Playwright E2E (React UI): power button ON/OFF state, setPower request, speed presets, manual slider, mode buttons, schedule toggle |
+| `webdashboard/frontend/tests/fan-details.spec.js` | — | 9 | Playwright E2E (React UI): Details modal open/close, device ID display, boost toggle, humidity sensor/threshold, RPM display, Sync RTC, RTC time |
+| `webdashboard/frontend/tests/schedule.spec.js` | — | 5 | Playwright E2E (React UI): schedule editor loading state, 8×4 grid, day labels, pre-populated cells, 32 API calls on Apply, Close with no API calls |
+| `webdashboard/frontend/tests/scenarios.spec.js` | — | 8 | Playwright E2E (React UI): scenario list, quick-slot dropdown, create/save/apply/delete scenario, quick slot Q1 apply, set quick slot |
 | `arabella_mobile/service/tests/tst_DeviceService` | — | 7 | Qt/C++ service layer: connect/fail/poll/disconnect/command/error with stub FFI |
 | `arabella_mobile/service/tests/tst_DeviceHistory` | — | 6 | Qt/C++ device history: record, move-to-front, cap, label, remove, signal |
 | `arabella_mobile/service/tests/tst_ScenarioStore` | — | 8 | Qt/C++ scenario store: save/load, overwrite, cap, eviction, delete, quick-slots, migration |
 | `arabella_mobile/viewmodel/tests/tst_DeviceViewModel` | — | 5 | Qt/C++ device view model: properties, firmware, disconnect, error, commands |
 | `arabella_mobile/viewmodel/tests/tst_ScheduleViewModel` | — | 6 | Qt/C++ schedule view model: load lifecycle, row count, model data, optimistic update |
 | `arabella_mobile/viewmodel/tests/tst_ScenarioViewModel` | — | 6 | Qt/C++ scenario view model: save, delete, apply, quick-slot, rename, device-id signal |
-| **Total** | **30+** | **260+** | |
+| **Total** | **30+** | **297+** | |
 
 ---
 
@@ -770,3 +775,94 @@ Qt Test suite for `ScenarioViewModel` — CRUD + quick-slot management over `Sce
 | `quickSlotRoundTrip` | `setQuickSlot(0, name)` is reflected by `quickSlots()[0]` | `slots[0] == "Eco"` |
 | `renameScenarioUpdatesModel` | `renameScenario()` replaces the name in the model | `rowCount() == 1`; name is "NewName" |
 | `setCurrentDeviceIdEmitsQuickSlotsChanged` | Changing the current device ID emits `quickSlotsChanged` | `spy.count() == 1` |
+
+---
+
+## webdashboard/frontend/tests/connect.spec.js
+
+Playwright E2E tests for the React connect / disconnect flow. All HTTP calls are mocked via `page.route()`; the WebSocket is silenced via `page.routeWebSocket()`.
+
+| Test | Purpose | Expected result |
+|------|---------|----------------|
+| `shows connect dialog on startup when device is not reachable` | When `GET /api/state` returns 503, the connect dialog is shown | Connect dialog visible with "Connect to Device" heading |
+| `populates discovered devices list from scan on mount` | Dialog auto-scans on mount and populates the device list | One `.device-item` showing "TESTFAN000000001" and "192.168.1.100" |
+| `rescan button triggers a fresh device scan` | Rescan button calls `GET /api/devices` again | Scan count increases after click |
+| `connecting to a discovered device connects with default password` | Click a discovered device → `POST /api/connect` with `password: "1111"` | Status bar shows "Connected"; request body matches |
+| `connects via manual form with custom credentials` | Fill IP, Device ID, custom password → submit → `POST /api/connect` | Status bar shows "Connected"; body has custom values |
+| `displays error message on connection failure` | 502 from `POST /api/connect` → error shown in dialog | `.connect-error` contains error detail |
+| `switch button re-opens connect dialog from the dashboard` | Click "Switch…" when connected → connect dialog reappears | Connect dialog visible |
+
+---
+
+## webdashboard/frontend/tests/controls.spec.js
+
+Playwright E2E tests for the main device controls.
+
+| Test | Purpose | Expected result |
+|------|---------|----------------|
+| `power button shows ON when device is powered on` | `power: true` in state → button reflects ON | `.power-label` = "ON"; `aria-pressed="true"` |
+| `power button shows OFF when device is powered off` | `power: false` in state → button reflects OFF | `.power-label` = "OFF"; `aria-pressed="false"` |
+| `clicking power button sends setPower request with toggled value` | Click power (currently ON) → `POST /api/command/power` with `{on: false}` | Request body captured with `on: false` |
+| `speed preset 1 is highlighted when speed is 1` | `speed: 1` → Speed 1 button is active | `aria-pressed="true"` on button "1" |
+| `clicking speed preset 2 sends correct speed` | Click "2" → `POST /api/command/speed` with `{speed: 2}` | Request body has `speed: 2` |
+| `manual speed mode shows slider when speed is 255` | `speed: 255, manual_speed: 100` → slider visible with value 100 | Slider visible; `.speed-value` = "100" |
+| `Ventilation mode button is active when operation_mode is 0` | `operation_mode: 0` → Ventilation is active | `aria-pressed="true"` on "Ventilation" button |
+| `clicking Heat Recovery sends setMode with value 1` | Click "Heat Recovery" → `POST /api/command/mode` with `{mode: 1}` | Request body has `mode: 1` |
+| `schedule toggle is OFF when weekly_schedule_enabled is false` | `weekly_schedule_enabled: false` → toggle shows OFF | `.schedule-toggle-state` = "OFF"; `aria-pressed="false"` |
+| `clicking schedule toggle sends enableSchedule request` | Click toggle → `POST /api/command/schedule_enable` with `{enabled: true}` | Request body has `enabled: true` |
+
+---
+
+## webdashboard/frontend/tests/fan-details.spec.js
+
+Playwright E2E tests for the Fan Details modal.
+
+| Test | Purpose | Expected result |
+|------|---------|----------------|
+| `Details button is disabled when not connected` | 503 from `GET /api/state` → no deviceId → button disabled | "Details…" button is disabled |
+| `Details button opens fan details modal with device ID` | Click "Details…" → modal shows device ID and IP | Modal visible; device ID and IP displayed |
+| `close button dismisses the fan details modal` | Click ✕ → modal disappears | Modal not visible |
+| `boost button shows OFF when boost_active is false` | `boost_active: false` → Boost button shows OFF | "Boost: OFF"; `aria-pressed="false"` |
+| `clicking boost button sends setBoost request` | Click Boost → `POST /api/command/boost` with `{on: true}` | Request body has `on: true` |
+| `humidity sensor Off button is active when sensor is 0` | `humidity_sensor: 0` → Off button is active | `aria-pressed="true"` on Off button |
+| `clicking humidity sensor On sends correct request` | Click On → `POST /api/command/humidity_sensor` with `{sensor: 1}` | Request body has `sensor: 1` |
+| `humidity threshold slider is hidden when sensor is Off` | Sensor = 0 → threshold slider not visible | Humidity threshold input not visible |
+| `RPM section shows fan1 and fan2 values` | Fan RPMs in state → displayed in RPM section | `.rpm-card` contains "1200" and "1150" |
+| `Sync RTC button sends sync_rtc request` | Click Sync RTC → `POST /api/command/sync_rtc` called | Request sent |
+| `RTC time is displayed in the schedule section` | `rtc_time` and `rtc_calendar` in state → shown in modal | `.rtc-display` contains time and date |
+
+---
+
+## webdashboard/frontend/tests/schedule.spec.js
+
+Playwright E2E tests for the weekly schedule editor.
+
+| Test | Purpose | Expected result |
+|------|---------|----------------|
+| `shows loading state before schedule data arrives` | Delayed `GET /api/command/schedule` → loading message shown | Modal visible with "Loading schedule from device" |
+| `shows 8 day rows and 4 period columns after schedule loads` | After schedule loads, table has correct structure | 8 `tbody tr` rows; each row has 5 `td` cells |
+| `day labels are correct` | First row = "Weekdays", second = "Monday", last = "Sunday" | `.day-label` text matches day names |
+| `period cells are pre-populated from schedule data` | Loaded periods are pre-filled in the dropdowns | First period speed dropdown has correct initial value |
+| `Apply to device sends 32 schedule_period requests` | Click "Apply to device" → 32 `POST /api/command/schedule_period` calls | Request count = 32; first has `{day:0, period:1}`, last `{day:7, period:4}` |
+| `Close button dismisses schedule editor without sending API calls` | Click Close → modal gone; no schedule_period API calls made | Modal not visible; `periodCallCount == 0` |
+
+---
+
+## webdashboard/frontend/tests/scenarios.spec.js
+
+Playwright E2E tests for the scenario manager and quick slots.
+
+| Test | Purpose | Expected result |
+|------|---------|----------------|
+| `scenario list shows all saved scenarios` | Two scenarios in mock → both names visible in list | `.scenario-name` count = 2; names "Night" and "Boost" |
+| `quick slot dropdown shows current assignment for Night scenario` | "Night" assigned to Q1 → dropdown shows Q1 | Select for Night has value "Q1" |
+| `opening Scenario dropdown shows Create new option` | Click "Scenario ▾" → dropdown shows "Create new scenario…" | Dropdown visible with create option |
+| `clicking Create new scenario shows the save scenario modal` | Click "Create new scenario…" → Save Scenario modal appears | Save modal visible |
+| `saving a new scenario calls POST /api/scenarios with the name` | Fill name "Morning" and save → `POST /api/scenarios` with `{name: "Morning"}` | Request body has `name: "Morning"` |
+| `save button is disabled when scenario name is empty` | Empty name input → Save button disabled | Save button is disabled |
+| `play button sends apply request for the scenario` | Click ▶ next to "Night" → `POST /api/scenarios/Night/apply` | Decoded name = "Night" |
+| `delete button sends DELETE request for the scenario` | Click ✕ next to "Night" → `DELETE /api/scenarios/Night` | Decoded name = "Night" |
+| `Q1 slot shows the assigned scenario name` | QUICK_SLOTS has "Night" in Q1 → displayed in button | Q1 button contains "Night" |
+| `Q2 and Q3 slots are empty and disabled` | Unassigned slots → buttons are disabled | Q2 and Q3 buttons disabled |
+| `clicking Q1 sends apply scenario request` | Click Q1 → `POST /api/scenarios/Night/apply` | Applied name = "Night" |
+| `assigning a scenario to a slot calls setQuickSlots` | Select Q2 for "Boost" → `PUT /api/scenarios/quick-slots/…` | Body `slots[1] == "Boost"` |

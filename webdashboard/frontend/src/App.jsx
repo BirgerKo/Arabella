@@ -177,20 +177,6 @@ export default function App() {
           onCancel={connected ? () => dispatch({ type: 'HIDE_CONNECT' }) : undefined}
         />
       )}
-      {showSave && (
-        <SaveScenarioModal
-          onSave={handleSaveScenario}
-          onCancel={() => dispatch({ type: 'HIDE_SAVE' })}
-        />
-      )}
-      {showSchedule && (
-        <ScheduleEditor
-          initialPeriods={schedulePeriods}
-          onApply={handleSetSchedulePeriod}
-          onClose={() => dispatch({ type: 'HIDE_SCHEDULE' })}
-          busy={busy}
-        />
-      )}
       {showDetails && (
         <FanDetailsModal
           deviceState={deviceState}
@@ -209,6 +195,20 @@ export default function App() {
           onDeleteScenario={handleDelete}
           onSetQuickSlot={handleSetQuickSlots}
           onClose={() => dispatch({ type: 'HIDE_DETAILS' })}
+        />
+      )}
+      {showSave && (
+        <SaveScenarioModal
+          onSave={handleSaveScenario}
+          onCancel={() => dispatch({ type: 'HIDE_SAVE' })}
+        />
+      )}
+      {showSchedule && (
+        <ScheduleEditor
+          initialPeriods={schedulePeriods}
+          onApply={handleSetSchedulePeriod}
+          onClose={() => dispatch({ type: 'HIDE_SCHEDULE' })}
+          busy={busy}
         />
       )}
 
