@@ -1,0 +1,975 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arabella Mobile — Architecture &amp; Implementation</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #22263a;
+    --border: #2e3350;
+    --accent: #4f8ef7;
+    --accent2: #7c5cbf;
+    --green: #3dba7e;
+    --yellow: #e8b84b;
+    --red: #e05c5c;
+    --text: #d4d8f0;
+    --muted: #7a819e;
+    --code-bg: #14172080;
+    --font-mono: "SFMono-Regular", "Consolas", "Liberation Mono", monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.65;
+    font-size: 15px;
+  }
+
+  /* ── Layout ──────────────────────────────────────────────────────────── */
+  .shell { display: flex; min-height: 100vh; }
+  nav {
+    width: 240px;
+    flex-shrink: 0;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 32px 0;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+  }
+  nav .logo {
+    padding: 0 24px 28px;
+    font-size: 17px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: -.3px;
+  }
+  nav .logo span { color: var(--accent); }
+  nav ul { list-style: none; }
+  nav li a {
+    display: block;
+    padding: 7px 24px;
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 13px;
+    border-left: 2px solid transparent;
+    transition: color .15s, border-color .15s;
+  }
+  nav li a:hover { color: var(--text); border-left-color: var(--border); }
+  nav li a.active { color: var(--accent); border-left-color: var(--accent); font-weight: 600; }
+  nav .section-label {
+    padding: 20px 24px 6px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--muted);
+  }
+
+  main {
+    flex: 1;
+    max-width: 900px;
+    padding: 56px 64px 100px;
+  }
+
+  /* ── Typography ──────────────────────────────────────────────────────── */
+  h1 { font-size: 32px; font-weight: 800; color: #fff; margin-bottom: 8px; }
+  h2 {
+    font-size: 21px; font-weight: 700; color: #fff;
+    margin: 56px 0 16px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  h3 { font-size: 16px; font-weight: 700; color: var(--text); margin: 28px 0 10px; }
+  p  { margin-bottom: 14px; color: var(--text); }
+  a  { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  .subtitle { color: var(--muted); font-size: 14px; margin-bottom: 40px; }
+
+  /* ── Code ────────────────────────────────────────────────────────────── */
+  code {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    padding: 1px 6px;
+    border-radius: 4px;
+    color: #c9d1f5;
+  }
+  pre {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px 24px;
+    overflow-x: auto;
+    margin: 16px 0 20px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 1.6;
+    color: #c9d1f5;
+  }
+  pre code { background: none; border: none; padding: 0; font-size: inherit; }
+
+  /* ── Cards ───────────────────────────────────────────────────────────── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 24px;
+    margin: 16px 0;
+  }
+  .card h4 { font-size: 14px; font-weight: 700; color: #fff; margin-bottom: 8px; }
+  .card p  { font-size: 13px; color: var(--muted); margin-bottom: 0; }
+
+  .cards-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 16px 0; }
+
+  /* ── Tables ──────────────────────────────────────────────────────────── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin: 16px 0 24px;
+  }
+  th {
+    background: var(--surface2);
+    color: var(--muted);
+    font-weight: 600;
+    text-align: left;
+    padding: 10px 14px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+  }
+  td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--surface2); }
+
+  /* ── Badges ──────────────────────────────────────────────────────────── */
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+  }
+  .badge-green  { background: #1a3d2e; color: var(--green); }
+  .badge-blue   { background: #182040; color: var(--accent); }
+  .badge-yellow { background: #3a2e10; color: var(--yellow); }
+  .badge-purple { background: #261d38; color: #a87fe8; }
+  .badge-muted  { background: var(--surface2); color: var(--muted); }
+
+  /* ── Layer diagram ───────────────────────────────────────────────────── */
+  .layers { margin: 20px 0; }
+  .layer {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 14px 20px;
+    border: 1px solid var(--border);
+    border-bottom: none;
+    background: var(--surface);
+  }
+  .layer:first-child { border-radius: 10px 10px 0 0; }
+  .layer:last-child  { border-bottom: 1px solid var(--border); border-radius: 0 0 10px 10px; }
+  .layer .label { font-weight: 700; font-size: 14px; min-width: 160px; }
+  .layer .desc  { font-size: 13px; color: var(--muted); }
+  .layer.layer-rust   { border-left: 3px solid var(--accent2); }
+  .layer.layer-ffi    { border-left: 3px solid var(--yellow); }
+  .layer.layer-svc    { border-left: 3px solid var(--accent); }
+  .layer.layer-vm     { border-left: 3px solid var(--accent); }
+  .layer.layer-ui     { border-left: 3px solid var(--green); }
+  .arrow { text-align: center; color: var(--muted); font-size: 18px; line-height: 1.2; }
+
+  /* ── Callout ─────────────────────────────────────────────────────────── */
+  .callout {
+    border-left: 3px solid var(--accent);
+    background: #182040;
+    border-radius: 0 8px 8px 0;
+    padding: 14px 18px;
+    margin: 16px 0;
+    font-size: 13px;
+    color: #b5c4f7;
+  }
+  .callout.warn  { border-color: var(--yellow); background: #2a2010; color: #d4b870; }
+  .callout.ok    { border-color: var(--green);  background: #122a1e; color: #6ed4a0; }
+
+  /* ── File list ───────────────────────────────────────────────────────── */
+  .file-list { list-style: none; margin: 12px 0; }
+  .file-list li {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+  .file-list li:last-child { border-bottom: none; }
+  .file-list .path { font-family: var(--font-mono); color: var(--accent); flex-shrink: 0; }
+  .file-list .fdesc { color: var(--muted); }
+
+  /* ── Recommended section ─────────────────────────────────────────────── */
+  .rec-list { list-style: none; margin: 0; }
+  .rec-list li {
+    display: flex;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+  .rec-list li:last-child { border-bottom: none; }
+  .rec-num {
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--surface2);
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .rec-body strong { color: var(--text); display: block; margin-bottom: 3px; }
+  .rec-body span   { color: var(--muted); }
+
+  /* ── Misc ────────────────────────────────────────────────────────────── */
+  section { scroll-margin-top: 24px; }
+  .phase-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 28px 0 12px;
+  }
+  .phase-header h3 { margin: 0; }
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- ── Navigation ─────────────────────────────────────────────────────────── -->
+<nav>
+  <div class="logo">Arabella <span>Mobile</span></div>
+
+  <div class="section-label">Overview</div>
+  <ul>
+    <li><a href="#overview">Introduction</a></li>
+    <li><a href="#rationale">Framework Rationale</a></li>
+  </ul>
+
+  <div class="section-label">Architecture</div>
+  <ul>
+    <li><a href="#layers">Layer Model</a></li>
+    <li><a href="#ffi">FFI Bridge</a></li>
+    <li><a href="#build-system">Build System</a></li>
+  </ul>
+
+  <div class="section-label">Implementation</div>
+  <ul>
+    <li><a href="#phase1">Phase 1 Status</a></li>
+    <li><a href="#source-files">Source Files</a></li>
+    <li><a href="#api">Protocol API</a></li>
+    <li><a href="#c-api">C API (FFI)</a></li>
+  </ul>
+
+  <div class="section-label">Quality</div>
+  <ul>
+    <li><a href="#tests">Tests</a></li>
+    <li><a href="#e2e">End-to-End Validation</a></li>
+  </ul>
+
+  <div class="section-label">Roadmap</div>
+  <ul>
+    <li><a href="#phases">Remaining Phases</a></li>
+    <li><a href="#recommended">Recommended Docs</a></li>
+  </ul>
+</nav>
+
+<!-- ── Main content ───────────────────────────────────────────────────────── -->
+<main>
+
+  <h1>Arabella Mobile</h1>
+  <p class="subtitle">Architecture, implementation &amp; test reference &mdash; updated 2026-05-11</p>
+
+  <!-- ── Overview ─────────────────────────────────────────────────────────── -->
+  <section id="overview">
+    <h2>Introduction</h2>
+    <p>
+      Arabella Mobile is a cross-platform app for controlling
+      <a href="https://blaubergventilatoren.de" target="_blank">Blauberg Vento</a>
+      heat-recovery fans. It targets iOS first, with Android and SailfishOS to follow, and aims
+      for full feature parity with the existing
+      <code>ventocontrol</code> PyQt6 desktop application.
+    </p>
+    <p>
+      The app communicates directly with fans over the Blauberg Vento UDP binary protocol
+      (port 4000). No cloud service or home server is required; the user's phone connects
+      to the fan on the local WiFi network.
+    </p>
+
+    <div class="cards-grid">
+      <div class="card">
+        <h4>Phase 1 &mdash; Protocol Library</h4>
+        <p>Rust crate implementing the full Blauberg Vento protocol. Compiles to a static library
+        and exposes a C&nbsp;ABI consumed by the C++ service layer. <span class="badge badge-green">Complete</span></p>
+      </div>
+      <div class="card">
+        <h4>Phase 2 &mdash; iOS App</h4>
+        <p>Qt/QML application targeting iOS 16+. Cupertino style. All ventocontrol features.
+        <span class="badge badge-yellow">Planned</span></p>
+      </div>
+      <div class="card">
+        <h4>Phase 3 &mdash; Android App</h4>
+        <p>Same Qt/QML codebase, Material style. Requires a JNI bridge for WiFi multicast lock.
+        <span class="badge badge-muted">Future</span></p>
+      </div>
+      <div class="card">
+        <h4>Phase 4 &mdash; SailfishOS App</h4>
+        <p>Silica QML variant, packaged as an RPM for Harbour. The primary reason Qt was chosen.
+        <span class="badge badge-muted">Future</span></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Rationale ────────────────────────────────────────────────────────── -->
+  <section id="rationale">
+    <h2>Framework Rationale</h2>
+    <p>
+      The SailfishOS requirement is the deciding constraint. Its native UI toolkit is Silica — QML
+      built on Qt Quick. No other serious cross-platform option (Flutter, React Native, KMP) has a
+      credible SailfishOS path.
+    </p>
+
+    <table>
+      <thead>
+        <tr><th>Framework</th><th>iOS</th><th>Android</th><th>SailfishOS</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Qt/QML + Rust</strong> <span class="badge badge-green">chosen</span></td>
+          <td><span class="badge badge-green">Yes</span></td>
+          <td><span class="badge badge-green">Yes</span></td>
+          <td><span class="badge badge-green">Native Silica</span></td>
+        </tr>
+        <tr>
+          <td>Flutter</td>
+          <td><span class="badge badge-green">Yes</span></td>
+          <td><span class="badge badge-green">Yes</span></td>
+          <td><span class="badge badge-red">No</span></td>
+        </tr>
+        <tr>
+          <td>React Native</td>
+          <td><span class="badge badge-green">Yes</span></td>
+          <td><span class="badge badge-green">Yes</span></td>
+          <td><span class="badge badge-red">No</span></td>
+        </tr>
+        <tr>
+          <td>Kotlin Multiplatform</td>
+          <td><span class="badge badge-green">Yes</span></td>
+          <td><span class="badge badge-green">Yes</span></td>
+          <td><span class="badge badge-red">No</span></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p>
+      The <strong>protocol layer is written in Rust</strong> rather than C++. Rust's type system
+      and ownership model make the binary protocol parsing correct by construction — no buffer
+      overflows, no null-pointer errors, no uninitialized memory. The Rust crate has zero Qt
+      dependencies and cross-compiles to all target triples from a single <code>Cargo.toml</code>.
+    </p>
+
+    <table>
+      <thead><tr><th>Platform</th><th>Rust target triple</th></tr></thead>
+      <tbody>
+        <tr><td>iOS device</td><td><code>aarch64-apple-ios</code></td></tr>
+        <tr><td>iOS Simulator</td><td><code>aarch64-apple-ios-sim</code></td></tr>
+        <tr><td>Android arm64</td><td><code>aarch64-linux-android</code></td></tr>
+        <tr><td>Android armv7</td><td><code>armv7-linux-androideabi</code></td></tr>
+        <tr><td>SailfishOS armv7</td><td><code>armv7-unknown-linux-gnueabihf</code></td></tr>
+        <tr><td>SailfishOS aarch64</td><td><code>aarch64-unknown-linux-gnu</code></td></tr>
+        <tr><td>Desktop (dev / test)</td><td>host triple</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ── Layer model ───────────────────────────────────────────────────────── -->
+  <section id="layers">
+    <h2>Layer Model</h2>
+    <p>
+      Clean Architecture — source code dependencies point strictly inward.
+      The inner layers know nothing about Qt, QML, or any UI framework.
+    </p>
+
+    <div class="layers">
+      <div class="layer layer-ui">
+        <span class="label">QML UI</span>
+        <span class="desc">Platform-adaptive pages and components. Cupertino on iOS, Material on Android, Silica on SailfishOS.</span>
+      </div>
+      <div class="arrow">↓</div>
+      <div class="layer layer-vm">
+        <span class="label">ViewModel (C++)</span>
+        <span class="desc"><code>QObject</code> subclasses with <code>Q_PROPERTY</code> + NOTIFY signals. No business logic.</span>
+      </div>
+      <div class="arrow">↓</div>
+      <div class="layer layer-svc">
+        <span class="label">Service (C++)</span>
+        <span class="desc">Owns FFI calls into the Rust client, the 2-second <code>QTimer</code> poll, and JSON persistence.</span>
+      </div>
+      <div class="arrow">↓</div>
+      <div class="layer layer-ffi">
+        <span class="label">FFI Bridge</span>
+        <span class="desc"><code>extern "C"</code> functions exported from the Rust crate. Header generated by <code>cbindgen</code>.</span>
+      </div>
+      <div class="arrow">↓</div>
+      <div class="layer layer-rust">
+        <span class="label">Protocol (Rust)</span>
+        <span class="desc">Pure Rust. <code>VentoClient</code>, UDP sockets, binary packet builder/parser. Zero Qt dependencies. Compiled as <code>staticlib</code>.</span>
+      </div>
+    </div>
+
+    <div class="callout">
+      The Qt/service/viewmodel layers are stubbed in <code>CMakeLists.txt</code> and will be
+      activated in Phase 2. Only the Rust protocol crate and FFI bridge are implemented today.
+    </div>
+  </section>
+
+  <!-- ── FFI bridge ───────────────────────────────────────────────────────── -->
+  <section id="ffi">
+    <h2>FFI Bridge</h2>
+    <p>
+      The bridge uses a minimal, stable C&nbsp;ABI. All functions return a
+      <code>VentoStatus</code> enum code; rich error text is available via
+      <code>vento_last_error()</code>, which returns a thread-local pointer that lives until
+      the next FFI call on that thread.
+    </p>
+
+    <h3>Error handling contract</h3>
+    <pre><code>// Every FFI function returns one of these.
+typedef enum VentoStatus {
+    Ok           = 0,
+    ErrConnection = 1,  // UDP timeout, bind failure
+    ErrChecksum  = 2,   // Packet checksum mismatch
+    ErrProtocol  = 3,   // Unexpected response format
+    ErrValue     = 4,   // Parameter out of range
+    ErrDiscovery = 5,   // Broadcast discovery failure
+    ErrUnsupported = 6, // Device does not support param
+} VentoStatus;
+
+const char *vento_last_error(void);  // human-readable detail</code></pre>
+
+    <h3>Client lifecycle</h3>
+    <pre><code>// Create — returns opaque pointer, never throws.
+VentoClient *c = vento_client_new("192.168.1.50",
+                                  "MYFAN00000000001",
+                                  "1234");
+
+// Use
+VentoDeviceState state;
+if (vento_get_state(c, &amp;state) == Ok) { ... }
+
+// Destroy
+vento_client_free(c);</code></pre>
+
+    <h3>Optional fields in VentoDeviceState</h3>
+    <p>
+      Every optional sensor or configuration value in <code>VentoDeviceState</code> is
+      accompanied by a <code>_valid</code> byte. The service layer must check the flag before
+      reading the value.
+    </p>
+    <pre><code>if (state.fan1_rpm_valid) {
+    qDebug() &lt;&lt; "Fan 1 RPM:" &lt;&lt; state.fan1_rpm;
+}</code></pre>
+
+    <h3>Memory ownership</h3>
+    <table>
+      <thead><tr><th>Object</th><th>Allocated by</th><th>Freed by</th></tr></thead>
+      <tbody>
+        <tr><td><code>VentoClient *</code></td><td><code>vento_client_new()</code></td><td><code>vento_client_free()</code></td></tr>
+        <tr><td><code>VentoDeviceList.devices</code></td><td><code>vento_discover()</code></td><td><code>vento_device_list_free()</code></td></tr>
+        <tr><td><code>vento_last_error()</code> return</td><td>thread-local, Rust-owned</td><td>automatic (next FFI call)</td></tr>
+        <tr><td>All other out-params</td><td>caller (stack)</td><td>caller</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ── Build system ─────────────────────────────────────────────────────── -->
+  <section id="build-system">
+    <h2>Build System</h2>
+    <p>
+      The project uses CMake with the
+      <a href="https://github.com/corrosion-rs/corrosion" target="_blank">Corrosion</a> module
+      (v0.5) to integrate the Rust crate into the C++ CMake build. Corrosion fetches
+      itself via <code>FetchContent</code>, so no separate install is needed.
+    </p>
+    <pre><code>cmake --preset desktop-debug   # Phase 1 local build
+cmake --preset ios             # Phase 2 (requires macOS + Xcode)
+cmake --preset android         # Phase 3 (requires NDK)
+cmake --preset sailfish        # Phase 4 (requires Mer SDK)</code></pre>
+
+    <p>
+      The Rust crate uses <code>cbindgen</code> (a build dependency) to auto-generate
+      <code>protocol/include/protocol.h</code> on every <code>cargo build</code>. The header is
+      committed so CMake consumers do not need to run Cargo separately.
+    </p>
+
+    <table>
+      <thead><tr><th>File</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td><code>CMakeLists.txt</code></td><td>Root CMake project; imports Corrosion and the Rust crate</td></tr>
+        <tr><td><code>CMakePresets.json</code></td><td>Five presets: desktop-debug, desktop-release, ios, android, sailfish</td></tr>
+        <tr><td><code>protocol/Cargo.toml</code></td><td>Rust crate manifest; crate-type = ["staticlib", "rlib"]</td></tr>
+        <tr><td><code>protocol/build.rs</code></td><td>Invokes cbindgen to write <code>include/protocol.h</code></td></tr>
+        <tr><td><code>protocol/include/protocol.h</code></td><td>Generated C header; committed to the repository</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ── Phase 1 status ───────────────────────────────────────────────────── -->
+  <section id="phase1">
+    <h2>Phase 1 Implementation Status</h2>
+
+    <div class="callout ok">
+      Phase 1 is complete. The Rust protocol library compiles on Linux, passes all 34 unit
+      tests, and has been validated end-to-end against the Python fan simulator.
+    </div>
+
+    <table>
+      <thead><tr><th>Step</th><th>Description</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>CMake + Corrosion scaffold with <code>desktop-debug</code> preset</td><td><span class="badge badge-green">Done</span></td></tr>
+        <tr><td>2</td><td>Port <code>parameters.py</code> → <code>param.rs</code> (49-variant <code>Param</code> enum + metadata)</td><td><span class="badge badge-green">Done</span></td></tr>
+        <tr><td>3</td><td>Port <code>protocol.py</code> → <code>packet.rs</code> (packet builder + TLV parser)</td><td><span class="badge badge-green">Done</span></td></tr>
+        <tr><td>4</td><td>Port <code>transport.py</code> → <code>transport.rs</code> (UDP socket, no Qt)</td><td><span class="badge badge-green">Done</span></td></tr>
+        <tr><td>5</td><td>Port <code>client.py</code> → <code>client.rs</code> (all high-level methods)</td><td><span class="badge badge-green">Done</span></td></tr>
+        <tr><td>6</td><td>Rust unit tests using byte vectors from the Python test suite</td><td><span class="badge badge-green">Done</span></td></tr>
+        <tr><td>7</td><td>End-to-end validation against the Python fan simulator</td><td><span class="badge badge-green">Done</span></td></tr>
+        <tr><td>8</td><td>C FFI layer (<code>extern "C"</code> exports + <code>cbindgen</code> header)</td><td><span class="badge badge-green">Done</span></td></tr>
+        <tr><td>9</td><td>Minimal C test driver validating the ABI against the simulator</td><td><span class="badge badge-yellow">Next</span></td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ── Source files ─────────────────────────────────────────────────────── -->
+  <section id="source-files">
+    <h2>Source Files</h2>
+
+    <h3>Rust crate &mdash; <code>protocol/src/</code></h3>
+    <ul class="file-list">
+      <li>
+        <span class="path">lib.rs</span>
+        <span class="fdesc">Crate root. Re-exports all public items; declares all modules.</span>
+      </li>
+      <li>
+        <span class="path">param.rs</span>
+        <span class="fdesc">
+          Protocol constants (<code>CMD_PAGE</code>, <code>DEFAULT_PORT</code>, etc.),
+          the <code>Func</code> enum (Read/Write/WriteResp/Increment/Decrement/Response),
+          the 49-variant <code>Param</code> enum with all parameter IDs,
+          <code>ParamMeta</code> per-parameter metadata, and the <code>WriteParam</code>
+          value type.
+        </span>
+      </li>
+      <li>
+        <span class="path">packet.rs</span>
+        <span class="fdesc">
+          Packet builder (<code>build_read</code>, <code>build_write</code>,
+          <code>build_write_resp</code>, <code>build_increment</code>,
+          <code>build_decrement</code>, <code>build_discovery</code>) and
+          TLV parser (<code>parse_response</code>, <code>parse_data_bytes</code>).
+          Handles <code>CMD_PAGE</code> boundary crossing, <code>CMD_SIZE</code> overrides,
+          and <code>CMD_NOT_SUP</code> markers. All field decoders are here:
+          <code>decode_int</code>, <code>decode_ip</code>, <code>decode_text</code>,
+          <code>decode_firmware</code>, <code>decode_rtc_time</code>,
+          <code>decode_schedule</code>, etc.
+        </span>
+      </li>
+      <li>
+        <span class="path">transport.rs</span>
+        <span class="fdesc">
+          <code>VentoTransport</code> — owns a configurable timeout duration.
+          Three methods: <code>send_recv</code> (send + wait for one reply),
+          <code>send_only</code> (fire and forget), <code>discover</code>
+          (broadcast + collect multiple replies within the timeout window).
+          Built on <code>std::net::UdpSocket</code> with no Qt dependency.
+        </span>
+      </li>
+      <li>
+        <span class="path">client.rs</span>
+        <span class="fdesc">
+          <code>VentoClient</code> — the primary public API. Provides
+          <code>get_state</code>, power control, speed control, mode control,
+          boost, timer, humidity, relay/voltage sensors, weekly schedule,
+          RTC sync, filter, alarms, firmware, WiFi configuration, password
+          change, cloud permission, factory reset, and fan discovery.
+          Contains an internal <code>DeviceStateBuilder</code> that assembles
+          a <code>DeviceState</code> from raw parameter maps.
+        </span>
+      </li>
+      <li>
+        <span class="path">models.rs</span>
+        <span class="fdesc">
+          Domain model structs: <code>DeviceState</code> (all fields
+          <code>Option&lt;T&gt;</code>), <code>FirmwareVersion</code>,
+          <code>RtcTime</code>, <code>RtcCalendar</code>,
+          <code>SchedulePeriod</code>, <code>TimerCountdown</code>,
+          <code>FilterCountdown</code>, <code>MachineHours</code>,
+          <code>WifiConfig</code>, <code>SetRtcTime</code>,
+          <code>DiscoveredDevice</code>.
+        </span>
+      </li>
+      <li>
+        <span class="path">error.rs</span>
+        <span class="fdesc">
+          <code>VentoError</code> enum with seven variants:
+          <code>Connection</code>, <code>Checksum</code>,
+          <code>Protocol</code>, <code>Value</code>,
+          <code>Discovery</code>, <code>UnsupportedParams</code>,
+          <code>Io</code>. Manual <code>Display</code> + <code>Error</code>
+          implementations (no proc-macro dependencies).
+          <code>type Result&lt;T&gt; = std::result::Result&lt;T, VentoError&gt;</code>.
+        </span>
+      </li>
+      <li>
+        <span class="path">ffi.rs</span>
+        <span class="fdesc">
+          All <code>extern "C"</code> exports. Defines the
+          <code>VentoStatus</code> enum, the five C-compatible structs
+          (<code>VentoDeviceState</code>, <code>VentoSchedulePeriod</code>,
+          <code>VentoRtcInput</code>, <code>VentoDiscoveredDevice</code>,
+          <code>VentoDeviceList</code>), thread-local
+          <code>vento_last_error()</code>, client lifecycle functions, and
+          all 27 operation functions.
+        </span>
+      </li>
+    </ul>
+
+    <h3>Build &amp; generated</h3>
+    <ul class="file-list">
+      <li>
+        <span class="path">protocol/build.rs</span>
+        <span class="fdesc">Invokes cbindgen to regenerate <code>include/protocol.h</code> on every build.</span>
+      </li>
+      <li>
+        <span class="path">protocol/include/protocol.h</span>
+        <span class="fdesc">Generated C header. Contains all structs, the enum, and 27 function declarations. Include-guarded as <code>ARABELLA_PROTOCOL_H</code>.</span>
+      </li>
+      <li>
+        <span class="path">protocol/examples/connect.rs</span>
+        <span class="fdesc">Phase 1 end-to-end validation tool. Runs against a fan or the Python simulator. Exercises get_state, turn_on, set_speed, set_manual_speed, set_ventilation, set_humidity_threshold, enable_weekly_schedule, set_schedule_period, get_schedule_period, turn_off, and validates rejection of out-of-range values.</span>
+      </li>
+    </ul>
+  </section>
+
+  <!-- ── Protocol API ─────────────────────────────────────────────────────── -->
+  <section id="api">
+    <h2>Protocol API (Rust)</h2>
+    <p>
+      <code>VentoClient</code> is constructed with an IP address, device ID, and password.
+      All methods are synchronous and block on the UDP socket.
+    </p>
+
+    <table>
+      <thead><tr><th>Category</th><th>Methods</th></tr></thead>
+      <tbody>
+        <tr><td>State</td><td><code>get_state()</code> → <code>DeviceState</code></td></tr>
+        <tr><td>Power</td><td><code>turn_on</code>, <code>turn_off</code>, <code>toggle_power</code></td></tr>
+        <tr><td>Speed</td><td><code>set_speed(1–3)</code>, <code>set_manual_speed(0–255)</code>, <code>speed_up</code>, <code>speed_down</code></td></tr>
+        <tr><td>Mode</td><td><code>set_mode(0–2)</code>, <code>set_ventilation</code>, <code>set_heat_recovery</code>, <code>set_supply</code></td></tr>
+        <tr><td>Boost</td><td><code>set_boost_delay(0–60 min)</code></td></tr>
+        <tr><td>Timer</td><td><code>set_timer_mode</code>, <code>set_night_timer</code>, <code>set_party_timer</code>, <code>get_timer_countdown</code></td></tr>
+        <tr><td>Humidity</td><td><code>set_humidity_sensor</code>, <code>set_humidity_threshold(40–80 %RH)</code>, <code>get_current_humidity</code></td></tr>
+        <tr><td>Sensors</td><td><code>set_relay_sensor</code>, <code>set_voltage_sensor</code>, <code>set_voltage_threshold</code></td></tr>
+        <tr><td>Schedule</td><td><code>enable_weekly_schedule</code>, <code>set_schedule_period</code>, <code>get_schedule_period</code></td></tr>
+        <tr><td>RTC</td><td><code>set_rtc</code>, <code>get_rtc</code></td></tr>
+        <tr><td>Filter</td><td><code>get_filter_status</code>, <code>reset_filter_timer</code></td></tr>
+        <tr><td>Maintenance</td><td><code>get_machine_hours</code>, <code>get_alarm_status</code>, <code>reset_alarms</code>, <code>get_firmware_version</code></td></tr>
+        <tr><td>WiFi</td><td><code>get_wifi_config</code>, <code>set_wifi_client</code>, <code>set_wifi_ap</code>, <code>apply_wifi_config</code>, <code>discard_wifi_config</code></td></tr>
+        <tr><td>Admin</td><td><code>get_unit_type</code>, <code>get_device_id</code>, <code>change_password</code>, <code>set_cloud_permission</code>, <code>factory_reset</code></td></tr>
+        <tr><td>Discovery</td><td><code>VentoClient::discover(broadcast, port, timeout, max)</code> → <code>Vec&lt;DiscoveredDevice&gt;</code></td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ── C API ────────────────────────────────────────────────────────────── -->
+  <section id="c-api">
+    <h2>C API (FFI)</h2>
+    <p>
+      All symbols are declared in
+      <code>protocol/include/protocol.h</code>, generated by
+      <a href="https://github.com/mozilla/cbindgen" target="_blank">cbindgen</a>.
+    </p>
+
+    <table>
+      <thead><tr><th>Function</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>vento_last_error()</code></td><td>Last error message string (thread-local, do not free)</td></tr>
+        <tr><td><code>vento_client_new(host, id, pwd)</code></td><td>Create client; free with <code>vento_client_free</code></td></tr>
+        <tr><td><code>vento_client_free(c)</code></td><td>Destroy client</td></tr>
+        <tr><td><code>vento_get_state(c, out)</code></td><td>Fill <code>VentoDeviceState</code></td></tr>
+        <tr><td><code>vento_turn_on / off / toggle_power</code></td><td>Power control</td></tr>
+        <tr><td><code>vento_set_speed / set_manual_speed</code></td><td>Speed control</td></tr>
+        <tr><td><code>vento_speed_up / speed_down</code></td><td>Increment / decrement speed</td></tr>
+        <tr><td><code>vento_set_mode</code></td><td>Operation mode (0 vent / 1 heat recovery / 2 supply)</td></tr>
+        <tr><td><code>vento_set_boost_delay</code></td><td>Boost timeout in minutes</td></tr>
+        <tr><td><code>vento_set_timer_mode / set_night_timer / set_party_timer</code></td><td>Timer configuration</td></tr>
+        <tr><td><code>vento_set_humidity_sensor / set_humidity_threshold</code></td><td>Humidity sensor config</td></tr>
+        <tr><td><code>vento_enable_weekly_schedule</code></td><td>Enable / disable schedule</td></tr>
+        <tr><td><code>vento_set_schedule_period / get_schedule_period</code></td><td>Read/write one period</td></tr>
+        <tr><td><code>vento_set_rtc</code></td><td>Sync fan clock from <code>VentoRtcInput</code></td></tr>
+        <tr><td><code>vento_reset_filter_timer</code></td><td>Reset filter countdown</td></tr>
+        <tr><td><code>vento_reset_alarms</code></td><td>Clear active alarms</td></tr>
+        <tr><td><code>vento_set_cloud_permission / vento_factory_reset</code></td><td>Admin operations</td></tr>
+        <tr><td><code>vento_discover(broadcast, port, timeout, max, out)</code></td><td>Fill <code>VentoDeviceList</code></td></tr>
+        <tr><td><code>vento_device_list_free(list)</code></td><td>Free discovery results</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ── Tests ────────────────────────────────────────────────────────────── -->
+  <section id="tests">
+    <h2>Tests</h2>
+
+    <div class="callout ok">
+      34 tests &mdash; all pass. Run with: <code>cargo test</code>
+    </div>
+
+    <h3>packet module (21 tests)</h3>
+    <p>
+      Byte-level correctness of the packet builder and parser. Test vectors are taken from the
+      Python test suite (<code>tests/test_protocol.py</code>) and hard-coded as byte literals,
+      guaranteeing that the Rust and Python implementations produce identical wire output.
+    </p>
+    <table>
+      <thead><tr><th>Test</th><th>What it verifies</th></tr></thead>
+      <tbody>
+        <tr><td><code>build_matches_spec</code></td><td>Full packet byte-for-byte match against Python SPEC_RQ fixture</td></tr>
+        <tr><td><code>build_starts_fd_fd</code></td><td>Every packet begins with the 0xFD 0xFD magic header</td></tr>
+        <tr><td><code>build_checksum_valid</code></td><td>Checksum verifies correctly on the built packet</td></tr>
+        <tr><td><code>checksum_spec_rq / spec_rs</code></td><td>Checksum on known request and response fixtures</td></tr>
+        <tr><td><code>checksum_bad</code></td><td>Corrupted checksum is rejected</td></tr>
+        <tr><td><code>build_bad_id_raises</code></td><td>Device ID ≠ 16 bytes returns <code>VentoError::Protocol</code></td></tr>
+        <tr><td><code>build_long_password_raises</code></td><td>Password &gt; 8 chars returns error</td></tr>
+        <tr><td><code>build_discovery_default_id</code></td><td>Discovery packet uses the DEFAULT_DEVICEID sentinel</td></tr>
+        <tr><td><code>build_night_timer_page_cmd</code></td><td>NightTimer parameter triggers correct CMD_PAGE boundary byte</td></tr>
+        <tr><td><code>parse_spec_response</code></td><td>Parser reproduces Python SPEC_RS fixture key/value map</td></tr>
+        <tr><td><code>parse_page_change</code></td><td>CMD_PAGE byte correctly shifts the parameter ID page</td></tr>
+        <tr><td><code>parse_size_override</code></td><td>CMD_SIZE byte overrides default field width</td></tr>
+        <tr><td><code>parse_unsupported_param</code></td><td>CMD_NOT_SUP marker returns <code>UnsupportedParams</code></td></tr>
+        <tr><td><code>decode_ip_ok / decode_ip_bad_size / encode_ip_ok</code></td><td>IP address encode/decode round-trips</td></tr>
+        <tr><td><code>firmware_decoder</code></td><td>Firmware version bytes decoded to major/minor/date</td></tr>
+        <tr><td><code>rtc_time_decoder / rtc_calendar_decoder</code></td><td>RTC bytes decoded correctly</td></tr>
+        <tr><td><code>filter_countdown_decoder</code></td><td>Filter countdown bytes decoded correctly</td></tr>
+        <tr><td><code>machine_hours_decoder</code></td><td>Machine hours bytes decoded correctly</td></tr>
+        <tr><td><code>schedule_decoder</code></td><td>Schedule period bytes decoded correctly</td></tr>
+      </tbody>
+    </table>
+
+    <h3>client module (5 tests)</h3>
+    <p>Input validation on the high-level client API — these run without a network connection.</p>
+    <table>
+      <thead><tr><th>Test</th><th>What it verifies</th></tr></thead>
+      <tbody>
+        <tr><td><code>bad_speed_rejected</code></td><td><code>set_speed(5)</code> returns <code>VentoError::Value</code> before any UDP send</td></tr>
+        <tr><td><code>bad_humidity_threshold_rejected</code></td><td><code>set_humidity_threshold(100)</code> rejected</td></tr>
+        <tr><td><code>bad_boost_delay_rejected</code></td><td><code>set_boost_delay(61)</code> rejected</td></tr>
+        <tr><td><code>long_password_rejected</code></td><td><code>change_password("TOOLONGPWD")</code> rejected</td></tr>
+        <tr><td><code>manual_speed_boundaries_accepted</code></td><td><code>set_manual_speed(0)</code> and <code>(255)</code> pass validation; only fail at network layer</td></tr>
+      </tbody>
+    </table>
+
+    <h3>ffi module (6 tests)</h3>
+    <p>ABI-level correctness — these test the C boundary without a network connection.</p>
+    <table>
+      <thead><tr><th>Test</th><th>What it verifies</th></tr></thead>
+      <tbody>
+        <tr><td><code>client_new_and_free</code></td><td><code>vento_client_new</code> returns non-null; <code>vento_client_free</code> does not crash</td></tr>
+        <tr><td><code>null_args_return_null</code></td><td>Null pointers to <code>vento_client_new</code> safely return null</td></tr>
+        <tr><td><code>bad_speed_sets_error</code></td><td><code>vento_set_speed(c, 5)</code> returns <code>ErrValue</code> and populates <code>vento_last_error()</code></td></tr>
+        <tr><td><code>bad_humidity_threshold_sets_error</code></td><td><code>vento_set_humidity_threshold(c, 99)</code> returns <code>ErrValue</code></td></tr>
+        <tr><td><code>device_list_free_null_is_noop</code></td><td>Passing null to <code>vento_device_list_free</code> does not crash</td></tr>
+        <tr><td><code>device_list_free_empty_is_noop</code></td><td>Passing an empty list to <code>vento_device_list_free</code> does not crash</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ── End-to-end validation ─────────────────────────────────────────────── -->
+  <section id="e2e">
+    <h2>End-to-End Validation</h2>
+    <p>
+      The example binary <code>examples/connect.rs</code> provides a manual end-to-end smoke test
+      against a real fan or the Python simulator. It has been run successfully against the
+      simulator at <code>127.0.0.1:4000</code>, device <code>SIMFAN0000000001</code>,
+      password <code>1111</code>.
+    </p>
+    <pre><code>cargo run --example connect -- 127.0.0.1 SIMFAN0000000001 1111</code></pre>
+    <p>The sequence exercised:</p>
+    <ol style="margin: 12px 0 0 20px; font-size: 13px; color: var(--muted); line-height: 2.0;">
+      <li>Read initial device state (<code>get_state</code>)</li>
+      <li>Power on + state read</li>
+      <li>Set speed 2 + state read</li>
+      <li>Set manual speed 128 + state read</li>
+      <li>Set mode to Ventilation</li>
+      <li>Set humidity threshold to 60 %RH</li>
+      <li>Enable weekly schedule</li>
+      <li>Write schedule period (day 1, period 1, speed 2, end 08:00)</li>
+      <li>Read schedule period back and verify</li>
+      <li>Power off + state read</li>
+      <li>Validate rejection: <code>set_speed(5)</code> → <code>VentoError::Value</code></li>
+      <li>Validate rejection: <code>set_humidity_threshold(99)</code> → <code>VentoError::Value</code></li>
+    </ol>
+
+    <div class="callout">
+      Step 9 (next) will add a C driver that exercises the FFI layer over the same sequence,
+      confirming the ABI boundary is correct before the C++ service layer is written in Phase 2.
+    </div>
+  </section>
+
+  <!-- ── Remaining phases ──────────────────────────────────────────────────── -->
+  <section id="phases">
+    <h2>Remaining Phases</h2>
+
+    <div class="phase-header">
+      <span class="badge badge-yellow">Phase 2</span>
+      <h3>iOS Application (6–8 weeks)</h3>
+    </div>
+    <p>
+      Qt/QML app targeting iOS 16+, Cupertino style.
+      Requires macOS + Xcode, <code>aarch64-apple-ios</code> Rust target,
+      <code>NSLocalNetworkUsageDescription</code> in <code>Info.plist</code>,
+      and <code>com.apple.security.network.client</code> entitlement.
+      Manual connect (IP + ID + password) is a first-class path regardless of whether UDP
+      broadcast permission is granted.
+    </p>
+
+    <div class="phase-header">
+      <span class="badge badge-muted">Phase 3</span>
+      <h3>Android Application (3–4 weeks)</h3>
+    </div>
+    <p>
+      Same QML codebase, Material style. Requires Android NDK,
+      <code>CHANGE_WIFI_MULTICAST_STATE</code> permission, and a thin JNI bridge to
+      acquire/release a <code>WifiManager.MulticastLock</code> on foreground/background transitions.
+    </p>
+
+    <div class="phase-header">
+      <span class="badge badge-muted">Phase 4</span>
+      <h3>SailfishOS Application (3–5 weeks)</h3>
+    </div>
+    <p>
+      Silica QML variant, packaged as an RPM for the Harbour store. Requires the Mer SDK toolchain
+      and Rust cross-compilation to <code>armv7-unknown-linux-gnueabihf</code>. The protocol crate
+      needs no changes — it has no platform-specific code. The QML pages get Silica companion files
+      (<code>DashboardPage.sailfish.qml</code>, etc.) selected at build time via a
+      <code>PLATFORM_SAILFISH</code> define.
+    </p>
+  </section>
+
+  <!-- ── Recommended additions ─────────────────────────────────────────────── -->
+  <section id="recommended">
+    <h2>Recommended Documentation (Not Yet Written)</h2>
+    <p>
+      The following topics are valuable and should be documented before or alongside
+      their respective implementation phases. They are listed here as a reminder;
+      none are included in this document yet.
+    </p>
+
+    <ul class="rec-list">
+      <li>
+        <span class="rec-num">1</span>
+        <div class="rec-body">
+          <strong>Blauberg Vento Protocol Reference</strong>
+          <span>A human-readable description of the binary wire format: header layout,
+          TLV encoding, CMD_PAGE page-crossing rules, checksum calculation, the full
+          parameter table (IDs, types, valid ranges, access flags).
+          Currently this knowledge lives only in the Python source and the Rust
+          <code>param.rs</code> comments.</span>
+        </div>
+      </li>
+      <li>
+        <span class="rec-num">2</span>
+        <div class="rec-body">
+          <strong>C++ Service Layer Design</strong>
+          <span>API contract for <code>DeviceService</code> and <code>DiscoveryService</code>:
+          polling interval, signal/slot interface, thread model, error propagation to QML,
+          and how the FFI bridge is wrapped. Needed before Phase 2 starts.</span>
+        </div>
+      </li>
+      <li>
+        <span class="rec-num">3</span>
+        <div class="rec-body">
+          <strong>QML ViewModel Interface Contracts</strong>
+          <span>The <code>Q_PROPERTY</code> names, types, and NOTIFY signals exposed to QML
+          for <code>DeviceViewModel</code>, <code>ScheduleViewModel</code>, and
+          <code>ScenarioViewModel</code>. Acts as the contract between the C++ and QML
+          teams (and as a reference if those are the same person).</span>
+        </div>
+      </li>
+      <li>
+        <span class="rec-num">4</span>
+        <div class="rec-body">
+          <strong>Scenario File Format</strong>
+          <span>JSON schema for the scenario store (v2 format, shared with the
+          <code>ventocontrol</code> desktop app). Documents field names, types,
+          migration path from v1, and the import/export share-sheet flow planned for
+          Phase 2.</span>
+        </div>
+      </li>
+      <li>
+        <span class="rec-num">5</span>
+        <div class="rec-body">
+          <strong>iOS Build &amp; Signing Guide</strong>
+          <span>Step-by-step instructions: Xcode project setup, provisioning profile,
+          entitlements, the Corrosion CMake + Xcode integration quirks, and how to
+          deploy to a physical device for UDP testing (Simulator has a different
+          network stack).</span>
+        </div>
+      </li>
+      <li>
+        <span class="rec-num">6</span>
+        <div class="rec-body">
+          <strong>SailfishOS Cross-Compilation Guide</strong>
+          <span>Mer SDK setup, adding the <code>armv7-unknown-linux-gnueabihf</code>
+          Rust target, the CMake toolchain file for the Mer sysroot, and the RPM
+          Harbour submission checklist (background polling rules, cover page
+          requirements, prohibited API list).</span>
+        </div>
+      </li>
+      <li>
+        <span class="rec-num">7</span>
+        <div class="rec-body">
+          <strong>C FFI Test Driver (Phase 1 Step 9) Results</strong>
+          <span>Once the C driver is written, document the test sequence, expected
+          output, and how to run it against the simulator. This becomes the
+          integration test reference for the ABI boundary.</span>
+        </div>
+      </li>
+      <li>
+        <span class="rec-num">8</span>
+        <div class="rec-body">
+          <strong>Golden Packet Fixture File</strong>
+          <span>A shared <code>protocol_fixtures.json</code> containing the canonical
+          byte vectors for key operations (read state, turn on, set speed, etc.),
+          usable by both the Rust test suite and the Python test suite to prevent
+          silent protocol divergence.</span>
+        </div>
+      </li>
+    </ul>
+  </section>
+
+</main>
+</div>
+</body>
+</html>
