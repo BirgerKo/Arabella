@@ -376,6 +376,38 @@
     <h3>Installing Rust iOS targets</h3>
     <pre><code>rustup target add aarch64-apple-ios
 rustup target add aarch64-apple-ios-sim</code></pre>
+
+    <h3>iPhone device requirements</h3>
+    <p>
+      The following steps must be completed on the target iPhone before Xcode can
+      install a development build:
+    </p>
+    <ul class="req-list">
+      <li>
+        <span class="req-label">iOS version</span>
+        iOS 16.0 or later (set by <code>MinimumOSVersion</code> in <code>Info.plist</code>)
+      </li>
+      <li>
+        <span class="req-label">Developer Mode</span>
+        Enabled under <strong>Settings → Privacy &amp; Security → Developer Mode</strong>.
+        Required since iOS 16; the device must have been connected to Xcode at least once
+        to surface this toggle.
+      </li>
+      <li>
+        <span class="req-label">UDID registered</span>
+        The device UDID must be added to the Apple Developer portal
+        (<em>Certificates, Identifiers &amp; Profiles → Devices</em>) before the
+        provisioning profile is generated. Xcode can do this automatically via
+        <em>Window → Devices and Simulators → Add Device</em> when signed in to a
+        Developer account.
+      </li>
+    </ul>
+    <div class="callout">
+      A <strong>free</strong> Apple ID (no paid membership) is sufficient for
+      side-loading to a personally-owned device via Xcode. The paid Apple Developer
+      Program ($99/year) is required for distribution to other users' devices,
+      TestFlight, or App Store submission.
+    </div>
   </section>
 
   <!-- ── CMake Configuration ───────────────────────────────────────────────── -->
@@ -636,27 +668,27 @@ Style=Cupertino</code></pre>
         <tr>
           <td>iOS Rust cross-compile (verified)</td>
           <td><span class="badge badge-yellow">Not yet</span></td>
-          <td>Target installed; full build against iOS SDK not yet attempted</td>
+          <td>Target installed; full build against iOS SDK not yet attempted (requires macOS)</td>
         </tr>
         <tr>
           <td><code>platform/ios/</code> files</td>
-          <td><span class="badge badge-yellow">Not yet</span></td>
-          <td>Info.plist, entitlements, qtquickcontrols2.conf, assets</td>
+          <td><span class="badge badge-green">Done</span></td>
+          <td>Info.plist, Arabella.entitlements, qtquickcontrols2.conf created</td>
         </tr>
         <tr>
           <td>C++ service layer</td>
-          <td><span class="badge badge-yellow">Not yet</span></td>
-          <td><code>DeviceService</code>, <code>DiscoveryService</code>, <code>ScenarioStore</code></td>
+          <td><span class="badge badge-green">Done</span></td>
+          <td><code>DeviceService</code>, <code>DiscoveryService</code>, <code>ScenarioStore</code>, <code>DeviceHistory</code> — unit-tested on Linux</td>
         </tr>
         <tr>
           <td>ViewModel layer</td>
-          <td><span class="badge badge-yellow">Not yet</span></td>
-          <td><code>DeviceViewModel</code>, <code>ScheduleViewModel</code>, <code>ScenarioViewModel</code></td>
+          <td><span class="badge badge-green">Done</span></td>
+          <td><code>DeviceViewModel</code>, <code>ScheduleViewModel</code>, <code>ScenarioViewModel</code> — unit-tested on Linux</td>
         </tr>
         <tr>
           <td>QML UI pages</td>
-          <td><span class="badge badge-yellow">Not yet</span></td>
-          <td>Dashboard, Connect, Schedule, Scenarios, Details</td>
+          <td><span class="badge badge-green">Done</span></td>
+          <td>Dashboard, Connect, Schedule, Scenarios, Details, plus reusable components</td>
         </tr>
         <tr>
           <td>Device testing (physical iPhone)</td>
