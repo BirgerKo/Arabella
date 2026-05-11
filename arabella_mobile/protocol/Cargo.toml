@@ -11,4 +11,7 @@ crate-type = ["staticlib", "rlib"]
 [dependencies]
 # No external dependencies — keeps the crate portable across toolchains
 
+[build-dependencies]
+cbindgen = "0.27"
+
 [dev-dependencies]

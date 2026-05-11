@@ -1,5 +1,6 @@
 pub mod client;
 pub mod error;
+pub mod ffi;
 pub mod models;
 pub mod packet;
 pub mod param;
