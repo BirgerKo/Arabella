@@ -36,6 +36,10 @@ env/
 # Node / frontend (webdashboard/frontend)
 node_modules/
 webdashboard/frontend/dist/
+webdashboard/frontend/test-results/
+
+# Compiled test binaries
+arabella_mobile/tests/ffi_test
 
 # Rust build artifacts
 arabella_mobile/protocol/target/
