@@ -301,7 +301,7 @@
 <main>
 
   <h1>Arabella Mobile</h1>
-  <p class="subtitle">Architecture, implementation &amp; test reference &mdash; updated 2026-05-11</p>
+  <p class="subtitle">Architecture, implementation &amp; test reference &mdash; updated 2026-05-11 16:07</p>
 
   <!-- ── Overview ─────────────────────────────────────────────────────────── -->
   <section id="overview">
@@ -533,6 +533,8 @@ cmake --preset sailfish        # Phase 4 (requires Mer SDK)</code></pre>
         <tr><td><code>protocol/Cargo.toml</code></td><td>Rust crate manifest; crate-type = ["staticlib", "rlib"]</td></tr>
         <tr><td><code>protocol/build.rs</code></td><td>Invokes cbindgen to write <code>include/protocol.h</code></td></tr>
         <tr><td><code>protocol/include/protocol.h</code></td><td>Generated C header; committed to the repository</td></tr>
+        <tr><td><code>tests/ffi_test.c</code></td><td>C integration driver; registered as a CTest target (<code>ffi_integration</code>)</td></tr>
+        <tr><td><code>tests/run_integration.sh</code></td><td>Convenience script: builds, starts simulator, runs driver, reports result</td></tr>
       </tbody>
     </table>
   </section>
@@ -542,8 +544,9 @@ cmake --preset sailfish        # Phase 4 (requires Mer SDK)</code></pre>
     <h2>Phase 1 Implementation Status</h2>
 
     <div class="callout ok">
-      Phase 1 is complete. The Rust protocol library compiles on Linux, passes all 34 unit
-      tests, and has been validated end-to-end against the Python fan simulator.
+      Phase 1 is complete. All 9 steps done. The Rust protocol library compiles on Linux,
+      passes all 34 unit tests, has been validated end-to-end through both the Rust API
+      (<code>connect.rs</code>) and the C ABI (<code>ffi_test.c</code>).
     </div>
 
     <table>
@@ -557,7 +560,7 @@ cmake --preset sailfish        # Phase 4 (requires Mer SDK)</code></pre>
         <tr><td>6</td><td>Rust unit tests using byte vectors from the Python test suite</td><td><span class="badge badge-green">Done</span></td></tr>
         <tr><td>7</td><td>End-to-end validation against the Python fan simulator</td><td><span class="badge badge-green">Done</span></td></tr>
         <tr><td>8</td><td>C FFI layer (<code>extern "C"</code> exports + <code>cbindgen</code> header)</td><td><span class="badge badge-green">Done</span></td></tr>
-        <tr><td>9</td><td>Minimal C test driver validating the ABI against the simulator</td><td><span class="badge badge-yellow">Next</span></td></tr>
+        <tr><td>9</td><td>Minimal C test driver validating the ABI against the simulator</td><td><span class="badge badge-green">Done</span></td></tr>
       </tbody>
     </table>
   </section>
@@ -668,7 +671,26 @@ cmake --preset sailfish        # Phase 4 (requires Mer SDK)</code></pre>
       </li>
       <li>
         <span class="path">protocol/examples/connect.rs</span>
-        <span class="fdesc">Phase 1 end-to-end validation tool. Runs against a fan or the Python simulator. Exercises get_state, turn_on, set_speed, set_manual_speed, set_ventilation, set_humidity_threshold, enable_weekly_schedule, set_schedule_period, get_schedule_period, turn_off, and validates rejection of out-of-range values.</span>
+        <span class="fdesc">Phase 1 Step 7 — Rust end-to-end validation tool. Runs against a fan or the Python simulator. Exercises get_state, turn_on, set_speed, set_manual_speed, set_ventilation, set_humidity_threshold, enable_weekly_schedule, set_schedule_period, get_schedule_period, turn_off, and validates rejection of out-of-range values.</span>
+      </li>
+    </ul>
+
+    <h3>Integration tests &mdash; <code>tests/</code></h3>
+    <ul class="file-list">
+      <li>
+        <span class="path">tests/ffi_test.c</span>
+        <span class="fdesc">Phase 1 Step 9 — C integration driver. Plain C program that links against the Rust staticlib
+        and exercises 15 checks through the C ABI: client lifecycle, get_state, turn_on/off, set_speed,
+        set_manual_speed, set_mode, set_humidity_threshold, weekly schedule, schedule period read/write,
+        turn_off, 4 out-of-range rejections, and null-pointer safety. Exits 0 on full pass.
+        Compile: <code>gcc tests/ffi_test.c -I protocol/include protocol/target/debug/libarabella_protocol.a -lpthread -ldl -lm -o tests/ffi_test</code></span>
+      </li>
+      <li>
+        <span class="path">tests/run_integration.sh</span>
+        <span class="fdesc">Helper script: builds the Rust staticlib, compiles <code>ffi_test.c</code>,
+        starts the Python fan simulator in the background, runs the driver against
+        <code>127.0.0.1 SIMFAN0000000001 1111</code>, stops the simulator, and reports the result.
+        Flags: <code>--no-rebuild</code> (skip recompile), <code>--keep-sim</code> (leave simulator running).</span>
       </li>
     </ul>
   </section>
@@ -743,7 +765,8 @@ cmake --preset sailfish        # Phase 4 (requires Mer SDK)</code></pre>
     <h2>Tests</h2>
 
     <div class="callout ok">
-      34 tests &mdash; all pass. Run with: <code>cargo test</code>
+      34 Rust unit tests + 15 C integration checks &mdash; all pass.<br>
+      Unit tests: <code>cargo test</code> &nbsp;&nbsp; Integration test: <code>tests/run_integration.sh</code>
     </div>
 
     <h3>packet module (21 tests)</h3>
@@ -803,20 +826,49 @@ cmake --preset sailfish        # Phase 4 (requires Mer SDK)</code></pre>
         <tr><td><code>device_list_free_empty_is_noop</code></td><td>Passing an empty list to <code>vento_device_list_free</code> does not crash</td></tr>
       </tbody>
     </table>
+
+    <h3>C integration driver — <code>tests/ffi_test.c</code> (15 checks)</h3>
+    <p>
+      Live end-to-end checks through the compiled C ABI against the Python fan simulator.
+      Requires the simulator running at <code>127.0.0.1:4000</code>. All 15 checks passed on
+      2026-05-11 against <code>SIMFAN0000000001</code>.
+    </p>
+    <table>
+      <thead><tr><th>Check</th><th>What it verifies</th></tr></thead>
+      <tbody>
+        <tr><td><code>vento_client_new</code></td><td>Returns a non-null pointer for valid arguments</td></tr>
+        <tr><td><code>get_state</code> (initial)</td><td>Reads device ID, unit type, power, speed, firmware over UDP</td></tr>
+        <tr><td><code>turn_on</code> + <code>get_state</code></td><td>Power state changes to on; state read reflects the change</td></tr>
+        <tr><td><code>set_speed(2)</code> + <code>get_state</code></td><td>Speed parameter written and confirmed in next state read</td></tr>
+        <tr><td><code>set_manual_speed(128)</code> + <code>get_state</code></td><td>Manual speed written; speed mode switches to manual (255)</td></tr>
+        <tr><td><code>set_mode(0)</code></td><td>Operation mode set to Ventilation without error</td></tr>
+        <tr><td><code>set_humidity_threshold(60)</code></td><td>Humidity threshold written without error</td></tr>
+        <tr><td><code>enable_weekly_schedule(1)</code></td><td>Schedule enabled without error</td></tr>
+        <tr><td><code>set_schedule_period(1,1,2,8,0)</code></td><td>Schedule period written without error</td></tr>
+        <tr><td><code>get_schedule_period(1,1)</code></td><td>Returns <code>Ok</code>; period struct populated</td></tr>
+        <tr><td><code>turn_off</code> + <code>get_state</code></td><td>Power state changes to off</td></tr>
+        <tr><td><code>set_speed(5)</code></td><td>Returns <code>ErrValue</code>; error message names the constraint</td></tr>
+        <tr><td><code>set_humidity_threshold(99)</code></td><td>Returns <code>ErrValue</code>; rejected before any UDP send</td></tr>
+        <tr><td><code>set_boost_delay(61)</code></td><td>Returns <code>ErrValue</code>; out-of-range value rejected</td></tr>
+        <tr><td><code>set_mode(5)</code></td><td>Returns <code>ErrValue</code>; invalid mode rejected</td></tr>
+        <tr><td><code>client_new(NULL,NULL,NULL)</code></td><td>Returns null without crash (null-pointer safety)</td></tr>
+        <tr><td><code>vento_client_free</code></td><td>Frees memory without crash or sanitizer error</td></tr>
+      </tbody>
+    </table>
   </section>
 
   <!-- ── End-to-end validation ─────────────────────────────────────────────── -->
   <section id="e2e">
     <h2>End-to-End Validation</h2>
+
+    <h3>Step 7 — Rust API (<code>examples/connect.rs</code>)</h3>
     <p>
-      The example binary <code>examples/connect.rs</code> provides a manual end-to-end smoke test
-      against a real fan or the Python simulator. It has been run successfully against the
-      simulator at <code>127.0.0.1:4000</code>, device <code>SIMFAN0000000001</code>,
+      Validates the Rust client API against a live fan or the Python simulator.
+      Run successfully against <code>127.0.0.1:4000</code>, device <code>SIMFAN0000000001</code>,
       password <code>1111</code>.
     </p>
     <pre><code>cargo run --example connect -- 127.0.0.1 SIMFAN0000000001 1111</code></pre>
-    <p>The sequence exercised:</p>
-    <ol style="margin: 12px 0 0 20px; font-size: 13px; color: var(--muted); line-height: 2.0;">
+    <ol style="margin: 12px 0 20px 20px; font-size: 13px; color: var(--muted); line-height: 2.0;">
       <li>Read initial device state (<code>get_state</code>)</li>
       <li>Power on + state read</li>
       <li>Set speed 2 + state read</li>
@@ -831,10 +883,56 @@ cmake --preset sailfish        # Phase 4 (requires Mer SDK)</code></pre>
       <li>Validate rejection: <code>set_humidity_threshold(99)</code> → <code>VentoError::Value</code></li>
     </ol>
 
-    <div class="callout">
-      Step 9 (next) will add a C driver that exercises the FFI layer over the same sequence,
-      confirming the ABI boundary is correct before the C++ service layer is written in Phase 2.
-    </div>
+    <h3>Step 9 — C ABI (<code>tests/ffi_test.c</code>)</h3>
+    <p>
+      Validates the C FFI layer against the same simulator. All 15 checks passed on 2026-05-11.
+      The ABI boundary is confirmed correct and ready for the C++ service layer in Phase 2.
+    </p>
+    <pre><code>tests/run_integration.sh
+# or manually:
+./tests/ffi_test 127.0.0.1 SIMFAN0000000001 1111</code></pre>
+    <pre><code>=== Arabella FFI C driver — Phase 1 Step 9 ===
+Connecting to 127.0.0.1  id=SIMFAN0000000001  pwd=1111
+
+  vento_client_new                         ok
+
+── Initial state ──────────────────────────────────────────────
+  get_state                                ok
+    device_id : SIMFAN0000000001  ip : 127.0.0.1  unit_type : 3
+    power : off  speed : 1  firmware : 1.2
+
+── turn_on ────────────────────────────────────────────────────
+  turn_on                                  ok
+    power : on  speed : 1
+
+── set_speed(2) ───────────────────────────────────────────────
+  set_speed(2)                             ok
+
+── set_manual_speed(128) ──────────────────────────────────────
+  set_manual_speed(128)                    ok
+    power : on  speed : 2  manual_sp : 128
+
+── set_mode(0 = ventilation) / set_humidity_threshold(60) / enable_weekly_schedule / set_schedule_period ──
+  set_mode(0)                              ok
+  set_humidity_threshold(60)               ok
+  enable_weekly_schedule(1)                ok
+  set_schedule_period(1,1,2,8,0)           ok
+
+── get_schedule_period(day=1 period=1) / turn_off ─────────────
+  get_schedule_period(1,1)                 ok
+  turn_off                                 ok
+
+── validation: out-of-range inputs ───────────────────────────
+  set_speed(5)          correctly rejected: speed must be one of [1, 2, 3], got 5
+  set_humidity_threshold(99)  correctly rejected: humidity_threshold must be in [40,80], got 99
+  set_boost_delay(61)   correctly rejected: boost_delay must be in [0,60], got 61
+  set_mode(5)           correctly rejected: mode must be one of [0, 1, 2], got 5
+
+── null safety ────────────────────────────────────────────────
+  client_new(NULL,NULL,NULL)               ok (returned null)
+  vento_client_free                        ok
+
+=== All checks passed ===</code></pre>
   </section>
 
   <!-- ── Remaining phases ──────────────────────────────────────────────────── -->
@@ -949,15 +1047,6 @@ cmake --preset sailfish        # Phase 4 (requires Mer SDK)</code></pre>
       </li>
       <li>
         <span class="rec-num">7</span>
-        <div class="rec-body">
-          <strong>C FFI Test Driver (Phase 1 Step 9) Results</strong>
-          <span>Once the C driver is written, document the test sequence, expected
-          output, and how to run it against the simulator. This becomes the
-          integration test reference for the ABI boundary.</span>
-        </div>
-      </li>
-      <li>
-        <span class="rec-num">8</span>
         <div class="rec-body">
           <strong>Golden Packet Fixture File</strong>
           <span>A shared <code>protocol_fixtures.json</code> containing the canonical
