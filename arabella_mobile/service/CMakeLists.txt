@@ -17,3 +17,5 @@ target_link_libraries(arabella_service
     PUBLIC  Qt6::Core
     PRIVATE Qt6::Concurrent arabella_protocol
 )
+
+add_subdirectory(tests)

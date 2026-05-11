@@ -25,7 +25,13 @@ cd /Users/birger/Python/Arabella && python3.11 -m pytest -q
 | `tests/webdashboard/test_routers_devices.py` | — | 10 | Device state, connect, fan switching, disconnect, and discovery HTTP endpoints |
 | `tests/webdashboard/test_routers_scenarios.py` | — | 11 | Scenario CRUD, quick-slot, and add-fan-to-scenario HTTP endpoints |
 | `tests/webdashboard/e2e/test_dashboard.py` | — | 22 | Playwright E2E: connect dialog, power toggle, speed/mode controls, scenario save+list, fan switching, Details modal open/close, schedule enable/editor, sync RTC |
-| **Total** | **30+** | **230+** | |
+| `arabella_mobile/service/tests/tst_DeviceService` | — | 7 | Qt/C++ service layer: connect/fail/poll/disconnect/command/error with stub FFI |
+| `arabella_mobile/service/tests/tst_DeviceHistory` | — | 6 | Qt/C++ device history: record, move-to-front, cap, label, remove, signal |
+| `arabella_mobile/service/tests/tst_ScenarioStore` | — | 8 | Qt/C++ scenario store: save/load, overwrite, cap, eviction, delete, quick-slots, migration |
+| `arabella_mobile/viewmodel/tests/tst_DeviceViewModel` | — | 5 | Qt/C++ device view model: properties, firmware, disconnect, error, commands |
+| `arabella_mobile/viewmodel/tests/tst_ScheduleViewModel` | — | 6 | Qt/C++ schedule view model: load lifecycle, row count, model data, optimistic update |
+| `arabella_mobile/viewmodel/tests/tst_ScenarioViewModel` | — | 6 | Qt/C++ scenario view model: save, delete, apply, quick-slot, rename, device-id signal |
+| **Total** | **30+** | **260+** | |
 
 ---
 
@@ -671,3 +677,96 @@ Requires the backend (`python -m webdashboard`) and a reachable device or simula
 | `test_schedule_enable_toggle` | Clicking the schedule toggle (in details modal) flips its `aria-pressed` state | `aria-pressed` changes to opposite value within 8 s |
 | `test_schedule_editor_opens` | Clicking "Edit…" (in details modal) opens the schedule editor modal | Dialog with `aria-label="Weekly schedule editor"` visible |
 | `test_sync_rtc_button_clickable` | "Sync RTC" (in details modal) is enabled and clicking it does not show an error | Button remains visible after click |
+
+---
+
+## arabella_mobile/service/tests/tst_DeviceService
+
+Qt Test suite for `DeviceService` — the main-thread owner of the fan connection, poll timer,
+and command dispatch. All FFI calls are intercepted by `stub_protocol.cpp`.
+
+| Test | Purpose | Expected result |
+|------|---------|----------------|
+| `connectSuccess_emitsConnected` | Connecting with a valid stub state emits `connectedToDevice` with a snapshot reflecting the stub | `connectedToDevice` received; `snap.connected`, `snap.power`, `snap.speed` all correct |
+| `connectFailure_emitsConnectionFailed` | When `vento_get_state` returns an error, `connectionFailed` is emitted with a non-empty message | `connectionFailed` received; message not empty |
+| `clientNewFail_emitsConnectionFailed` | When `vento_client_new` returns null (stub `connectFail`), `connectionFailed` is emitted | `connectionFailed` received |
+| `commandDone_triggersImmediatePoll` | After `setPower(true)` completes, an immediate `stateUpdated` signal is emitted before the next poll interval | `stateUpdated` count ≥ 1; `lastCommand == "turn_on"` |
+| `pollTimerFires_emitsStateUpdated` | Without any commands, the poll timer fires and emits `stateUpdated` at the configured interval | `stateUpdated` count ≥ 2 within 10 × pollInterval ms |
+| `disconnectStopsPoll` | After `disconnectFromDevice()`, no further `vento_get_state` calls are made | `getStateCount` does not increase over the next 3 poll intervals |
+| `commandErrorEmitsServiceError` | A command that returns an error status emits `serviceError` with a message containing the error text | `serviceError` received; message contains "speed" |
+
+---
+
+## arabella_mobile/service/tests/tst_DeviceHistory
+
+Qt Test suite for `DeviceHistory` — persistent, move-to-front history of connected fans.
+
+| Test | Purpose | Expected result |
+|------|---------|----------------|
+| `recordAndRetrieve` | Recording a connection stores device ID, IP, and password | `entries().size() == 1`; fields match |
+| `moveToFront` | Re-recording an existing device ID moves it to index 0 | `entries().size() == 2`; `entries()[0].deviceId == "DEV001"` |
+| `maxEntriesEnforced` | Recording more than `kMaxEntries` devices caps the list | `entries().size() == kMaxEntries` |
+| `setLabelPersists` | A label set on one instance is visible after constructing a new instance from the same file | `reload.entries()[0].label == "Living Room Fan"` |
+| `removeEntry` | `removeEntry()` deletes the named device from history | `entries().size() == 1`; remaining entry is DEV002 |
+| `dataChangedEmittedOnRecord` | `recordConnection()` emits `dataChanged` | `spy.count() == 1` |
+
+---
+
+## arabella_mobile/service/tests/tst_ScenarioStore
+
+Qt Test suite for `ScenarioStore` — JSON-backed scenario list with quick-slot assignments.
+
+| Test | Purpose | Expected result |
+|------|---------|----------------|
+| `saveAndLoad` | A scenario saved by one instance is correctly deserialized by a new instance | Loaded scenario has correct name, fan settings |
+| `overwriteByName` | Saving a scenario with an existing name replaces the old entry | `scenarios().size() == 1`; speed is the new value |
+| `capEnforcedAt10` | Saving `kMaxScenarios + 1` scenarios keeps only `kMaxScenarios` | `scenarios().size() == kMaxScenarios` |
+| `evictsOldestOnCap` | When at capacity, the next save evicts the oldest entry | "S0" absent; "Extra" is `names.last()` |
+| `deleteRemovesEntry` | `deleteScenario()` removes the named entry | `scenarios().isEmpty()` |
+| `deleteRemovesFromQuickSlots` | Deleting a scenario also clears it from all quick-slot positions | `quickSlots("DEV001")[0].isEmpty()` |
+| `quickSlotsRoundTrip` | `setQuickSlots` / `quickSlots` persists three slot names including an empty one | `slots[0] == "Morning"`; `slots[1] == "Night"`; `slots[2].isEmpty()` |
+| `v1MigrationLoadsEntries` | A v1-format JSON file (device-keyed) is migrated on load to v2 (flat scenario list) | `scenarios().size() == 1`; `scenarios()[0].name == "OldScenario"` |
+
+---
+
+## arabella_mobile/viewmodel/tests/tst_DeviceViewModel
+
+Qt Test suite for `DeviceViewModel` — the QML-facing adapter over `DeviceService`.
+
+| Test | Purpose | Expected result |
+|------|---------|----------------|
+| `propertiesReflectConnectedState` | After connecting, all Q_PROPERTY values match the stub state snapshot | `connected()`, `deviceId()`, `power()`, `speed()`, `mode()`, `firmwareVersion()` all correct |
+| `firmwareVersionEmptyWhenNotValid` | `firmwareVersion()` returns an empty string when `firmwareValid` is false | `firmwareVersion().isEmpty()` |
+| `disconnectClearsConnectedFlag` | `disconnectFromDevice()` immediately sets `connected()` to false | `connected() == false` |
+| `connectionFailureEmitsConnectionError` | When `vento_client_new` fails, `connectionError` signal is emitted and `lastError()` is non-empty | `connectionError` received; `lastError()` not empty |
+| `commandsDelegateToService` | `setPower`, `setSpeed`, `setMode` each result in the correct FFI call | `lastCommand()` matches `"turn_on"`, `"set_speed"`, `"set_mode"` in order |
+
+---
+
+## arabella_mobile/viewmodel/tests/tst_ScheduleViewModel
+
+Qt Test suite for `ScheduleViewModel` — a `QAbstractListModel` exposing the 8 × 4 weekly schedule grid.
+
+| Test | Purpose | Expected result |
+|------|---------|----------------|
+| `initiallyNotLoadedAndNotLoading` | Before `load()` is called, `loaded`, `loading`, and `rowCount` are all false / 0 | All three are false / 0 |
+| `loadSetsLoadingFlagThenClears` | Calling `load()` immediately sets `loading = true`; it clears once data arrives | `loading` true immediately; `loaded` true after async reply |
+| `afterLoadRowCountIs32` | After a successful load, the model has 8 days × 4 periods = 32 rows | `rowCount() == 32` |
+| `modelDataMatchesStubOutput` | Row data matches the values returned by the stub `vento_get_schedule_period` | Row 0: speed=1, endHours=0; Row 8: endHours=6 (day 2, period 1) |
+| `setPeriodUpdatesModelOptimistically` | `setPeriod()` updates the in-memory model immediately and issues the command asynchronously | Model data changes synchronously; `lastCommand == "set_schedule_period"` |
+| `secondLoadWhileLoadingIsIgnored` | A second `load()` call while a load is in flight does nothing | `rowCount() == 32` (not 64) after the single load completes |
+
+---
+
+## arabella_mobile/viewmodel/tests/tst_ScenarioViewModel
+
+Qt Test suite for `ScenarioViewModel` — CRUD + quick-slot management over `ScenarioStore`.
+
+| Test | Purpose | Expected result |
+|------|---------|----------------|
+| `saveCurrentStateAddsEntry` | `saveCurrentState()` adds a row to the model and persists it | `rowCount() == 1`; `data(index(0), NameRole) == "Night"` |
+| `deleteScenarioRemovesEntry` | `deleteScenario()` removes the named row | `rowCount() == 0` |
+| `applyScenarioIssuesCommandsToService` | `applyScenario()` translates saved settings into `DeviceService` calls | `lastCommand == "turn_on"` after apply |
+| `quickSlotRoundTrip` | `setQuickSlot(0, name)` is reflected by `quickSlots()[0]` | `slots[0] == "Eco"` |
+| `renameScenarioUpdatesModel` | `renameScenario()` replaces the name in the model | `rowCount() == 1`; name is "NewName" |
+| `setCurrentDeviceIdEmitsQuickSlotsChanged` | Changing the current device ID emits `quickSlotsChanged` | `spy.count() == 1` |

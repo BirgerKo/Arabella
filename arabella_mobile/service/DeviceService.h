@@ -14,7 +14,7 @@
 class DeviceService : public QObject {
     Q_OBJECT
 public:
-    explicit DeviceService(QObject *parent = nullptr);
+    explicit DeviceService(QObject *parent = nullptr, int pollIntervalMs = kPollIntervalMs);
     ~DeviceService() override;
 
     bool isConnected() const { return m_connected; }
@@ -79,6 +79,7 @@ private:
     QTimer           m_pollTimer;
     bool             m_connected  = false;
     DeviceStateSnapshot m_lastState;
+    int              m_pollInterval;
 
     static constexpr int kPollIntervalMs = 2000;
 };

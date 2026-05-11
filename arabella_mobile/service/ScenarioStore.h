@@ -53,7 +53,7 @@ public:
     void deleteScenario(const QString &name);
 
     QStringList quickSlots(const QString &deviceId) const;
-    void setQuickSlots(const QString &deviceId, const QStringList &slots);
+    void setQuickSlots(const QString &deviceId, const QStringList &slotNames);
 
 signals:
     void dataChanged();

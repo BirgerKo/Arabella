@@ -1,6 +1,7 @@
 #include "DeviceService.h"
 
-DeviceService::DeviceService(QObject *parent) : QObject(parent), m_worker(new DeviceWorker)
+DeviceService::DeviceService(QObject *parent, int pollIntervalMs)
+    : QObject(parent), m_worker(new DeviceWorker), m_pollInterval(pollIntervalMs)
 {
     m_worker->moveToThread(&m_thread);
     m_thread.start();
@@ -76,7 +77,7 @@ void DeviceService::onConnected(DeviceStateSnapshot state)
 {
     m_connected = true;
     m_lastState = state;
-    m_pollTimer.start(kPollIntervalMs);
+    m_pollTimer.start(m_pollInterval);
     emit connectedToDevice(state);
 }
 

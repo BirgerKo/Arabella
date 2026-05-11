@@ -17,9 +17,13 @@ qt_add_qml_module(arabella_app
         components/ModeSelector.qml
         components/RpmDisplay.qml
         components/HumidityWidget.qml
-    RESOURCES
-        ${CMAKE_SOURCE_DIR}/platform/ios/qtquickcontrols2.conf
 )
+
+if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+    set(IOS_CONF "${CMAKE_SOURCE_DIR}/platform/ios/qtquickcontrols2.conf")
+    set_source_files_properties(${IOS_CONF} PROPERTIES QT_RESOURCE_ALIAS "qtquickcontrols2.conf")
+    qt_add_resources(arabella_app "ios_style" FILES ${IOS_CONF})
+endif()
 
 target_link_libraries(arabella_app
     PRIVATE

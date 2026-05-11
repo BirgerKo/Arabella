@@ -8,3 +8,5 @@ qt_add_library(arabella_viewmodel STATIC
 
 target_include_directories(arabella_viewmodel PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(arabella_viewmodel PUBLIC Qt6::Core Qt6::Quick arabella_service)
+
+add_subdirectory(tests)

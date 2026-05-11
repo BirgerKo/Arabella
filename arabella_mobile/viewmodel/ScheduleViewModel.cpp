@@ -52,12 +52,12 @@ void ScheduleViewModel::setPeriod(int day, int period, int speed, int endH, int 
 {
     m_service->setSchedulePeriod(day, period, speed, endH, endM);
 
-    for (SchedulePeriodData &p : m_periods) {
+    for (int row = 0; row < m_periods.size(); ++row) {
+        SchedulePeriodData &p = m_periods[row];
         if (p.day == day && p.period == period) {
             p.speed      = speed;
             p.endHours   = endH;
             p.endMinutes = endM;
-            const int row = m_periods.indexOf(p);
             const QModelIndex idx = index(row);
             emit dataChanged(idx, idx, {SpeedRole, EndHoursRole, EndMinutesRole});
             return;

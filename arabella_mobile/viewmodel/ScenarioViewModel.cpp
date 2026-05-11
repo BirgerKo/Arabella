@@ -78,29 +78,30 @@ void ScenarioViewModel::deleteScenario(const QString &name)
 
 void ScenarioViewModel::setQuickSlot(int slot, const QString &name)
 {
-    QStringList slots = m_store->quickSlots(m_currentDeviceId);
-    if (slot >= 0 && slot < slots.size())
-        slots[slot] = name;
-    m_store->setQuickSlots(m_currentDeviceId, slots);
+    QStringList slotNames = m_store->quickSlots(m_currentDeviceId);
+    if (slot >= 0 && slot < slotNames.size())
+        slotNames[slot] = name;
+    m_store->setQuickSlots(m_currentDeviceId, slotNames);
     emit quickSlotsChanged();
 }
 
 void ScenarioViewModel::applyQuickSlot(int slot, const QString &deviceId)
 {
-    const QStringList slots = m_store->quickSlots(deviceId);
-    if (slot < 0 || slot >= slots.size()) return;
-    const QString name = slots[slot];
+    const QStringList slotNames = m_store->quickSlots(deviceId);
+    if (slot < 0 || slot >= slotNames.size()) return;
+    const QString name = slotNames[slot];
     if (!name.isEmpty())
         applyScenario(name, deviceId);
 }
 
 void ScenarioViewModel::renameScenario(const QString &oldName, const QString &newName)
 {
-    for (ScenarioEntry &e : m_entries) {
+    for (const ScenarioEntry &e : m_entries) {
         if (e.name == oldName) {
+            ScenarioEntry updated = e;  // copy before delete triggers onStoreChanged
+            updated.name = newName;
             m_store->deleteScenario(oldName);
-            e.name = newName;
-            m_store->saveScenario(e);
+            m_store->saveScenario(updated);
             return;
         }
     }

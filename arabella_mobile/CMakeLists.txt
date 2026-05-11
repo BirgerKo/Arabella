@@ -24,6 +24,10 @@ else()
     corrosion_import_crate(MANIFEST_PATH protocol/Cargo.toml)
 endif()
 
+# ── Phase 1 Step 9: C FFI integration test ───────────────────────────────────
+# Must be called before any add_subdirectory that contains add_test() calls.
+enable_testing()
+
 # ── Phase 2: Qt application layers ───────────────────────────────────────────
 find_package(Qt6 QUIET COMPONENTS Core Quick QuickControls2 Concurrent)
 
@@ -35,10 +39,6 @@ if(Qt6_FOUND)
 else()
     message(STATUS "Qt6 not found — skipping service/viewmodel/ui targets")
 endif()
-
-# ── Phase 1 Step 9: C FFI integration test ───────────────────────────────────
-# Requires the Python simulator: python3 -m ventocontrol.simulator
-enable_testing()
 
 add_executable(ffi_test tests/ffi_test.c)
 target_include_directories(ffi_test PRIVATE protocol/include)

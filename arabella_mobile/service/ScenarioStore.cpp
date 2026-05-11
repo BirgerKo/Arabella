@@ -38,8 +38,8 @@ void ScenarioStore::saveScenario(const ScenarioEntry &entry)
 
     if (m_scenarios.size() >= kMaxScenarios) {
         const QString evicted = m_scenarios.takeFirst()["name"].toString();
-        for (QStringList &slots : m_quickSlots) {
-            for (QString &slot : slots) {
+        for (QStringList &slotList : m_quickSlots) {
+            for (QString &slot : slotList) {
                 if (slot == evicted) slot.clear();
             }
         }
@@ -53,8 +53,8 @@ void ScenarioStore::saveScenario(const ScenarioEntry &entry)
 void ScenarioStore::deleteScenario(const QString &name)
 {
     m_scenarios.removeIf([&](const QJsonObject &o) { return o["name"].toString() == name; });
-    for (QStringList &slots : m_quickSlots) {
-        for (QString &slot : slots) {
+    for (QStringList &slotList : m_quickSlots) {
+        for (QString &slot : slotList) {
             if (slot == name) slot.clear();
         }
     }
@@ -64,14 +64,14 @@ void ScenarioStore::deleteScenario(const QString &name)
 
 QStringList ScenarioStore::quickSlots(const QString &deviceId) const
 {
-    QStringList slots = m_quickSlots.value(deviceId);
-    while (slots.size() < kQuickSlots) slots.append({});
-    return slots.mid(0, kQuickSlots);
+    QStringList result = m_quickSlots.value(deviceId);
+    while (result.size() < kQuickSlots) result.append(QString{});
+    return result.mid(0, kQuickSlots);
 }
 
-void ScenarioStore::setQuickSlots(const QString &deviceId, const QStringList &slots)
+void ScenarioStore::setQuickSlots(const QString &deviceId, const QStringList &slotNames)
 {
-    m_quickSlots[deviceId] = slots.mid(0, kQuickSlots);
+    m_quickSlots[deviceId] = slotNames.mid(0, kQuickSlots);
     save();
 }
 
@@ -109,9 +109,9 @@ void ScenarioStore::load()
                 m_scenarios.append(entry);
             }
             QJsonArray qs = bucket["quick_slots"].toArray();
-            QStringList slots;
-            for (const QJsonValue &v : qs) slots.append(v.toString());
-            m_quickSlots[devId] = slots;
+            QStringList slotList;
+            for (const QJsonValue &v : qs) slotList.append(v.toString());
+            m_quickSlots[devId] = slotList;
         }
         return;
     }
@@ -121,9 +121,9 @@ void ScenarioStore::load()
 
     QJsonObject qs = root["quick_slots"].toObject();
     for (const QString &key : qs.keys()) {
-        QStringList slots;
-        for (const QJsonValue &v : qs[key].toArray()) slots.append(v.toString());
-        m_quickSlots[key] = slots;
+        QStringList slotList;
+        for (const QJsonValue &v : qs[key].toArray()) slotList.append(v.toString());
+        m_quickSlots[key] = slotList;
     }
 }
 
