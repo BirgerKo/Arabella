@@ -36,3 +36,7 @@ env/
 # Node / frontend (webdashboard/frontend)
 node_modules/
 webdashboard/frontend/dist/
+
+# Rust build artifacts
+arabella_mobile/protocol/target/
+arabella_mobile/build/
