@@ -271,8 +271,11 @@
     <li><a href="#network">Network Permissions</a></li>
     <li><a href="#ui">UI Architecture</a></li>
     <li><a href="#platform-files">Platform Files</a></li>
+    <li><a href="#service-layer">Service Layer Interface</a></li>
+    <li><a href="#viewmodel-contracts">ViewModel Contracts</a></li>
+    <li><a href="#scenario-format">Scenario File Format</a></li>
     <li><a href="#status">Implementation Status</a></li>
-    <li><a href="#recommended">Recommended Docs</a></li>
+    <li><a href="#recommended">Remaining Docs</a></li>
   </ul>
 
   <div class="section-label">Common docs</div>
@@ -291,7 +294,7 @@
 <main>
 
   <h1>Arabella iOS</h1>
-  <p class="subtitle">iOS-specific architecture &amp; implementation &mdash; updated 2026-05-11 18:00</p>
+  <p class="subtitle">iOS-specific architecture &amp; implementation &mdash; updated 2026-05-11 20:34</p>
 
   <!-- ── Overview ─────────────────────────────────────────────────────────── -->
   <section id="overview">
@@ -638,6 +641,331 @@ Style=Cupertino</code></pre>
     </p>
   </section>
 
+  <!-- ── Service Layer Interface ──────────────────────────────────────────── -->
+  <section id="service-layer">
+    <h2>C++ Service Layer Interface</h2>
+    <p>
+      The service layer sits between the QML/ViewModel layer and the Rust FFI. It owns the
+      fan connection, drives the poll timer, and dispatches all commands off the main thread.
+    </p>
+
+    <h3>Thread model</h3>
+    <p>
+      <code>DeviceService</code> lives on the Qt main thread. All blocking FFI calls
+      (<code>vento_get_state</code>, <code>vento_turn_on</code>, etc.) run inside
+      <code>DeviceWorker</code> on a dedicated <code>QThread</code>. Communication across
+      the thread boundary uses queued signal/slot connections — the worker never touches
+      main-thread objects directly.
+    </p>
+    <div class="callout">
+      The poll timer fires on the main thread and emits <code>_sigPoll()</code> to the
+      worker via a queued connection. After every command the service also emits
+      <code>_sigPoll()</code> immediately so the UI reflects the result without waiting
+      for the next scheduled poll interval.
+    </div>
+
+    <h3>DeviceService — public signals</h3>
+    <table>
+      <thead><tr><th>Signal</th><th>Payload</th><th>Meaning</th></tr></thead>
+      <tbody>
+        <tr><td><code>connectedToDevice</code></td><td><code>DeviceStateSnapshot</code></td><td>Connection succeeded; first state snapshot delivered</td></tr>
+        <tr><td><code>connectionFailed</code></td><td><code>QString</code> message</td><td>Connection or initial poll failed</td></tr>
+        <tr><td><code>stateUpdated</code></td><td><code>DeviceStateSnapshot</code></td><td>Regular poll completed with fresh state</td></tr>
+        <tr><td><code>scheduleLoaded</code></td><td><code>QList&lt;SchedulePeriodData&gt;</code></td><td>Full 8×4 schedule read from device</td></tr>
+        <tr><td><code>commandDone</code></td><td>—</td><td>Last command acknowledged by the device</td></tr>
+        <tr><td><code>serviceError</code></td><td><code>QString</code> message</td><td>Any FFI error that is not a connection failure</td></tr>
+      </tbody>
+    </table>
+
+    <h3>DeviceService — public slots (invokable from QML)</h3>
+    <table>
+      <thead><tr><th>Method</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>connectToDevice(host, deviceId, password)</code></td><td>Open UDP session; emits <code>connectedToDevice</code> or <code>connectionFailed</code></td></tr>
+        <tr><td><code>disconnectFromDevice()</code></td><td>Stop poll timer; release client; resets connected flag</td></tr>
+        <tr><td><code>setPower(bool on)</code></td><td>Turn fan on (<code>vento_turn_on</code>) or off (<code>vento_turn_off</code>)</td></tr>
+        <tr><td><code>setSpeed(int)</code></td><td>Preset speeds 1–3 via <code>vento_set_speed</code></td></tr>
+        <tr><td><code>setManualSpeed(int)</code></td><td>Manual RPM 0–255 via <code>vento_set_manual_speed</code></td></tr>
+        <tr><td><code>setMode(int)</code></td><td>0 = ventilation, 1 = heat recovery, 2 = supply</td></tr>
+        <tr><td><code>setBoostStatus(bool)</code></td><td>Enable/disable boost mode</td></tr>
+        <tr><td><code>setBoostDelay(int minutes)</code></td><td>Boost run-on time after boost is disabled</td></tr>
+        <tr><td><code>setHumiditySensor(int)</code></td><td>0 = off, 1 = on, 2 = auto</td></tr>
+        <tr><td><code>setHumidityThreshold(int rh)</code></td><td>Target humidity 40–80 %RH</td></tr>
+        <tr><td><code>setScheduleEnabled(bool)</code></td><td>Enable/disable the weekly schedule</td></tr>
+        <tr><td><code>setSchedulePeriod(day, period, speed, endH, endM)</code></td><td>Write one of 4 periods for a day group (0–7)</td></tr>
+        <tr><td><code>loadFullSchedule()</code></td><td>Read all 32 periods; emits <code>scheduleLoaded</code></td></tr>
+        <tr><td><code>syncRtc()</code></td><td>Write current device clock from <code>QDateTime::currentDateTime()</code></td></tr>
+        <tr><td><code>resetAlarms()</code></td><td>Clear alarm flags on device</td></tr>
+        <tr><td><code>resetFilterTimer()</code></td><td>Reset filter replacement countdown</td></tr>
+      </tbody>
+    </table>
+
+    <h3>DeviceStateSnapshot fields</h3>
+    <p>
+      Every signal that carries device state uses <code>DeviceStateSnapshot</code>. Each
+      field has a paired <code>*Valid</code> boolean; read the value only when its valid
+      flag is true.
+    </p>
+    <table>
+      <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>connected</code></td><td>bool</td><td>True once <code>connectedToDevice</code> has fired</td></tr>
+        <tr><td><code>deviceId</code>, <code>ip</code></td><td>QString</td><td>Device identifier and IP address</td></tr>
+        <tr><td><code>unitType</code></td><td>quint16</td><td>Hardware model code</td></tr>
+        <tr><td><code>power</code></td><td>bool</td><td>Fan running</td></tr>
+        <tr><td><code>speed</code></td><td>quint8</td><td>Preset speed 1–3</td></tr>
+        <tr><td><code>manualSpeed</code></td><td>quint8</td><td>Manual RPM 0–255 (active when <code>speed == 255</code>)</td></tr>
+        <tr><td><code>operationMode</code></td><td>quint8</td><td>0 ventilation · 1 heat recovery · 2 supply</td></tr>
+        <tr><td><code>boostActive</code></td><td>bool</td><td>Boost currently running</td></tr>
+        <tr><td><code>boostDelayMinutes</code></td><td>quint8</td><td>Post-boost run-on time</td></tr>
+        <tr><td><code>humiditySensor</code></td><td>quint8</td><td>0 off · 1 on · 2 auto</td></tr>
+        <tr><td><code>humidityThreshold</code></td><td>quint8</td><td>Target %RH (40–80)</td></tr>
+        <tr><td><code>currentHumidity</code></td><td>quint8</td><td>Measured %RH</td></tr>
+        <tr><td><code>fan1Rpm</code>, <code>fan2Rpm</code></td><td>quint16</td><td>Intake and exhaust RPM</td></tr>
+        <tr><td><code>filterNeedsReplacement</code></td><td>bool</td><td>Filter service required</td></tr>
+        <tr><td><code>alarmStatus</code></td><td>quint8</td><td>Bitmask of active alarm flags</td></tr>
+        <tr><td><code>firmwareMajor</code>, <code>firmwareMinor</code></td><td>quint8</td><td>Firmware version (guarded by <code>firmwareValid</code>)</td></tr>
+        <tr><td><code>weeklyScheduleEnabled</code></td><td>bool</td><td>Weekly schedule active</td></tr>
+        <tr><td><code>cloudPermitted</code></td><td>bool</td><td>Cloud access flag</td></tr>
+      </tbody>
+    </table>
+
+    <h3>DiscoveryService</h3>
+    <p>
+      <code>DiscoveryService</code> runs a single UDP broadcast scan using
+      <code>QtConcurrent::run</code> so the main thread stays responsive. It wraps
+      <code>vento_discover("255.255.255.255", 4000, …)</code>.
+    </p>
+    <table>
+      <thead><tr><th>Signal / slot</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>startDiscovery()</code> slot</td><td>Starts a background scan; ignored if already running</td></tr>
+        <tr><td><code>discovered(QList&lt;DiscoveredDeviceInfo&gt;)</code> signal</td><td>Emitted when scan completes; list may be empty</td></tr>
+        <tr><td><code>discoveryError(QString)</code> signal</td><td>Emitted if the FFI call returns an error status</td></tr>
+        <tr><td><code>isRunning()</code></td><td>True while scan is in progress; drives the <code>discovering</code> property on DeviceViewModel</td></tr>
+      </tbody>
+    </table>
+    <p>
+      <code>DiscoveredDeviceInfo</code> carries: <code>ip</code>, <code>deviceId</code>,
+      <code>unitType</code>, <code>unitTypeName</code>.
+    </p>
+  </section>
+
+  <!-- ── ViewModel Contracts ────────────────────────────────────────────────── -->
+  <section id="viewmodel-contracts">
+    <h2>QML ViewModel Contracts</h2>
+    <p>
+      All three ViewModels are registered with <code>QML_ELEMENT</code> and exposed to QML
+      via context properties set in <code>main.cpp</code> (<code>DeviceVM</code>,
+      <code>ScheduleVM</code>, <code>ScenarioVM</code>). Properties without a valid reading
+      return a zero/false/empty default until the device reports that field.
+    </p>
+
+    <h3>DeviceViewModel — properties</h3>
+    <table>
+      <thead><tr><th>Property</th><th>Type</th><th>NOTIFY signal</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td><code>connected</code></td><td>bool</td><td><code>connectionChanged</code></td><td>True after <code>connectedToDevice</code></td></tr>
+        <tr><td><code>statusText</code></td><td>QString</td><td><code>statusTextChanged</code></td><td>Human-readable connection state for status bar</td></tr>
+        <tr><td><code>deviceId</code></td><td>QString</td><td><code>deviceInfoChanged</code></td><td></td></tr>
+        <tr><td><code>deviceIp</code></td><td>QString</td><td><code>deviceInfoChanged</code></td><td></td></tr>
+        <tr><td><code>unitType</code></td><td>int</td><td><code>deviceInfoChanged</code></td><td>Hardware model code</td></tr>
+        <tr><td><code>power</code></td><td>bool</td><td><code>stateChanged</code></td><td></td></tr>
+        <tr><td><code>speed</code></td><td>int</td><td><code>stateChanged</code></td><td>1–3 preset; 255 = manual</td></tr>
+        <tr><td><code>manualSpeed</code></td><td>int</td><td><code>stateChanged</code></td><td>0–255; relevant when <code>speed == 255</code></td></tr>
+        <tr><td><code>mode</code></td><td>int</td><td><code>stateChanged</code></td><td>0 ventilation · 1 heat recovery · 2 supply</td></tr>
+        <tr><td><code>boostActive</code></td><td>bool</td><td><code>stateChanged</code></td><td></td></tr>
+        <tr><td><code>boostDelayMinutes</code></td><td>int</td><td><code>stateChanged</code></td><td></td></tr>
+        <tr><td><code>humiditySensor</code></td><td>int</td><td><code>stateChanged</code></td><td>0 off · 1 on · 2 auto</td></tr>
+        <tr><td><code>humidityThreshold</code></td><td>int</td><td><code>stateChanged</code></td><td>Target %RH</td></tr>
+        <tr><td><code>currentHumidity</code></td><td>int</td><td><code>stateChanged</code></td><td>Measured %RH</td></tr>
+        <tr><td><code>fan1Rpm</code></td><td>int</td><td><code>stateChanged</code></td><td>Intake fan RPM</td></tr>
+        <tr><td><code>fan2Rpm</code></td><td>int</td><td><code>stateChanged</code></td><td>Exhaust fan RPM</td></tr>
+        <tr><td><code>scheduleEnabled</code></td><td>bool</td><td><code>stateChanged</code></td><td>Weekly schedule active</td></tr>
+        <tr><td><code>filterNeedsReplacement</code></td><td>bool</td><td><code>stateChanged</code></td><td></td></tr>
+        <tr><td><code>alarmStatus</code></td><td>int</td><td><code>stateChanged</code></td><td>Bitmask</td></tr>
+        <tr><td><code>firmwareVersion</code></td><td>QString</td><td><code>stateChanged</code></td><td>"major.minor" or "" when not yet valid</td></tr>
+        <tr><td><code>discovering</code></td><td>bool</td><td><code>discoveringChanged</code></td><td>True while UDP scan is in progress</td></tr>
+        <tr><td><code>discoveredDevices</code></td><td>QVariantList</td><td><code>discoveredDevicesChanged</code></td><td>List of maps: <code>ip</code>, <code>deviceId</code>, <code>unitTypeName</code></td></tr>
+        <tr><td><code>historyEntries</code></td><td>QVariantList</td><td><code>historyChanged</code></td><td>List of maps: <code>deviceId</code>, <code>ip</code>, <code>label</code></td></tr>
+        <tr><td><code>lastError</code></td><td>QString</td><td><code>lastErrorChanged</code></td><td>Last connection or command error message</td></tr>
+      </tbody>
+    </table>
+
+    <h3>DeviceViewModel — invokable methods</h3>
+    <table>
+      <thead><tr><th>Method</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>connectToDevice(host, deviceId, password)</code></td><td>Initiates connection; emits <code>connectionChanged</code> or <code>connectionError</code></td></tr>
+        <tr><td><code>disconnectFromDevice()</code></td><td>Disconnects and clears state</td></tr>
+        <tr><td><code>startDiscovery()</code></td><td>Starts UDP broadcast scan</td></tr>
+        <tr><td><code>setPower(bool)</code></td><td></td></tr>
+        <tr><td><code>setSpeed(int)</code></td><td>1–3 preset speed</td></tr>
+        <tr><td><code>setManualSpeed(int)</code></td><td>0–255 manual speed</td></tr>
+        <tr><td><code>setMode(int)</code></td><td>0/1/2</td></tr>
+        <tr><td><code>setBoostStatus(bool)</code></td><td></td></tr>
+        <tr><td><code>setBoostDelay(int minutes)</code></td><td></td></tr>
+        <tr><td><code>setHumiditySensor(int)</code></td><td>0/1/2</td></tr>
+        <tr><td><code>setHumidityThreshold(int rh)</code></td><td>40–80 %RH</td></tr>
+        <tr><td><code>setScheduleEnabled(bool)</code></td><td></td></tr>
+        <tr><td><code>syncRtc()</code></td><td>Writes current time to device RTC</td></tr>
+        <tr><td><code>resetAlarms()</code></td><td></td></tr>
+        <tr><td><code>resetFilterTimer()</code></td><td></td></tr>
+        <tr><td><code>renameDevice(deviceId, label)</code></td><td>Sets a display label in DeviceHistory</td></tr>
+        <tr><td><code>removeFromHistory(deviceId)</code></td><td>Removes entry from connection history</td></tr>
+      </tbody>
+    </table>
+
+    <h3>ScheduleViewModel</h3>
+    <p>
+      Extends <code>QAbstractListModel</code>. Expose as <code>ScheduleVM</code> in QML context.
+      Loading is lazy — triggered by the QML page calling <code>ScheduleVM.load()</code> when
+      the schedule page opens.
+    </p>
+    <table>
+      <thead><tr><th>Item</th><th>Kind</th><th>Detail</th></tr></thead>
+      <tbody>
+        <tr><td><code>loading</code></td><td>property (bool)</td><td>True while the 32-period read is in progress</td></tr>
+        <tr><td><code>loaded</code></td><td>property (bool)</td><td>True once schedule data is available</td></tr>
+        <tr><td><code>lastError</code></td><td>property (QString)</td><td>Set on FFI error; <code>loading</code> clears to false</td></tr>
+        <tr><td><code>day</code></td><td>model role</td><td>Day group 0–7</td></tr>
+        <tr><td><code>period</code></td><td>model role</td><td>Period number 1–4 within the day</td></tr>
+        <tr><td><code>speed</code></td><td>model role</td><td>Fan speed preset for this period</td></tr>
+        <tr><td><code>endHours</code></td><td>model role</td><td>Hour the period ends (0–23)</td></tr>
+        <tr><td><code>endMinutes</code></td><td>model role</td><td>Minute the period ends (0–59)</td></tr>
+        <tr><td><code>load()</code></td><td>invokable</td><td>Triggers full schedule read; idempotent while loading</td></tr>
+        <tr><td><code>setPeriod(day, period, speed, endH, endM)</code></td><td>invokable</td><td>Optimistic local update + async write to device</td></tr>
+        <tr><td><code>setScheduleEnabled(bool)</code></td><td>invokable</td><td>Delegates to DeviceService</td></tr>
+      </tbody>
+    </table>
+    <p>The model contains 32 rows (8 day groups × 4 periods each), ordered by day then period.</p>
+
+    <h3>ScenarioViewModel</h3>
+    <p>
+      Extends <code>QAbstractListModel</code>. Expose as <code>ScenarioVM</code> in QML context.
+      Backed by <code>ScenarioStore</code> (JSON file) and the current <code>DeviceService</code>.
+    </p>
+    <table>
+      <thead><tr><th>Item</th><th>Kind</th><th>Detail</th></tr></thead>
+      <tbody>
+        <tr><td><code>name</code></td><td>model role</td><td>Scenario display name</td></tr>
+        <tr><td><code>quickSlots</code></td><td>property (QStringList)</td><td>3-element list of scenario names assigned to quick slots; empty string = unassigned</td></tr>
+        <tr><td><code>saveCurrentState(name, deviceId, state)</code></td><td>invokable</td><td>Captures current <code>DeviceStateSnapshot</code> into a named scenario</td></tr>
+        <tr><td><code>applyScenario(name, deviceId)</code></td><td>invokable</td><td>Issues service commands for all captured fields</td></tr>
+        <tr><td><code>deleteScenario(name)</code></td><td>invokable</td><td>Removes entry from store and clears any quick-slot references</td></tr>
+        <tr><td><code>renameScenario(oldName, newName)</code></td><td>invokable</td><td>Delete + re-save under new name</td></tr>
+        <tr><td><code>setQuickSlot(slot, name)</code></td><td>invokable</td><td>Assign scenario to slot 0/1/2</td></tr>
+        <tr><td><code>applyQuickSlot(slot, deviceId)</code></td><td>invokable</td><td>Resolve slot → scenario name → apply</td></tr>
+        <tr><td><code>setCurrentDeviceId(deviceId)</code></td><td>slot</td><td>Updates quick-slot context; emits <code>quickSlotsChanged</code></td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ── Scenario File Format ───────────────────────────────────────────────── -->
+  <section id="scenario-format">
+    <h2>Scenario File Format (v2)</h2>
+    <p>
+      Scenarios are persisted to <code>QStandardPaths::AppDataLocation + "/scenarios.json"</code>.
+      The v2 format is identical to the Python desktop app (<code>ventocontrol</code>), so scenario
+      files can be shared between platforms. The store caps at <strong>10 scenarios</strong> and
+      <strong>3 quick slots per device</strong>.
+    </p>
+
+    <h3>v2 file structure</h3>
+    <pre><code>{
+  "version": 2,
+
+  "scenarios": [
+    {
+      "name": "Night",
+      "fans": [
+        {
+          "device_id": "VENT-SIM-001",
+          "settings": {
+            "power": false,
+            "speed": 1,
+            "operation_mode": 0,
+            "humidity_threshold": 65
+          }
+        }
+      ]
+    },
+    {
+      "name": "Day",
+      "fans": [
+        {
+          "device_id": "VENT-SIM-001",
+          "settings": {
+            "power": true,
+            "speed": 2
+          }
+        },
+        {
+          "device_id": "VENT-SIM-002",
+          "settings": {
+            "power": true,
+            "speed": 3,
+            "operation_mode": 2
+          }
+        }
+      ]
+    }
+  ],
+
+  "quick_slots": {
+    "VENT-SIM-001": ["Night", "Day", ""],
+    "VENT-SIM-002": ["Day", "", ""]
+  }
+}</code></pre>
+
+    <h3>Settings fields</h3>
+    <p>All settings fields are optional — only captured fields are written. Missing fields are not applied when a scenario is activated.</p>
+    <table>
+      <thead><tr><th>JSON key</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>power</code></td><td>bool</td><td>Fan on/off</td></tr>
+        <tr><td><code>speed</code></td><td>int</td><td>Preset speed 1–3; 255 = manual</td></tr>
+        <tr><td><code>manual_speed</code></td><td>int</td><td>Manual RPM 0–255 (written together with <code>speed: 255</code>)</td></tr>
+        <tr><td><code>operation_mode</code></td><td>int</td><td>0 ventilation · 1 heat recovery · 2 supply</td></tr>
+        <tr><td><code>boost_active</code></td><td>bool</td><td>Boost on/off</td></tr>
+        <tr><td><code>humidity_sensor</code></td><td>int</td><td>0 off · 1 on · 2 auto</td></tr>
+        <tr><td><code>humidity_threshold</code></td><td>int</td><td>Target %RH (40–80)</td></tr>
+      </tbody>
+    </table>
+
+    <h3>v1 → v2 migration</h3>
+    <p>
+      The v1 format stored scenarios per-device. <code>ScenarioStore</code> detects
+      <code>"version": 1</code> on load and migrates automatically — no user action required.
+      The migrated data is not written back to disk until the next save operation.
+    </p>
+    <pre><code>{
+  "version": 1,
+  "devices": {
+    "VENT-SIM-001": {
+      "scenarios": [
+        { "name": "OldScenario", "settings": { "speed": 2 } }
+      ],
+      "quick_slots": ["OldScenario", null, null]
+    }
+  }
+}</code></pre>
+
+    <h3>Quick slots</h3>
+    <p>
+      Quick slots are stored per-device under the <code>quick_slots</code> key as a 3-element
+      array of scenario names. An empty string means the slot is unassigned. When a scenario is
+      deleted, all quick-slot references to it are automatically cleared.
+    </p>
+
+    <h3>Eviction policy</h3>
+    <p>
+      When the 10-scenario cap is reached, the <em>oldest</em> scenario (index 0 of the internal
+      list) is evicted before the new one is appended. Overwriting a scenario by name does not
+      count as a new entry — it replaces in place.
+    </p>
+  </section>
+
   <!-- ── Implementation Status ─────────────────────────────────────────────── -->
   <section id="status">
     <h2>Implementation Status</h2>
@@ -699,11 +1027,13 @@ Style=Cupertino</code></pre>
     </table>
   </section>
 
-  <!-- ── Recommended docs ──────────────────────────────────────────────────── -->
+  <!-- ── Remaining docs ───────────────────────────────────────────────────── -->
   <section id="recommended">
-    <h2>Recommended Documentation (Not Yet Written)</h2>
+    <h2>Remaining Documentation</h2>
     <p>
-      iOS-specific topics that should be documented as Phase 2 progresses.
+      Two topics require hands-on macOS/Xcode work before they can be written accurately.
+      The three sections that could be documented from source alone (Service Layer Interface,
+      ViewModel Contracts, Scenario File Format) are now complete — see the navigation above.
     </p>
 
     <ul class="rec-list">
@@ -711,48 +1041,24 @@ Style=Cupertino</code></pre>
         <span class="rec-num">1</span>
         <div class="rec-body">
           <strong>iOS Build &amp; Signing Guide</strong>
-          <span>Step-by-step: Xcode project generation via CMake, code-signing identity
-          and provisioning profile setup, how to deploy to a physical device, and known
-          Corrosion + Xcode integration quirks (build phase ordering, code-sign-on-copy
-          for the Rust staticlib).</span>
+          <span>Step-by-step: Xcode project generation via CMake (<code>cmake -G Xcode</code>),
+          code-signing identity and provisioning profile setup in Xcode, how to select a
+          physical device target, and known Corrosion + Xcode integration quirks (build phase
+          ordering, code-sign-on-copy for the Rust staticlib, simulator vs device slice
+          selection for the XCFramework). <em>Blocked on: access to a macOS build machine
+          with Xcode installed so the exact signing steps can be verified.</em></span>
         </div>
       </li>
       <li>
         <span class="rec-num">2</span>
         <div class="rec-body">
-          <strong>C++ Service Layer Interface</strong>
-          <span>Signal/slot contract for <code>DeviceService</code> and
-          <code>DiscoveryService</code>: polling interval, how FFI errors surface to QML,
-          thread model (service runs on the Qt main thread; FFI calls are synchronous and
-          block for up to the UDP timeout).</span>
-        </div>
-      </li>
-      <li>
-        <span class="rec-num">3</span>
-        <div class="rec-body">
-          <strong>QML ViewModel Contracts</strong>
-          <span>The <code>Q_PROPERTY</code> names, types, and NOTIFY signals for
-          <code>DeviceViewModel</code>, <code>ScheduleViewModel</code>, and
-          <code>ScenarioViewModel</code>. Serves as the binding contract between the C++
-          and QML layers.</span>
-        </div>
-      </li>
-      <li>
-        <span class="rec-num">4</span>
-        <div class="rec-body">
-          <strong>Scenario File Format</strong>
-          <span>JSON schema for the scenario store (v2, shared with
-          <code>ventocontrol</code> desktop app). Documents field names, the v1→v2
-          migration path, and the share-sheet import/export flow for iOS.</span>
-        </div>
-      </li>
-      <li>
-        <span class="rec-num">5</span>
-        <div class="rec-body">
           <strong>App Store Submission Checklist</strong>
           <span>Privacy manifest (<code>PrivacyInfo.xcprivacy</code> required since iOS 17),
-          required screenshot sizes, age rating, network usage justification in App Review
-          notes, and any entitlement review requirements for local network access.</span>
+          required screenshot sizes for each supported device class, age rating selection,
+          network usage justification in App Review notes, and entitlement review requirements
+          for local network access (Bonjour/UDP multicast). <em>Blocked on: completing at
+          least one TestFlight submission cycle to discover which fields App Store Connect
+          actually requires for this type of app.</em></span>
         </div>
       </li>
     </ul>
