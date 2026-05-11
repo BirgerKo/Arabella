@@ -339,6 +339,11 @@ impl VentoClient {
 
     // --- Boost ---
 
+    pub fn set_boost_status(&self, on: bool) -> Result<()> {
+        self.write_params_with_response(&[WriteParam::from_int(Param::BoostStatus, on as u64)?])?;
+        Ok(())
+    }
+
     pub fn set_boost_delay(&self, minutes: u8) -> Result<()> {
         check_range("boost_delay", minutes as i64, 0, 60)?;
         self.write_params(&[WriteParam::from_int(Param::BoostDelay, minutes as u64)?])

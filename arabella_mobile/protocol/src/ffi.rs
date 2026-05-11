@@ -313,6 +313,18 @@ pub unsafe extern "C" fn vento_set_mode(client: *const VentoClient, mode: u8) ->
 
 // ── Boost ─────────────────────────────────────────────────────────────────────
 
+/// Enable (on != 0) or disable (on == 0) boost mode.
+///
+/// # Safety
+/// `client` must be a valid non-null pointer.
+#[no_mangle]
+pub unsafe extern "C" fn vento_set_boost_status(
+    client: *const VentoClient,
+    on: u8,
+) -> VentoStatus {
+    map_result((*client).set_boost_status(on != 0))
+}
+
 /// Set boost delay in minutes (0–60).
 ///
 /// # Safety

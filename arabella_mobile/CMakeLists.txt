@@ -1,7 +1,10 @@
 cmake_minimum_required(VERSION 3.20)
 project(ArabellaMobile C CXX)
 
-# Fetch Corrosion to integrate the Rust protocol crate into CMake
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# ── Corrosion (Rust → CMake) ──────────────────────────────────────────────────
 include(FetchContent)
 FetchContent_Declare(
     Corrosion
@@ -10,8 +13,28 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(Corrosion)
 
-# Import the Rust crate — produces CMake target: arabella_protocol
-corrosion_import_crate(MANIFEST_PATH protocol/Cargo.toml)
+# iOS: point Corrosion at the device target triple.
+# The simulator slice is handled by a separate XCFramework post-build step.
+if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+    corrosion_import_crate(
+        MANIFEST_PATH protocol/Cargo.toml
+        FLAGS --target aarch64-apple-ios
+    )
+else()
+    corrosion_import_crate(MANIFEST_PATH protocol/Cargo.toml)
+endif()
+
+# ── Phase 2: Qt application layers ───────────────────────────────────────────
+find_package(Qt6 QUIET COMPONENTS Core Quick QuickControls2 Concurrent)
+
+if(Qt6_FOUND)
+    qt_standard_project_setup()
+    add_subdirectory(service)
+    add_subdirectory(viewmodel)
+    add_subdirectory(ui)
+else()
+    message(STATUS "Qt6 not found — skipping service/viewmodel/ui targets")
+endif()
 
 # ── Phase 1 Step 9: C FFI integration test ───────────────────────────────────
 # Requires the Python simulator: python3 -m ventocontrol.simulator
@@ -35,8 +58,3 @@ set_tests_properties(ffi_integration PROPERTIES
     LABELS "integration"
     TIMEOUT 30
 )
-
-# ── Phase 2+: Qt/service/viewmodel/UI ────────────────────────────────────────
-# add_subdirectory(service)
-# add_subdirectory(viewmodel)
-# add_subdirectory(ui)

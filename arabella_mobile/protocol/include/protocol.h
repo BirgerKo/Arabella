@@ -241,6 +241,14 @@ enum VentoStatus vento_speed_down(const struct VentoClient *client);
 enum VentoStatus vento_set_mode(const struct VentoClient *client, uint8_t mode);
 
 /**
+ * Enable (on != 0) or disable (on == 0) boost mode.
+ *
+ * # Safety
+ * `client` must be a valid non-null pointer.
+ */
+enum VentoStatus vento_set_boost_status(const struct VentoClient *client, uint8_t on);
+
+/**
  * Set boost delay in minutes (0–60).
  *
  * # Safety
