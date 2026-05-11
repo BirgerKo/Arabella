@@ -160,7 +160,7 @@ async def test_require_connection_raises_when_disconnected(manager):
 
 @pytest.mark.asyncio
 async def test_enable_schedule(manager):
-    mock_state = make_state()
+    mock_state = _make_state()
     mock_client = MagicMock()
     mock_client.get_state             = AsyncMock(return_value=mock_state)
     mock_client.enable_weekly_schedule = AsyncMock()
@@ -175,7 +175,7 @@ async def test_enable_schedule(manager):
 
 @pytest.mark.asyncio
 async def test_set_schedule_period(manager):
-    mock_state = make_state()
+    mock_state = _make_state()
     mock_client = MagicMock()
     mock_client.get_state          = AsyncMock(return_value=mock_state)
     mock_client.set_schedule_period = AsyncMock()
@@ -190,7 +190,7 @@ async def test_set_schedule_period(manager):
 
 @pytest.mark.asyncio
 async def test_sync_rtc(manager):
-    mock_state = make_state()
+    mock_state = _make_state()
     mock_client = MagicMock()
     mock_client.get_state = AsyncMock(return_value=mock_state)
     mock_client.sync_rtc  = AsyncMock()
@@ -205,7 +205,7 @@ async def test_sync_rtc(manager):
 
 def test_state_to_dict_includes_schedule_fields():
     from blauberg_vento.models import RtcTime, RtcCalendar
-    state = make_state(
+    state = _make_state(
         weekly_schedule_enabled=True,
         rtc_time=RtcTime(hours=14, minutes=30, seconds=0),
         rtc_calendar=RtcCalendar(year=2026, month=3, day=22, day_of_week=7),
