@@ -295,13 +295,20 @@
     <li><a href="#phases">Remaining Phases</a></li>
     <li><a href="#recommended">Recommended Docs</a></li>
   </ul>
+
+  <div class="section-label">Platform Docs</div>
+  <ul>
+    <li><a href="ios.html">iOS</a></li>
+    <li style="opacity:.45; pointer-events:none; cursor:default;"><a href="#" tabindex="-1">Android</a></li>
+    <li style="opacity:.45; pointer-events:none; cursor:default;"><a href="#" tabindex="-1">SailfishOS</a></li>
+  </ul>
 </nav>
 
 <!-- ── Main content ───────────────────────────────────────────────────────── -->
 <main>
 
   <h1>Arabella Mobile</h1>
-  <p class="subtitle">Architecture, implementation &amp; test reference &mdash; updated 2026-05-11 16:07</p>
+  <p class="subtitle">Architecture, implementation &amp; test reference &mdash; updated 2026-05-11 16:30</p>
 
   <!-- ── Overview ─────────────────────────────────────────────────────────── -->
   <section id="overview">
@@ -939,22 +946,42 @@ Connecting to 127.0.0.1  id=SIMFAN0000000001  pwd=1111
   <section id="phases">
     <h2>Remaining Phases</h2>
 
-    <div class="phase-header">
-      <span class="badge badge-yellow">Phase 2</span>
-      <h3>iOS Application (6–8 weeks)</h3>
-    </div>
     <p>
-      Qt/QML app targeting iOS 16+, Cupertino style.
-      Requires macOS + Xcode, <code>aarch64-apple-ios</code> Rust target,
-      <code>NSLocalNetworkUsageDescription</code> in <code>Info.plist</code>,
-      and <code>com.apple.security.network.client</code> entitlement.
-      Manual connect (IP + ID + password) is a first-class path regardless of whether UDP
-      broadcast permission is granted.
+      The protocol crate (Phase 1) is complete and shared across all three platforms.
+      Each platform phase adds a Qt/QML application layer on top of the same C FFI boundary.
+      Platform-specific details are documented in the linked platform pages.
     </p>
+
+    <table>
+      <thead><tr><th>Phase</th><th>Platform</th><th>Style</th><th>Status</th><th>Details</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><span class="badge badge-yellow">2</span></td>
+          <td>iOS 16+</td>
+          <td>Cupertino</td>
+          <td><span class="badge badge-yellow">Planned</span></td>
+          <td><a href="ios.html">ios.html</a></td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-muted">3</span></td>
+          <td>Android</td>
+          <td>Material</td>
+          <td><span class="badge badge-muted">Future</span></td>
+          <td>Doc not yet written</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-muted">4</span></td>
+          <td>SailfishOS</td>
+          <td>Silica</td>
+          <td><span class="badge badge-muted">Future</span></td>
+          <td>Doc not yet written</td>
+        </tr>
+      </tbody>
+    </table>
 
     <div class="phase-header">
       <span class="badge badge-muted">Phase 3</span>
-      <h3>Android Application (3–4 weeks)</h3>
+      <h3>Android — key constraints</h3>
     </div>
     <p>
       Same QML codebase, Material style. Requires Android NDK,
@@ -964,7 +991,7 @@ Connecting to 127.0.0.1  id=SIMFAN0000000001  pwd=1111
 
     <div class="phase-header">
       <span class="badge badge-muted">Phase 4</span>
-      <h3>SailfishOS Application (3–5 weeks)</h3>
+      <h3>SailfishOS — key constraints</h3>
     </div>
     <p>
       Silica QML variant, packaged as an RPM for the Harbour store. Requires the Mer SDK toolchain
@@ -1028,16 +1055,6 @@ Connecting to 127.0.0.1  id=SIMFAN0000000001  pwd=1111
       <li>
         <span class="rec-num">5</span>
         <div class="rec-body">
-          <strong>iOS Build &amp; Signing Guide</strong>
-          <span>Step-by-step instructions: Xcode project setup, provisioning profile,
-          entitlements, the Corrosion CMake + Xcode integration quirks, and how to
-          deploy to a physical device for UDP testing (Simulator has a different
-          network stack).</span>
-        </div>
-      </li>
-      <li>
-        <span class="rec-num">6</span>
-        <div class="rec-body">
           <strong>SailfishOS Cross-Compilation Guide</strong>
           <span>Mer SDK setup, adding the <code>armv7-unknown-linux-gnueabihf</code>
           Rust target, the CMake toolchain file for the Mer sysroot, and the RPM
@@ -1046,7 +1063,7 @@ Connecting to 127.0.0.1  id=SIMFAN0000000001  pwd=1111
         </div>
       </li>
       <li>
-        <span class="rec-num">7</span>
+        <span class="rec-num">6</span>
         <div class="rec-body">
           <strong>Golden Packet Fixture File</strong>
           <span>A shared <code>protocol_fixtures.json</code> containing the canonical

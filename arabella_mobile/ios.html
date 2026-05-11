@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arabella Mobile — iOS</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #22263a;
+    --border: #2e3350;
+    --accent: #4f8ef7;
+    --accent2: #7c5cbf;
+    --green: #3dba7e;
+    --yellow: #e8b84b;
+    --red: #e05c5c;
+    --text: #d4d8f0;
+    --muted: #7a819e;
+    --code-bg: #14172080;
+    --font-mono: "SFMono-Regular", "Consolas", "Liberation Mono", monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.65;
+    font-size: 15px;
+  }
+
+  /* ── Layout ──────────────────────────────────────────────────────────── */
+  .shell { display: flex; min-height: 100vh; }
+  nav {
+    width: 240px;
+    flex-shrink: 0;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 32px 0;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+  }
+  nav .logo {
+    padding: 0 24px 28px;
+    font-size: 17px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: -.3px;
+  }
+  nav .logo span { color: var(--accent); }
+  nav ul { list-style: none; }
+  nav li a {
+    display: block;
+    padding: 7px 24px;
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 13px;
+    border-left: 2px solid transparent;
+    transition: color .15s, border-color .15s;
+  }
+  nav li a:hover { color: var(--text); border-left-color: var(--border); }
+  nav li a.active { color: var(--accent); border-left-color: var(--accent); font-weight: 600; }
+  nav li a.ext { color: var(--muted); font-style: italic; }
+  nav li a.ext:hover { color: var(--accent); }
+  nav .section-label {
+    padding: 20px 24px 6px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--muted);
+  }
+
+  main {
+    flex: 1;
+    max-width: 900px;
+    padding: 56px 64px 100px;
+  }
+
+  /* ── Typography ──────────────────────────────────────────────────────── */
+  h1 { font-size: 32px; font-weight: 800; color: #fff; margin-bottom: 8px; }
+  h2 {
+    font-size: 21px; font-weight: 700; color: #fff;
+    margin: 56px 0 16px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  h3 { font-size: 16px; font-weight: 700; color: var(--text); margin: 28px 0 10px; }
+  p  { margin-bottom: 14px; color: var(--text); }
+  a  { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  ul, ol { padding-left: 20px; margin-bottom: 14px; }
+  li { margin-bottom: 6px; font-size: 13px; color: var(--muted); }
+
+  .subtitle { color: var(--muted); font-size: 14px; margin-bottom: 40px; }
+
+  /* ── Code ────────────────────────────────────────────────────────────── */
+  code {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    padding: 1px 6px;
+    border-radius: 4px;
+    color: #c9d1f5;
+  }
+  pre {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px 24px;
+    overflow-x: auto;
+    margin: 16px 0 20px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 1.6;
+    color: #c9d1f5;
+  }
+  pre code { background: none; border: none; padding: 0; font-size: inherit; }
+
+  /* ── Cards ───────────────────────────────────────────────────────────── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 24px;
+    margin: 16px 0;
+  }
+  .card h4 { font-size: 14px; font-weight: 700; color: #fff; margin-bottom: 8px; }
+  .card p  { font-size: 13px; color: var(--muted); margin-bottom: 0; }
+
+  .cards-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 16px 0; }
+
+  /* ── Tables ──────────────────────────────────────────────────────────── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin: 16px 0 24px;
+  }
+  th {
+    background: var(--surface2);
+    color: var(--muted);
+    font-weight: 600;
+    text-align: left;
+    padding: 10px 14px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+  }
+  td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--surface2); }
+
+  /* ── Badges ──────────────────────────────────────────────────────────── */
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+  }
+  .badge-green  { background: #1a3d2e; color: var(--green); }
+  .badge-blue   { background: #182040; color: var(--accent); }
+  .badge-yellow { background: #3a2e10; color: var(--yellow); }
+  .badge-muted  { background: var(--surface2); color: var(--muted); }
+
+  /* ── Callout ─────────────────────────────────────────────────────────── */
+  .callout {
+    border-left: 3px solid var(--accent);
+    background: #182040;
+    border-radius: 0 8px 8px 0;
+    padding: 14px 18px;
+    margin: 16px 0;
+    font-size: 13px;
+    color: #b5c4f7;
+  }
+  .callout.warn  { border-color: var(--yellow); background: #2a2010; color: #d4b870; }
+  .callout.ok    { border-color: var(--green);  background: #122a1e; color: #6ed4a0; }
+
+  /* ── File list ───────────────────────────────────────────────────────── */
+  .file-list { list-style: none; margin: 12px 0; padding: 0; }
+  .file-list li {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    margin: 0;
+  }
+  .file-list li:last-child { border-bottom: none; }
+  .file-list .path { font-family: var(--font-mono); color: var(--accent); flex-shrink: 0; }
+  .file-list .fdesc { color: var(--muted); }
+
+  /* ── Recommended section ─────────────────────────────────────────────── */
+  .rec-list { list-style: none; margin: 0; padding: 0; }
+  .rec-list li {
+    display: flex;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    margin: 0;
+  }
+  .rec-list li:last-child { border-bottom: none; }
+  .rec-num {
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--surface2);
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .rec-body strong { color: var(--text); display: block; margin-bottom: 3px; }
+  .rec-body span   { color: var(--muted); }
+
+  /* ── Misc ────────────────────────────────────────────────────────────── */
+  section { scroll-margin-top: 24px; }
+
+  /* ── Requirement list ────────────────────────────────────────────────── */
+  .req-list { list-style: none; margin: 12px 0; padding: 0; }
+  .req-list li {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--text);
+    margin: 0;
+  }
+  .req-list li:last-child { border-bottom: none; }
+  .req-list .req-label {
+    font-weight: 600;
+    color: var(--muted);
+    min-width: 160px;
+    flex-shrink: 0;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- ── Navigation ─────────────────────────────────────────────────────────── -->
+<nav>
+  <div class="logo">Arabella <span>iOS</span></div>
+
+  <div class="section-label">This document</div>
+  <ul>
+    <li><a href="#overview">Overview</a></li>
+    <li><a href="#requirements">Build Requirements</a></li>
+    <li><a href="#cmake">CMake Configuration</a></li>
+    <li><a href="#rust-targets">Rust Targets</a></li>
+    <li><a href="#network">Network Permissions</a></li>
+    <li><a href="#ui">UI Architecture</a></li>
+    <li><a href="#platform-files">Platform Files</a></li>
+    <li><a href="#status">Implementation Status</a></li>
+    <li><a href="#recommended">Recommended Docs</a></li>
+  </ul>
+
+  <div class="section-label">Common docs</div>
+  <ul>
+    <li><a href="architecture.html" class="ext">Architecture &amp; Protocol</a></li>
+  </ul>
+
+  <div class="section-label">Other platforms</div>
+  <ul>
+    <li><a class="ext" style="opacity:.45; cursor:default;">Android (not yet)</a></li>
+    <li><a class="ext" style="opacity:.45; cursor:default;">SailfishOS (not yet)</a></li>
+  </ul>
+</nav>
+
+<!-- ── Main content ───────────────────────────────────────────────────────── -->
+<main>
+
+  <h1>Arabella iOS</h1>
+  <p class="subtitle">iOS-specific architecture &amp; implementation &mdash; updated 2026-05-11 16:14</p>
+
+  <!-- ── Overview ─────────────────────────────────────────────────────────── -->
+  <section id="overview">
+    <h2>Overview</h2>
+    <p>
+      This document covers everything specific to the iOS target of Arabella Mobile.
+      For the shared protocol library, FFI bridge, and overall architecture see
+      <a href="architecture.html">Architecture &amp; Protocol</a>.
+    </p>
+    <p>
+      The iOS app is a native Qt/QML application with Cupertino-style controls.
+      It communicates directly with Blauberg Vento fans over UDP on the local WiFi
+      network using the same Rust protocol library that all Arabella platforms share.
+      No cloud service or home-server relay is required.
+    </p>
+
+    <div class="cards-grid">
+      <div class="card">
+        <h4>Protocol library</h4>
+        <p>Rust <code>staticlib</code> — shared with Android and SailfishOS. CMake preset and
+        Rust target triples configured. <span class="badge badge-green">Ready</span></p>
+      </div>
+      <div class="card">
+        <h4>C++ service &amp; ViewModel layers</h4>
+        <p><code>DeviceService</code>, <code>DiscoveryService</code>, ViewModels.
+        Not yet implemented. <span class="badge badge-yellow">Phase 2</span></p>
+      </div>
+      <div class="card">
+        <h4>QML UI</h4>
+        <p>Dashboard, Connect, Schedule, Scenario, Details pages.
+        Not yet implemented. <span class="badge badge-yellow">Phase 2</span></p>
+      </div>
+      <div class="card">
+        <h4>Platform files</h4>
+        <p><code>Info.plist</code>, entitlements, app icon, launch screen.
+        Not yet created. <span class="badge badge-yellow">Phase 2</span></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Build Requirements ────────────────────────────────────────────────── -->
+  <section id="requirements">
+    <h2>Build Requirements</h2>
+    <p>
+      iOS builds must be performed on macOS. Cross-compilation from Linux or Windows
+      is not supported by Apple tooling. The protocol library itself can be developed
+      and tested on Linux (as in Phase 1), but the full iOS app requires a Mac.
+    </p>
+
+    <ul class="req-list">
+      <li>
+        <span class="req-label">Host OS</span>
+        macOS 14 (Sonoma) or later recommended
+      </li>
+      <li>
+        <span class="req-label">Xcode</span>
+        Xcode 15 or later; iOS 16+ SDK included
+      </li>
+      <li>
+        <span class="req-label">Qt</span>
+        Qt 6.6 or later with the iOS add-on installed via Qt Maintenance Tool
+      </li>
+      <li>
+        <span class="req-label">CMake</span>
+        3.20 or later (bundled with Qt or installed separately)
+      </li>
+      <li>
+        <span class="req-label">Rust toolchain</span>
+        Stable Rust with <code>aarch64-apple-ios</code> and <code>aarch64-apple-ios-sim</code> targets
+      </li>
+      <li>
+        <span class="req-label">Apple Developer</span>
+        Active Apple Developer Program membership for device deployment and distribution
+      </li>
+      <li>
+        <span class="req-label">Provisioning</span>
+        Development provisioning profile covering the app bundle ID and the
+        <code>com.apple.security.network.client</code> entitlement
+      </li>
+    </ul>
+
+    <h3>Installing Rust iOS targets</h3>
+    <pre><code>rustup target add aarch64-apple-ios
+rustup target add aarch64-apple-ios-sim</code></pre>
+  </section>
+
+  <!-- ── CMake Configuration ───────────────────────────────────────────────── -->
+  <section id="cmake">
+    <h2>CMake Configuration</h2>
+    <p>
+      The <code>ios</code> preset in <code>CMakePresets.json</code> configures the build for
+      iOS. It uses the Xcode generator so that CMake produces an <code>.xcodeproj</code> that
+      Xcode signs and packages into an IPA.
+    </p>
+    <pre><code>cmake --preset ios
+open build/ios/ArabellaMobile.xcodeproj</code></pre>
+
+    <p>The preset sets:</p>
+    <table>
+      <thead><tr><th>CMake variable</th><th>Value</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td><code>CMAKE_SYSTEM_NAME</code></td><td><code>iOS</code></td><td>Tells CMake to cross-compile for iOS</td></tr>
+        <tr><td><code>CMAKE_OSX_DEPLOYMENT_TARGET</code></td><td><code>16.0</code></td><td>Minimum iOS version</td></tr>
+        <tr><td>Generator</td><td>Xcode</td><td>Required for iOS signing and IPA packaging</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Corrosion + Xcode integration</h3>
+    <p>
+      Corrosion (v0.5) integrates the Rust crate into the Xcode CMake build. When CMake
+      configures for iOS it instructs Corrosion to build the Rust crate for
+      <code>aarch64-apple-ios</code>. The resulting <code>libarabella_protocol.a</code>
+      staticlib is linked into the C++ service target automatically via
+      <code>target_link_libraries</code>.
+    </p>
+    <div class="callout warn">
+      Corrosion and the Xcode generator require that <code>CMAKE_SYSTEM_NAME=iOS</code> is set
+      before <code>FetchContent_MakeAvailable(Corrosion)</code> runs. The preset handles this
+      correctly, but it must not be overridden manually on the command line after the fact.
+    </div>
+
+    <h3>Simulator vs device builds</h3>
+    <p>
+      The Simulator runs on the Mac's own CPU (Apple Silicon = arm64), so it uses a different
+      Rust target than the physical device:
+    </p>
+    <table>
+      <thead><tr><th>Target</th><th>Rust triple</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td>Physical iPhone/iPad</td><td><code>aarch64-apple-ios</code></td><td>Required for real fan UDP testing</td></tr>
+        <tr><td>Simulator (Apple Silicon Mac)</td><td><code>aarch64-apple-ios-sim</code></td><td>Different ABI from device despite same CPU arch</td></tr>
+        <tr><td>Simulator (Intel Mac)</td><td><code>x86_64-apple-ios</code></td><td>Only needed for Intel Mac development</td></tr>
+      </tbody>
+    </table>
+    <div class="callout warn">
+      UDP testing against a real fan <strong>must be done on a physical device</strong>.
+      The iOS Simulator uses a different network stack and does not reflect the permission
+      dialog or the UDP multicast behaviour a user will actually experience.
+    </div>
+  </section>
+
+  <!-- ── Rust Targets ──────────────────────────────────────────────────────── -->
+  <section id="rust-targets">
+    <h2>Rust Cross-Compilation</h2>
+    <p>
+      The <code>arabella_protocol</code> Rust crate cross-compiles to iOS with no code changes.
+      It uses only <code>std::net::UdpSocket</code> and <code>std::ffi</code> — both fully
+      supported on Apple platforms.
+    </p>
+
+    <h3>XCFramework consideration</h3>
+    <p>
+      When distributing the library (e.g. as a Swift Package or for use in a future
+      Swift/Objective-C layer), the two staticlibs should be combined into an
+      <strong>XCFramework</strong> so Xcode can select the correct slice at link time:
+    </p>
+    <pre><code># Build both slices
+cargo build --target aarch64-apple-ios --release
+cargo build --target aarch64-apple-ios-sim --release
+
+# Package as XCFramework
+xcodebuild -create-xcframework \
+  -library target/aarch64-apple-ios/release/libarabella_protocol.a \
+  -library target/aarch64-apple-ios-sim/release/libarabella_protocol.a \
+  -output ArabellProtocol.xcframework</code></pre>
+    <p>
+      For the CMake/Qt build path managed by Corrosion this step is not needed — Corrosion
+      handles slice selection automatically through the Xcode build system.
+    </p>
+  </section>
+
+  <!-- ── Network Permissions ───────────────────────────────────────────────── -->
+  <section id="network">
+    <h2>Network Permissions (iOS 14+)</h2>
+    <p>
+      Starting with iOS 14, apps that send UDP packets on the local network must declare
+      intent in <code>Info.plist</code> and receive a one-time user permission prompt before
+      the first broadcast packet is allowed. This affects fan <strong>discovery</strong> only.
+    </p>
+
+    <h3>Required Info.plist keys</h3>
+    <pre><code>&lt;key&gt;NSLocalNetworkUsageDescription&lt;/key&gt;
+&lt;string&gt;Arabella uses the local network to discover and control
+Blauberg Vento fans on your Wi-Fi network.&lt;/string&gt;
+
+&lt;!-- Required when using Bonjour/multicast service types --&gt;
+&lt;key&gt;NSBonjourServices&lt;/key&gt;
+&lt;array&gt;
+    &lt;string&gt;_arabella._udp&lt;/string&gt;
+&lt;/array&gt;</code></pre>
+
+    <h3>Required entitlement</h3>
+    <pre><code>&lt;key&gt;com.apple.security.network.client&lt;/key&gt;
+&lt;true/&gt;</code></pre>
+
+    <h3>Manual connect as first-class path</h3>
+    <p>
+      If the user denies the local network permission, discovery is unavailable but the app
+      remains fully functional. Manual connection (entering IP address, device ID, and password
+      directly) bypasses discovery entirely and must be treated as a first-class UI path, not
+      a fallback.
+    </p>
+    <table>
+      <thead><tr><th>Connection method</th><th>Requires local network permission</th><th>Works after denial</th></tr></thead>
+      <tbody>
+        <tr><td>Auto-discovery (UDP broadcast)</td><td>Yes</td><td>No</td></tr>
+        <tr><td>Manual connect (IP + ID + password)</td><td>No</td><td>Yes</td></tr>
+      </tbody>
+    </table>
+
+    <h3>UDP port</h3>
+    <p>
+      The Blauberg Vento protocol uses UDP port 4000. This is an outbound connection from the
+      app to the fan; no inbound listening port is required. The
+      <code>com.apple.security.network.client</code> entitlement covers this use case.
+    </p>
+  </section>
+
+  <!-- ── UI Architecture ───────────────────────────────────────────────────── -->
+  <section id="ui">
+    <h2>UI Architecture</h2>
+
+    <h3>Style: Cupertino</h3>
+    <p>
+      Qt Quick Controls 2 ships with a Cupertino style that matches iOS system controls.
+      It is activated by placing a <code>qtquickcontrols2.conf</code> file in the app bundle
+      and importing <code>QtQuick.Controls</code> in QML — no code changes are needed to
+      switch styles between platforms.
+    </p>
+    <pre><code>[Controls]
+Style=Cupertino</code></pre>
+
+    <h3>Page structure</h3>
+    <table>
+      <thead><tr><th>Page</th><th>Primary content</th></tr></thead>
+      <tbody>
+        <tr><td>Dashboard</td><td>Power button, speed control, mode selector, boost status, fan RPM, quick scenario slots</td></tr>
+        <tr><td>Connect</td><td>Discovery list, connection history, manual entry form</td></tr>
+        <tr><td>Schedule</td><td>8 day-groups × 4 periods each; enable/disable weekly schedule toggle</td></tr>
+        <tr><td>Scenarios</td><td>Save current state as named scenario; apply, rename, delete; up to 4 quick-access slots on Dashboard</td></tr>
+        <tr><td>Details</td><td>Boost delay, humidity threshold, current humidity, fan RPM, filter status, RTC sync, firmware version, alarm reset</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Navigation model</h3>
+    <p>
+      iOS uses a <code>TabBar</code> (bottom tab bar, Cupertino style) as the root navigator.
+      The Schedule and Details pages open as modal sheets from the Dashboard tab to avoid
+      burying infrequently-used controls in the tab bar.
+    </p>
+
+    <h3>QML component reuse across platforms</h3>
+    <p>
+      Core QML components (<code>PowerButton.qml</code>, <code>SpeedControl.qml</code>,
+      <code>ModeSelector.qml</code>, <code>RpmDisplay.qml</code>, <code>HumidityWidget.qml</code>)
+      are written against Qt Quick Controls 2 and are platform-neutral. iOS-specific behaviour
+      (Cupertino visual variants, iOS gesture handling) is handled by the style engine, not by
+      branching QML code.
+    </p>
+
+    <h3>Polling</h3>
+    <p>
+      A <code>QTimer</code> in <code>DeviceService</code> calls <code>vento_get_state()</code>
+      via the FFI bridge every 2 seconds while the app is in the foreground. Polling is
+      suspended when <code>Qt.application.state</code> transitions to
+      <code>Qt.ApplicationSuspended</code> or <code>Qt.ApplicationInactive</code>.
+    </p>
+  </section>
+
+  <!-- ── Platform Files ────────────────────────────────────────────────────── -->
+  <section id="platform-files">
+    <h2>Platform Files</h2>
+    <p>
+      These files live under <code>platform/ios/</code> and are specific to the iOS build.
+      None have been created yet; they are required before Phase 2 can produce a runnable IPA.
+    </p>
+
+    <ul class="file-list">
+      <li>
+        <span class="path">platform/ios/Info.plist</span>
+        <span class="fdesc">App metadata, bundle ID, display name,
+        <code>NSLocalNetworkUsageDescription</code>, <code>NSBonjourServices</code>,
+        minimum iOS version declaration. Required by Xcode; merged into the app bundle at build time.</span>
+      </li>
+      <li>
+        <span class="path">platform/ios/Arabella.entitlements</span>
+        <span class="fdesc">Declares <code>com.apple.security.network.client</code> (outbound network access)
+        and <code>com.apple.security.app-sandbox</code>. Referenced in the Xcode project signing settings.</span>
+      </li>
+      <li>
+        <span class="path">platform/ios/qtquickcontrols2.conf</span>
+        <span class="fdesc">Sets <code>Style=Cupertino</code> for Qt Quick Controls 2.
+        Placed in the app bundle resources so Qt picks it up at startup.</span>
+      </li>
+      <li>
+        <span class="path">platform/ios/Assets.xcassets</span>
+        <span class="fdesc">App icon set (1024×1024 base, Xcode generates all required sizes)
+        and launch image. Required for App Store submission.</span>
+      </li>
+      <li>
+        <span class="path">platform/ios/LaunchScreen.storyboard</span>
+        <span class="fdesc">iOS launch screen displayed by the OS while the app initialises.
+        Required by Apple App Store guidelines.</span>
+      </li>
+    </ul>
+
+    <h3>Bundle identifier</h3>
+    <p>
+      The bundle ID should follow reverse-DNS notation and be registered in the Apple Developer
+      portal before the provisioning profile is created. Suggested:
+      <code>no.volue.arabella</code>.
+    </p>
+  </section>
+
+  <!-- ── Implementation Status ─────────────────────────────────────────────── -->
+  <section id="status">
+    <h2>Implementation Status</h2>
+
+    <div class="callout ok">
+      The Rust protocol library (Phase 1) is complete and shared across all platforms.
+      iOS-specific work has not yet started.
+    </div>
+
+    <table>
+      <thead><tr><th>Component</th><th>Status</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>Rust protocol library</td>
+          <td><span class="badge badge-green">Done</span></td>
+          <td>Compiles on Linux; iOS target triples available via <code>rustup</code></td>
+        </tr>
+        <tr>
+          <td>C FFI layer + <code>protocol.h</code></td>
+          <td><span class="badge badge-green">Done</span></td>
+          <td>Tested on Linux via <code>tests/ffi_test.c</code>; same header used on iOS</td>
+        </tr>
+        <tr>
+          <td><code>ios</code> CMake preset</td>
+          <td><span class="badge badge-green">Done</span></td>
+          <td>Defined in <code>CMakePresets.json</code>; requires macOS + Xcode to invoke</td>
+        </tr>
+        <tr>
+          <td>iOS Rust cross-compile (verified)</td>
+          <td><span class="badge badge-yellow">Not yet</span></td>
+          <td>Target installed; full build against iOS SDK not yet attempted</td>
+        </tr>
+        <tr>
+          <td><code>platform/ios/</code> files</td>
+          <td><span class="badge badge-yellow">Not yet</span></td>
+          <td>Info.plist, entitlements, qtquickcontrols2.conf, assets</td>
+        </tr>
+        <tr>
+          <td>C++ service layer</td>
+          <td><span class="badge badge-yellow">Not yet</span></td>
+          <td><code>DeviceService</code>, <code>DiscoveryService</code>, <code>ScenarioStore</code></td>
+        </tr>
+        <tr>
+          <td>ViewModel layer</td>
+          <td><span class="badge badge-yellow">Not yet</span></td>
+          <td><code>DeviceViewModel</code>, <code>ScheduleViewModel</code>, <code>ScenarioViewModel</code></td>
+        </tr>
+        <tr>
+          <td>QML UI pages</td>
+          <td><span class="badge badge-yellow">Not yet</span></td>
+          <td>Dashboard, Connect, Schedule, Scenarios, Details</td>
+        </tr>
+        <tr>
+          <td>Device testing (physical iPhone)</td>
+          <td><span class="badge badge-yellow">Not yet</span></td>
+          <td>Required for UDP validation; Simulator cannot substitute</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ── Recommended docs ──────────────────────────────────────────────────── -->
+  <section id="recommended">
+    <h2>Recommended Documentation (Not Yet Written)</h2>
+    <p>
+      iOS-specific topics that should be documented as Phase 2 progresses.
+    </p>
+
+    <ul class="rec-list">
+      <li>
+        <span class="rec-num">1</span>
+        <div class="rec-body">
+          <strong>iOS Build &amp; Signing Guide</strong>
+          <span>Step-by-step: Xcode project generation via CMake, code-signing identity
+          and provisioning profile setup, how to deploy to a physical device, and known
+          Corrosion + Xcode integration quirks (build phase ordering, code-sign-on-copy
+          for the Rust staticlib).</span>
+        </div>
+      </li>
+      <li>
+        <span class="rec-num">2</span>
+        <div class="rec-body">
+          <strong>C++ Service Layer Interface</strong>
+          <span>Signal/slot contract for <code>DeviceService</code> and
+          <code>DiscoveryService</code>: polling interval, how FFI errors surface to QML,
+          thread model (service runs on the Qt main thread; FFI calls are synchronous and
+          block for up to the UDP timeout).</span>
+        </div>
+      </li>
+      <li>
+        <span class="rec-num">3</span>
+        <div class="rec-body">
+          <strong>QML ViewModel Contracts</strong>
+          <span>The <code>Q_PROPERTY</code> names, types, and NOTIFY signals for
+          <code>DeviceViewModel</code>, <code>ScheduleViewModel</code>, and
+          <code>ScenarioViewModel</code>. Serves as the binding contract between the C++
+          and QML layers.</span>
+        </div>
+      </li>
+      <li>
+        <span class="rec-num">4</span>
+        <div class="rec-body">
+          <strong>Scenario File Format</strong>
+          <span>JSON schema for the scenario store (v2, shared with
+          <code>ventocontrol</code> desktop app). Documents field names, the v1→v2
+          migration path, and the share-sheet import/export flow for iOS.</span>
+        </div>
+      </li>
+      <li>
+        <span class="rec-num">5</span>
+        <div class="rec-body">
+          <strong>App Store Submission Checklist</strong>
+          <span>Privacy manifest (<code>PrivacyInfo.xcprivacy</code> required since iOS 17),
+          required screenshot sizes, age rating, network usage justification in App Review
+          notes, and any entitlement review requirements for local network access.</span>
+        </div>
+      </li>
+    </ul>
+  </section>
+
+</main>
+</div>
+</body>
+</html>
