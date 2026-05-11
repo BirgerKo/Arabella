@@ -1,0 +1,54 @@
+{
+  "version": 3,
+  "configurePresets": [
+    {
+      "name": "desktop-debug",
+      "displayName": "Desktop (debug)",
+      "description": "Phase 1 local development build",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/desktop-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "desktop-release",
+      "displayName": "Desktop (release)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/desktop-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "ios",
+      "displayName": "iOS (Phase 2)",
+      "generator": "Xcode",
+      "binaryDir": "${sourceDir}/build/ios",
+      "cacheVariables": {
+        "CMAKE_SYSTEM_NAME": "iOS",
+        "CMAKE_OSX_DEPLOYMENT_TARGET": "16.0"
+      }
+    },
+    {
+      "name": "android",
+      "displayName": "Android (Phase 3)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/android",
+      "cacheVariables": {
+        "CMAKE_SYSTEM_NAME": "Android",
+        "CMAKE_ANDROID_API": "26"
+      }
+    },
+    {
+      "name": "sailfish",
+      "displayName": "SailfishOS (Phase 4)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/sailfish",
+      "cacheVariables": {
+        "SAILFISH": "ON",
+        "CMAKE_SYSTEM_NAME": "Linux"
+      }
+    }
+  ]
+}

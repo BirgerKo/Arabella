@@ -1,0 +1,14 @@
+[package]
+name = "arabella_protocol"
+version = "0.1.0"
+edition = "2021"
+description = "Blauberg Vento fan protocol library — Arabella mobile"
+
+[lib]
+name = "arabella_protocol"
+crate-type = ["staticlib", "rlib"]
+
+[dependencies]
+# No external dependencies — keeps the crate portable across toolchains
+
+[dev-dependencies]
