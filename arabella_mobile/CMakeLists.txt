@@ -5,24 +5,19 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # ── Corrosion (Rust → CMake) ──────────────────────────────────────────────────
-include(FetchContent)
-FetchContent_Declare(
-    Corrosion
-    GIT_REPOSITORY https://github.com/corrosion-rs/corrosion.git
-    GIT_TAG v0.5
-)
-FetchContent_MakeAvailable(Corrosion)
-
-# iOS: point Corrosion at the device target triple.
-# The simulator slice is handled by a separate XCFramework post-build step.
-if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
-    corrosion_import_crate(
-        MANIFEST_PATH protocol/Cargo.toml
-        FLAGS --target aarch64-apple-ios
-    )
-else()
-    corrosion_import_crate(MANIFEST_PATH protocol/Cargo.toml)
+# Rust_CARGO_TARGET must be set before Corrosion is loaded so it can infer the
+# correct cross-compilation target. For iOS this is set via the preset; here we
+# provide a safe fallback so the desktop-debug preset still works without it.
+if(CMAKE_SYSTEM_NAME STREQUAL "iOS" AND NOT Rust_CARGO_TARGET)
+    set(Rust_CARGO_TARGET "aarch64-apple-ios" CACHE STRING "Rust target triple for iOS device")
 endif()
+
+# Corrosion is vendored under vendor/corrosion/ (git clone --depth 1 --branch v0.5).
+# Using add_subdirectory avoids a FetchContent ExternalProject subbuild, which
+# would inherit the Xcode generator and fail on iOS cross-compile configurations.
+add_subdirectory(vendor/corrosion EXCLUDE_FROM_ALL)
+
+corrosion_import_crate(MANIFEST_PATH protocol/Cargo.toml)
 
 # ── Phase 1 Step 9: C FFI integration test ───────────────────────────────────
 # Must be called before any add_subdirectory that contains add_test() calls.

@@ -45,5 +45,12 @@ arabella_mobile/tests/ffi_test
 arabella_mobile/protocol/target/
 arabella_mobile/build/
 
+# Vendored Corrosion (cloned at setup time, not committed)
+arabella_mobile/vendor/
+
 # PDF manuals and documentation
 *.pdf
+
+# User-local CMake presets (machine-specific paths, not committed)
+CMakeUserPresets.json
+arabella_mobile/CMakeUserPresets.json
