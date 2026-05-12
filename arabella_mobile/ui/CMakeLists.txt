@@ -1,5 +1,9 @@
 find_package(Qt6 REQUIRED COMPONENTS Core Quick QuickControls2)
 
+# Opt in to the new QML resource prefix and qmldir-per-directory policies.
+qt_policy(SET QTP0001 NEW)
+qt_policy(SET QTP0004 NEW)
+
 qt_add_executable(arabella_app main.cpp)
 
 qt_add_qml_module(arabella_app
@@ -37,6 +41,8 @@ if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
     set_target_properties(arabella_app PROPERTIES
         MACOSX_BUNDLE TRUE
         MACOSX_BUNDLE_INFO_PLIST "${CMAKE_SOURCE_DIR}/platform/ios/Info.plist"
+        MACOSX_BUNDLE_GUI_IDENTIFIER "no.volue.arabella"
+        XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER "no.volue.arabella"
         XCODE_ATTRIBUTE_CODE_SIGN_ENTITLEMENTS
             "${CMAKE_SOURCE_DIR}/platform/ios/Arabella.entitlements"
     )

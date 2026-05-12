@@ -125,7 +125,7 @@ Page {
     Dialog {
         id: applyDialog
         property string scenarioName: ""
-        title: "Apply "" + scenarioName + """
+        title: 'Apply "' + scenarioName + '"'
         anchors.centerIn: parent
         modal: true
         standardButtons: Dialog.Yes | Dialog.No
