@@ -48,3 +48,8 @@ python_version = "3.11"
 warn_unused_ignores = true
 warn_redundant_casts = true
 check_untyped_defs = true
+exclude = [
+       "^ventocontrol/",
+       "^tools/",
+       '^tests/test_main_window\.py$',
+]

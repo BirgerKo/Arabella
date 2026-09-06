@@ -16,6 +16,7 @@ Real-network mode (backend must already be running):
     VENTO_BASE_URL=http://192.168.1.50:8080 \\
     pytest tests/webdashboard/e2e/test_fan_workflow.py
 """
+
 from __future__ import annotations
 
 import os
@@ -32,12 +33,12 @@ import pytest
 # Configuration from environment
 # ---------------------------------------------------------------------------
 
-_MODE      = os.getenv("VENTO_TEST_MODE", "simulator")
-_BASE_URL  = os.getenv("VENTO_BASE_URL", "http://localhost:8080")
+_MODE = os.getenv("VENTO_TEST_MODE", "simulator")
+_BASE_URL = os.getenv("VENTO_BASE_URL", "http://localhost:8080")
 _FAN_COUNT = int(os.getenv("VENTO_FAN_COUNT", "3"))
 
-_REPO_ROOT = Path(__file__).parents[3]   # …/Arabella/
-_PYTHON    = sys.executable
+_REPO_ROOT = Path(__file__).parents[3]  # …/Arabella/
+_PYTHON = sys.executable
 _BACKEND_HOST = "127.0.0.1"
 _BACKEND_PORT = 8080
 _SIMULATOR_STARTUP_SECONDS = 1.0  # UDP socket binds quickly; 1 s is more than enough
@@ -46,6 +47,7 @@ _SIMULATOR_STARTUP_SECONDS = 1.0  # UDP socket binds quickly; 1 s is more than e
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
 
 def _wait_tcp(host: str, port: int, timeout: float = 20.0) -> None:
     """Block until a TCP port is accepting connections, or raise TimeoutError."""
@@ -62,6 +64,7 @@ def _wait_tcp(host: str, port: int, timeout: float = 20.0) -> None:
 # ---------------------------------------------------------------------------
 # Session-scoped fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture(scope="session")
 def sim_proc():

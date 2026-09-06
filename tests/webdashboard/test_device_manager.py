@@ -1,4 +1,5 @@
 """Unit tests for DeviceManager."""
+
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -80,8 +81,8 @@ async def test_set_power_calls_turn_on(manager):
     mock_state = _make_state(power=False)
     mock_client = MagicMock()
     mock_client.get_state = AsyncMock(return_value=mock_state)
-    mock_client.turn_on   = AsyncMock()
-    mock_client.turn_off  = AsyncMock()
+    mock_client.turn_on = AsyncMock()
+    mock_client.turn_off = AsyncMock()
 
     with patch("webdashboard.backend.device_manager.AsyncVentoClient", return_value=mock_client):
         await manager.connect("10.0.0.1", "VENT-01")
@@ -97,7 +98,7 @@ async def test_set_power_calls_turn_off(manager):
     mock_state = _make_state(power=True)
     mock_client = MagicMock()
     mock_client.get_state = AsyncMock(return_value=mock_state)
-    mock_client.turn_off  = AsyncMock()
+    mock_client.turn_off = AsyncMock()
 
     with patch("webdashboard.backend.device_manager.AsyncVentoClient", return_value=mock_client):
         await manager.connect("10.0.0.1", "VENT-01")
@@ -111,8 +112,8 @@ async def test_set_power_calls_turn_off(manager):
 async def test_set_speed_preset(manager):
     mock_state = _make_state()
     mock_client = MagicMock()
-    mock_client.get_state  = AsyncMock(return_value=mock_state)
-    mock_client.set_speed  = AsyncMock()
+    mock_client.get_state = AsyncMock(return_value=mock_state)
+    mock_client.set_speed = AsyncMock()
 
     with patch("webdashboard.backend.device_manager.AsyncVentoClient", return_value=mock_client):
         await manager.connect("10.0.0.1", "VENT-01")
@@ -126,7 +127,7 @@ async def test_set_speed_preset(manager):
 async def test_set_speed_manual(manager):
     mock_state = _make_state()
     mock_client = MagicMock()
-    mock_client.get_state       = AsyncMock(return_value=mock_state)
+    mock_client.get_state = AsyncMock(return_value=mock_state)
     mock_client.set_manual_speed = AsyncMock()
 
     with patch("webdashboard.backend.device_manager.AsyncVentoClient", return_value=mock_client):
@@ -142,7 +143,7 @@ async def test_set_mode(manager):
     mock_state = _make_state()
     mock_client = MagicMock()
     mock_client.get_state = AsyncMock(return_value=mock_state)
-    mock_client.set_mode  = AsyncMock()
+    mock_client.set_mode = AsyncMock()
 
     with patch("webdashboard.backend.device_manager.AsyncVentoClient", return_value=mock_client):
         await manager.connect("10.0.0.1", "VENT-01")
@@ -162,7 +163,7 @@ async def test_require_connection_raises_when_disconnected(manager):
 async def test_enable_schedule(manager):
     mock_state = _make_state()
     mock_client = MagicMock()
-    mock_client.get_state             = AsyncMock(return_value=mock_state)
+    mock_client.get_state = AsyncMock(return_value=mock_state)
     mock_client.enable_weekly_schedule = AsyncMock()
 
     with patch("webdashboard.backend.device_manager.AsyncVentoClient", return_value=mock_client):
@@ -177,7 +178,7 @@ async def test_enable_schedule(manager):
 async def test_set_schedule_period(manager):
     mock_state = _make_state()
     mock_client = MagicMock()
-    mock_client.get_state          = AsyncMock(return_value=mock_state)
+    mock_client.get_state = AsyncMock(return_value=mock_state)
     mock_client.set_schedule_period = AsyncMock()
 
     with patch("webdashboard.backend.device_manager.AsyncVentoClient", return_value=mock_client):
@@ -193,7 +194,7 @@ async def test_sync_rtc(manager):
     mock_state = _make_state()
     mock_client = MagicMock()
     mock_client.get_state = AsyncMock(return_value=mock_state)
-    mock_client.sync_rtc  = AsyncMock()
+    mock_client.sync_rtc = AsyncMock()
 
     with patch("webdashboard.backend.device_manager.AsyncVentoClient", return_value=mock_client):
         await manager.connect("10.0.0.1", "VENT-01")
@@ -205,6 +206,7 @@ async def test_sync_rtc(manager):
 
 def test_state_to_dict_includes_schedule_fields():
     from blauberg_vento.models import RtcCalendar, RtcTime
+
     state = _make_state(
         weekly_schedule_enabled=True,
         rtc_time=RtcTime(hours=14, minutes=30, seconds=0),
@@ -233,10 +235,14 @@ async def test_broadcast_callback_called_after_command(manager):
     mock_state = _make_state()
     mock_client = MagicMock()
     mock_client.get_state = AsyncMock(return_value=mock_state)
-    mock_client.turn_on   = AsyncMock()
+    mock_client.turn_on = AsyncMock()
 
-    received = []
-    manager.set_broadcast_callback(lambda m: received.append(m) or AsyncMock()())
+    received: list[dict[str, object]] = []
+
+    async def receive_broadcast(message: dict[str, object]) -> None:
+        received.append(message)
+
+    manager.set_broadcast_callback(receive_broadcast)
 
     with patch("webdashboard.backend.device_manager.AsyncVentoClient", return_value=mock_client):
         await manager.connect("10.0.0.1", "VENT-01")
@@ -247,6 +253,7 @@ async def test_broadcast_callback_called_after_command(manager):
 
 
 # ── Fan switching ──────────────────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_connect_replaces_active_device(manager):
@@ -344,10 +351,10 @@ async def test_switch_preserves_connection_to_new_device(manager):
 
     client_a = MagicMock()
     client_a.get_state = AsyncMock(return_value=state_a)
-    client_a.turn_on   = AsyncMock()
+    client_a.turn_on = AsyncMock()
     client_b = MagicMock()
     client_b.get_state = AsyncMock(return_value=state_b)
-    client_b.turn_on   = AsyncMock()
+    client_b.turn_on = AsyncMock()
 
     clients = iter([client_a, client_b])
 

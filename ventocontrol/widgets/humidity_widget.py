@@ -1,17 +1,23 @@
 """HumidityWidget — live RH readout + sensor enable + threshold control."""
+
 from __future__ import annotations
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
-    QCheckBox, QHBoxLayout, QLabel, QSpinBox, QVBoxLayout, QWidget,
+    QCheckBox,
+    QHBoxLayout,
+    QLabel,
+    QSpinBox,
+    QVBoxLayout,
+    QWidget,
 )
 
 
 class HumidityWidget(QWidget):
     """Displays current humidity and controls the sensor/threshold."""
 
-    sensor_toggled    = Signal(int)   # 0=Off, 1=On
-    threshold_changed = Signal(int)   # 40-80 %RH
+    sensor_toggled = Signal(int)  # 0=Off, 1=On
+    threshold_changed = Signal(int)  # 40-80 %RH
 
     def __init__(self, parent=None):
         super().__init__(parent)

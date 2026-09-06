@@ -1,4 +1,5 @@
 """Unit tests for the WebSocket broadcast hub."""
+
 import json
 from unittest.mock import AsyncMock, MagicMock
 
@@ -55,7 +56,7 @@ async def test_broadcast_sends_json_to_all_clients(hub):
 async def test_broadcast_removes_dead_connections(hub):
     ws_dead = make_websocket()
     ws_dead.send_text = AsyncMock(side_effect=RuntimeError("closed"))
-    ws_ok   = make_websocket()
+    ws_ok = make_websocket()
 
     await hub.connect(ws_dead)
     await hub.connect(ws_ok)

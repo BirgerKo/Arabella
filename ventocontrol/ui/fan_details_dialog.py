@@ -1,10 +1,16 @@
 """FanDetailsDialog — non-modal detail view for a single fan."""
+
 from __future__ import annotations
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
-    QDialog, QGroupBox, QHBoxLayout, QLabel,
-    QMenu, QPushButton, QVBoxLayout,
+    QDialog,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QMenu,
+    QPushButton,
+    QVBoxLayout,
 )
 
 from blauberg_vento.models import DeviceState
@@ -16,14 +22,14 @@ from ventocontrol.widgets.rpm_display import RPMDisplay
 class FanDetailsDialog(QDialog):
     """Shows boost, humidity, RPM, schedule and scenario controls for one fan."""
 
-    boost_changed             = Signal(bool)
-    hum_sensor_changed        = Signal(int)
-    hum_threshold_changed     = Signal(int)
-    schedule_enable_changed   = Signal(bool)
-    schedule_period_changed   = Signal(int, int, int, int, int)
-    schedule_edit_requested   = Signal()
-    sync_rtc                  = Signal()
-    save_scenario_requested   = Signal()
+    boost_changed = Signal(bool)
+    hum_sensor_changed = Signal(int)
+    hum_threshold_changed = Signal(int)
+    schedule_enable_changed = Signal(bool)
+    schedule_period_changed = Signal(int, int, int, int, int)
+    schedule_edit_requested = Signal()
+    sync_rtc = Signal()
+    save_scenario_requested = Signal()
     add_to_scenario_requested = Signal(str)
 
     def __init__(self, title: str, scenarios: ScenarioStore, parent=None):
@@ -141,10 +147,7 @@ class FanDetailsDialog(QDialog):
             add_sub = menu.addMenu("Add to existing…")
             for s in scenarios:
                 act = add_sub.addAction(s.name)
-                act.triggered.connect(
-                    lambda checked=False, name=s.name:
-                        self.add_to_scenario_requested.emit(name)
-                )
+                act.triggered.connect(lambda checked=False, name=s.name: self.add_to_scenario_requested.emit(name))
         btn = self._scenario_btn
         menu.exec(btn.mapToGlobal(btn.rect().bottomLeft()))
 
@@ -169,6 +172,4 @@ class FanDetailsDialog(QDialog):
 
         if state.weekly_schedule_enabled is not None:
             self._sched_en_btn.setChecked(state.weekly_schedule_enabled)
-            self._sched_en_btn.setText(
-                "ON" if state.weekly_schedule_enabled else "OFF"
-            )
+            self._sched_en_btn.setText("ON" if state.weekly_schedule_enabled else "OFF")

@@ -8,10 +8,12 @@ def test_parse_discovery_items_deduplicates_device_advertisements() -> None:
     device = DiscoveredDevice(ip="192.0.2.10", device_id="FAN-01", unit_type=3)
 
     with patch("blauberg_vento.client._parse_discovery_item", return_value=device):
-        result = _parse_discovery_items([
-            {"ip": "192.0.2.10", "raw": b"first"},
-            {"ip": "192.0.2.10", "raw": b"duplicate"},
-        ])
+        result = _parse_discovery_items(
+            [
+                {"ip": "192.0.2.10", "raw": b"first"},
+                {"ip": "192.0.2.10", "raw": b"duplicate"},
+            ]
+        )
 
     assert result == [device]
 

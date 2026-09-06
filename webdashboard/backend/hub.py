@@ -4,6 +4,7 @@ Maintains the set of active connections and broadcasts JSON-serialisable
 messages to all of them.  Decoupled from FastAPI — receives no framework
 imports beyond the WebSocket type annotation.
 """
+
 from __future__ import annotations
 
 import asyncio

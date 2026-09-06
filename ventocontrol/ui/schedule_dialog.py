@@ -8,34 +8,51 @@ Day group encoding (Blauberg protocol):
   0 = Weekdays group (Mon–Fri shorthand)
   1 = Monday … 7 = Sunday
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
 
 from PySide6.QtCore import QTime, Signal
 from PySide6.QtWidgets import (
-    QButtonGroup, QComboBox, QDialog, QDialogButtonBox,
-    QFrame, QGridLayout, QHBoxLayout, QLabel, QPushButton,
-    QRadioButton, QStackedWidget, QTimeEdit, QVBoxLayout, QWidget,
+    QButtonGroup,
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QFrame,
+    QGridLayout,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QRadioButton,
+    QStackedWidget,
+    QTimeEdit,
+    QVBoxLayout,
+    QWidget,
 )
 
 _SPEED_LABELS = ["Standby", "Speed 1", "Speed 2", "Speed 3"]
 
 _DAY_LABELS = [
-    "Monday", "Tuesday", "Wednesday", "Thursday",
-    "Friday", "Saturday", "Sunday",
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+    "Sunday",
 ]
 
-_MODE_ALL     = 0   # one row → writes to days 1–7
-_MODE_WEEKDAY = 1   # one row → writes to day group 0 (Mon–Fri)
-_MODE_WEEKEND = 2   # one row → writes to days 6–7
-_MODE_DAYS    = 3   # seven rows — one per day (1–7)
+_MODE_ALL = 0  # one row → writes to days 1–7
+_MODE_WEEKDAY = 1  # one row → writes to day group 0 (Mon–Fri)
+_MODE_WEEKEND = 2  # one row → writes to days 6–7
+_MODE_DAYS = 3  # seven rows — one per day (1–7)
 
 
 @dataclass
 class _PeriodCell:
     speed_combo: QComboBox
-    time_edit:   QTimeEdit
+    time_edit: QTimeEdit
 
 
 class ScheduleDialog(QDialog):
@@ -54,10 +71,10 @@ class ScheduleDialog(QDialog):
 
         self._mode: int = _MODE_ALL
 
-        self._all_cells:     list[_PeriodCell]       = []
-        self._weekday_cells: list[_PeriodCell]        = []
-        self._weekend_cells: list[_PeriodCell]        = []
-        self._day_cells:     list[list[_PeriodCell]]  = []  # [7][4]
+        self._all_cells: list[_PeriodCell] = []
+        self._weekday_cells: list[_PeriodCell] = []
+        self._weekend_cells: list[_PeriodCell] = []
+        self._day_cells: list[list[_PeriodCell]] = []  # [7][4]
 
         self._build_ui()
 
@@ -70,12 +87,12 @@ class ScheduleDialog(QDialog):
 
         Switches from the loading page to the editor once data has arrived.
         """
-        self._populate_single_row(self._all_cells,     schedule, day=1)
+        self._populate_single_row(self._all_cells, schedule, day=1)
         self._populate_single_row(self._weekday_cells, schedule, day=0)
         self._populate_single_row(self._weekend_cells, schedule, day=6)
         for d_i in range(7):
             self._populate_single_row(self._day_cells[d_i], schedule, day=d_i + 1)
-        self._stack.setCurrentIndex(1)   # switch to editor page
+        self._stack.setCurrentIndex(1)  # switch to editor page
 
     # ------------------------------------------------------------------
     # UI construction
@@ -97,8 +114,7 @@ class ScheduleDialog(QDialog):
         root.addWidget(self._stack)
 
         hint = QLabel(
-            "Set fan speed and end time for each period.  "
-            "Periods run in sequence and together cover 24 hours."
+            "Set fan speed and end time for each period.  Periods run in sequence and together cover 24 hours."
         )
         hint.setWordWrap(True)
         hint.setObjectName("HintLabel")
@@ -153,9 +169,7 @@ class ScheduleDialog(QDialog):
         layout.addWidget(self._inner_stack)
         return page
 
-    def _build_single_row_widget(
-        self, row_label: str
-    ) -> tuple[list[_PeriodCell], QWidget]:
+    def _build_single_row_widget(self, row_label: str) -> tuple[list[_PeriodCell], QWidget]:
         container = QWidget()
         grid = QGridLayout(container)
         grid.setSpacing(6)
@@ -251,9 +265,7 @@ class ScheduleDialog(QDialog):
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _populate_single_row(
-        cells: list[_PeriodCell], schedule: dict, day: int
-    ) -> None:
+    def _populate_single_row(cells: list[_PeriodCell], schedule: dict, day: int) -> None:
         for p_i, cell in enumerate(cells):
             entry = schedule.get((day, p_i + 1))
             if entry is not None:
@@ -286,7 +298,9 @@ class ScheduleDialog(QDialog):
         for p_i, cell in enumerate(cells):
             t = cell.time_edit.time()
             self.period_changed.emit(
-                day, p_i + 1,
+                day,
+                p_i + 1,
                 cell.speed_combo.currentIndex(),
-                t.hour(), t.minute(),
+                t.hour(),
+                t.minute(),
             )

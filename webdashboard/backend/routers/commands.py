@@ -1,4 +1,5 @@
 """Fan command endpoints (power, speed, mode, boost)."""
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -6,9 +7,16 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from webdashboard.backend.dependencies import get_device_manager
 from webdashboard.backend.device_manager import DeviceManager
 from webdashboard.backend.models import (
-    BoostRequest, EnableScheduleRequest, HumiditySensorRequest,
-    HumidityThresholdRequest, ModeRequest, PowerRequest,
-    SchedulePeriodData, SchedulePeriodRequest, ScheduleResponse, SpeedRequest,
+    BoostRequest,
+    EnableScheduleRequest,
+    HumiditySensorRequest,
+    HumidityThresholdRequest,
+    ModeRequest,
+    PowerRequest,
+    SchedulePeriodData,
+    SchedulePeriodRequest,
+    ScheduleResponse,
+    SpeedRequest,
 )
 
 router = APIRouter(prefix="/api/command", tags=["commands"])
@@ -126,11 +134,12 @@ async def get_schedule(
     _require_connected(manager)
     try:
         full = await manager.get_full_schedule()
-        return ScheduleResponse(periods=[
-            [SchedulePeriodData(speed=sp.speed, end_h=sp.end_hours, end_m=sp.end_minutes)
-             for sp in row]
-            for row in full
-        ])
+        return ScheduleResponse(
+            periods=[
+                [SchedulePeriodData(speed=sp.speed, end_h=sp.end_hours, end_m=sp.end_minutes) for sp in row]
+                for row in full
+            ]
+        )
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
 

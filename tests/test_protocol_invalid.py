@@ -13,20 +13,20 @@ from blauberg_vento.protocol import (
 @pytest.mark.parametrize(
     "raw, expected_error",
     [
-        (b"\xFD\xFD\x02\x10", VentoProtocolError),
+        (b"\xfd\xfd\x02\x10", VentoProtocolError),
         (b"\x00\x00\x00\x00", VentoProtocolError),
-        (b"\xFD\xFD\x02\x10" + b"\x00" * 16 + b"\x00\x06" + b"\x00\x00", VentoChecksumError),
+        (b"\xfd\xfd\x02\x10" + b"\x00" * 16 + b"\x00\x06" + b"\x00\x00", VentoChecksumError),
     ],
 )
 def test_invalid_packet_rejections(raw: bytes, expected_error: type[Exception]) -> None:
     with pytest.raises(expected_error):
-        if len(raw) >= 4 and raw[:2] == b"\xFD\xFD":
+        if len(raw) >= 4 and raw[:2] == b"\xfd\xfd":
             verify_checksum(raw)
         parse_response(raw)
 
 
 def test_parse_response_rejects_truncated_packet() -> None:
-    raw = b"\xFD\xFD\x02\x10" + b"\x00" * 16 + b"\x00\x06" + b"\x00\x00"
+    raw = b"\xfd\xfd\x02\x10" + b"\x00" * 16 + b"\x00\x06" + b"\x00\x00"
     with pytest.raises(VentoProtocolError):
         parse_response(raw)
 
@@ -34,8 +34,8 @@ def test_parse_response_rejects_truncated_packet() -> None:
 @pytest.mark.parametrize(
     "raw",
     [
-        b"\xFD\xFD\x02\x00" + b"\x00" * 19,
-        b"\xFD\xFD\x02\x10" + b"\x00" * 16 + b"\x09" + b"\x00" * 9 + b"\x00\x00",
+        b"\xfd\xfd\x02\x00" + b"\x00" * 19,
+        b"\xfd\xfd\x02\x10" + b"\x00" * 16 + b"\x09" + b"\x00" * 9 + b"\x00\x00",
     ],
 )
 def test_parse_response_rejects_invalid_header_lengths(raw: bytes) -> None:
@@ -45,7 +45,7 @@ def test_parse_response_rejects_invalid_header_lengths(raw: bytes) -> None:
 
 @pytest.mark.parametrize(
     "data",
-    [b"\xFF", b"\xFE", b"\xFE\x00", b"\xFD"],
+    [b"\xff", b"\xfe", b"\xfe\x00", b"\xfd"],
 )
 def test_parse_data_bytes_rejects_truncated_control_commands(data: bytes) -> None:
     with pytest.raises(VentoProtocolError):

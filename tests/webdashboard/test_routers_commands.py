@@ -1,4 +1,5 @@
 """Integration tests for command endpoints via the FastAPI test client."""
+
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -10,6 +11,7 @@ from webdashboard.backend import dependencies
 
 def _make_schedule_period(speed, end_hours, end_minutes):
     from blauberg_vento.models import SchedulePeriod
+
     return SchedulePeriod(period_number=1, speed=speed, end_hours=end_hours, end_minutes=end_minutes)
 
 
@@ -20,6 +22,7 @@ def _make_full_schedule():
 
 def make_connected_manager(state_overrides=None):
     from blauberg_vento.models import DeviceState
+
     state = DeviceState(
         ip="10.0.0.1",
         device_id="VENT-01",
@@ -32,16 +35,16 @@ def make_connected_manager(state_overrides=None):
     mgr = MagicMock()
     mgr.is_connected = True
     mgr.current_state = state
-    mgr.set_power              = AsyncMock()
-    mgr.set_speed              = AsyncMock()
-    mgr.set_mode               = AsyncMock()
-    mgr.set_boost              = AsyncMock()
-    mgr.set_humidity_sensor    = AsyncMock()
+    mgr.set_power = AsyncMock()
+    mgr.set_speed = AsyncMock()
+    mgr.set_mode = AsyncMock()
+    mgr.set_boost = AsyncMock()
+    mgr.set_humidity_sensor = AsyncMock()
     mgr.set_humidity_threshold = AsyncMock()
-    mgr.enable_schedule        = AsyncMock()
-    mgr.set_schedule_period    = AsyncMock()
-    mgr.get_full_schedule      = AsyncMock(return_value=_make_full_schedule())
-    mgr.sync_rtc               = AsyncMock()
+    mgr.enable_schedule = AsyncMock()
+    mgr.set_schedule_period = AsyncMock()
+    mgr.get_full_schedule = AsyncMock(return_value=_make_full_schedule())
+    mgr.sync_rtc = AsyncMock()
     return mgr
 
 

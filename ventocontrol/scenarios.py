@@ -3,6 +3,7 @@
 v2 format: global scenario list (not per-device), fan list inside each scenario.
 Automatic migration from v1 (per-device) format on first load.
 """
+
 from __future__ import annotations
 
 import json
@@ -10,41 +11,41 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Optional
 
-_SCENARIOS_DIR  = Path.home() / ".ventocontrol"
+_SCENARIOS_DIR = Path.home() / ".ventocontrol"
 _SCENARIOS_FILE = _SCENARIOS_DIR / "scenarios.json"
-_MAX_SCENARIOS  = 10
-_QUICK_SLOTS    = 3
-_VERSION        = 2
+_MAX_SCENARIOS = 10
+_QUICK_SLOTS = 3
+_VERSION = 2
 
 
 @dataclass
 class ScenarioSettings:
     """Snapshot of the controllable fan state fields."""
-    power:               Optional[bool] = None
-    speed:               Optional[int]  = None   # 1/2/3 preset or 255 = manual
-    manual_speed:        Optional[int]  = None   # 0-255; only meaningful if speed==255
-    operation_mode:      Optional[int]  = None   # 0=Ventilation, 1=Heat Recovery, 2=Supply
-    boost_active:        Optional[bool] = None
-    humidity_sensor:     Optional[int]  = None   # 0=off, 1=on
-    humidity_threshold:  Optional[int]  = None   # 40-80 %RH
+
+    power: Optional[bool] = None
+    speed: Optional[int] = None  # 1/2/3 preset or 255 = manual
+    manual_speed: Optional[int] = None  # 0-255; only meaningful if speed==255
+    operation_mode: Optional[int] = None  # 0=Ventilation, 1=Heat Recovery, 2=Supply
+    boost_active: Optional[bool] = None
+    humidity_sensor: Optional[int] = None  # 0=off, 1=on
+    humidity_threshold: Optional[int] = None  # 40-80 %RH
 
 
 @dataclass
 class FanSettings:
     """Settings for one specific fan device within a scenario."""
+
     device_id: str
-    settings:  ScenarioSettings
+    settings: ScenarioSettings
 
 
 @dataclass
 class ScenarioEntry:
     name: str
-    fans: list[FanSettings]   # one entry per fan device in the scenario
+    fans: list[FanSettings]  # one entry per fan device in the scenario
 
 
-def get_settings_for_device(
-    entry: ScenarioEntry, device_id: str
-) -> Optional[ScenarioSettings]:
+def get_settings_for_device(entry: ScenarioEntry, device_id: str) -> Optional[ScenarioSettings]:
     """Return the ScenarioSettings for a specific device, or None if not in the scenario."""
     for fan in entry.fans:
         if fan.device_id == device_id:
@@ -56,8 +57,8 @@ class ScenarioStore:
     """Global scenario storage.  All operations are file-level atomic writes."""
 
     def __init__(self):
-        self._scenarios:   list[dict]        = []
-        self._quick_slots: dict[str, list]   = {}  # device_id → [name|None, ...]
+        self._scenarios: list[dict] = []
+        self._quick_slots: dict[str, list] = {}  # device_id → [name|None, ...]
         self._load()
 
     # ── Public API ───────────────────────────────────────────────────────
@@ -76,7 +77,7 @@ class ScenarioStore:
                 ]
                 result.append(ScenarioEntry(name=item["name"], fans=fans))
             except (KeyError, TypeError):
-                continue   # skip silently if JSON is malformed
+                continue  # skip silently if JSON is malformed
         return result
 
     def save_scenario(self, entry: ScenarioEntry) -> None:
@@ -132,10 +133,7 @@ class ScenarioStore:
     def _to_dict(entry: ScenarioEntry) -> dict:
         return {
             "name": entry.name,
-            "fans": [
-                {"device_id": f.device_id, "settings": asdict(f.settings)}
-                for f in entry.fans
-            ],
+            "fans": [{"device_id": f.device_id, "settings": asdict(f.settings)} for f in entry.fans],
         }
 
     def _load(self) -> None:
@@ -143,10 +141,10 @@ class ScenarioStore:
             raw = json.loads(_SCENARIOS_FILE.read_text())
             if raw.get("version", 1) < _VERSION:
                 raw = self._migrate_v1(raw)
-            self._scenarios   = raw.get("scenarios", [])
+            self._scenarios = raw.get("scenarios", [])
             self._quick_slots = raw.get("quick_slots", {})
         except (FileNotFoundError, json.JSONDecodeError, TypeError, KeyError):
-            self._scenarios   = []
+            self._scenarios = []
             self._quick_slots = {}
 
     def _save(self) -> None:
@@ -155,20 +153,20 @@ class ScenarioStore:
             _SCENARIOS_FILE.write_text(
                 json.dumps(
                     {
-                        "version":     _VERSION,
-                        "scenarios":   self._scenarios,
+                        "version": _VERSION,
+                        "scenarios": self._scenarios,
                         "quick_slots": self._quick_slots,
                     },
                     indent=2,
                 )
             )
         except OSError:
-            pass   # best-effort — never crash on persistence failure
+            pass  # best-effort — never crash on persistence failure
 
     @staticmethod
     def _migrate_v1(raw: dict) -> dict:
         """Convert a v1 per-device JSON structure to the v2 global format."""
-        scenarios:   list[dict]      = []
+        scenarios: list[dict] = []
         quick_slots: dict[str, list] = {}
 
         for device_id, bucket in raw.get("devices", {}).items():
@@ -177,10 +175,12 @@ class ScenarioStore:
                 # Avoid name collisions from multiple devices
                 if any(sc["name"] == name for sc in scenarios):
                     name = f"{name} ({device_id[-4:]})"
-                scenarios.append({
-                    "name": name,
-                    "fans": [{"device_id": device_id, "settings": s["settings"]}],
-                })
+                scenarios.append(
+                    {
+                        "name": name,
+                        "fans": [{"device_id": device_id, "settings": s["settings"]}],
+                    }
+                )
             quick_slots[device_id] = bucket.get("quick_slots", [None, None, None])
 
         return {"version": _VERSION, "scenarios": scenarios, "quick_slots": quick_slots}

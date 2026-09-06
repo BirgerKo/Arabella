@@ -1,4 +1,5 @@
 """Integration tests for device discovery and connection endpoints."""
+
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -52,6 +53,7 @@ def clear_overrides():
 
 # ── GET /api/state ─────────────────────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_get_state_returns_200_when_connected():
     state = _make_state()
@@ -80,6 +82,7 @@ async def test_get_state_returns_503_when_disconnected():
 
 
 # ── POST /api/connect ──────────────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_connect_returns_device_state():
@@ -151,6 +154,7 @@ async def test_connect_rejects_invalid_request(payload):
 
 # ── Fan switching via POST /api/connect ────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_switch_fan_returns_new_device_state():
     """POST /api/connect a second time must return the new device's state, not the old one."""
@@ -203,6 +207,7 @@ async def test_switch_fan_connect_called_with_correct_credentials():
 
 # ── DELETE /api/connect ────────────────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_disconnect_returns_204():
     mgr = _make_connected_manager(_make_state())
@@ -216,6 +221,7 @@ async def test_disconnect_returns_204():
 
 
 # ── GET /api/devices ───────────────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_list_devices_returns_discovered():

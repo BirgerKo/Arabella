@@ -1,11 +1,19 @@
 """ConnectDialog — device discovery + manual entry."""
+
 from __future__ import annotations
 
 from PySide6.QtCore import Qt, QThread, Slot
 from PySide6.QtWidgets import (
-    QDialog, QDialogButtonBox, QGroupBox, QHBoxLayout,
-    QLabel, QLineEdit, QListWidget, QListWidgetItem,
-    QPushButton, QVBoxLayout,
+    QDialog,
+    QDialogButtonBox,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QListWidgetItem,
+    QPushButton,
+    QVBoxLayout,
 )
 
 from blauberg_vento.models import DiscoveredDevice
@@ -108,9 +116,7 @@ class ConnectDialog(QDialog):
 
         # --- Buttons ---
         self._button_box = QDialogButtonBox()
-        self._connect_btn = self._button_box.addButton(
-            "Connect", QDialogButtonBox.ButtonRole.AcceptRole
-        )
+        self._connect_btn = self._button_box.addButton("Connect", QDialogButtonBox.ButtonRole.AcceptRole)
         self._connect_btn.setEnabled(False)
         self._button_box.addButton(QDialogButtonBox.StandardButton.Cancel)
         self._button_box.accepted.connect(self._on_connect_clicked)
@@ -228,8 +234,8 @@ class ConnectDialog(QDialog):
         self._update_connect_btn()
         # Invoke on worker thread
         from PySide6.QtCore import QMetaObject, Qt as _Qt
-        QMetaObject.invokeMethod(self._worker, "do_discover",
-                                 _Qt.ConnectionType.QueuedConnection)
+
+        QMetaObject.invokeMethod(self._worker, "do_discover", _Qt.ConnectionType.QueuedConnection)
 
     def _do_docker_scan(self):
         """Resolve fanN.vento hostnames and probe each container."""
@@ -237,8 +243,8 @@ class ConnectDialog(QDialog):
         self._device_list.clear()
         self._update_connect_btn()
         from PySide6.QtCore import QMetaObject, Qt as _Qt
-        QMetaObject.invokeMethod(self._worker, "do_docker_discover",
-                                 _Qt.ConnectionType.QueuedConnection)
+
+        QMetaObject.invokeMethod(self._worker, "do_docker_discover", _Qt.ConnectionType.QueuedConnection)
 
     @Slot(list)
     def _on_discovery_result(self, devices: list[DiscoveredDevice]):
@@ -266,15 +272,13 @@ class ConnectDialog(QDialog):
         self._status_lbl.setText(f"Scan error: {msg}")
 
     def _update_connect_btn(self):
-        has_hist   = bool(self._hist_list.selectedItems())
+        has_hist = bool(self._hist_list.selectedItems())
         checked_count = sum(
-            1 for i in range(self._device_list.count())
+            1
+            for i in range(self._device_list.count())
             if self._device_list.item(i).checkState() == Qt.CheckState.Checked
         )
-        has_manual = (
-            bool(self._ip_edit.text().strip()) and
-            bool(self._id_edit.text().strip())
-        )
+        has_manual = bool(self._ip_edit.text().strip()) and bool(self._id_edit.text().strip())
         self._connect_btn.setEnabled(has_hist or checked_count > 0 or has_manual)
         if has_hist:
             self._connect_btn.setText("Open")

@@ -11,6 +11,7 @@ Run with:
 
 These tests use Playwright's sync API via pytest-playwright.
 """
+
 import re
 
 import pytest
@@ -18,7 +19,7 @@ from playwright.sync_api import Page, expect
 
 BASE = "http://localhost:8080"
 
-_DEFAULT_IP        = "127.0.0.1"
+_DEFAULT_IP = "127.0.0.1"
 _DEFAULT_DEVICE_ID = "SIMFAN0000000001"
 
 
@@ -29,6 +30,7 @@ def browser_context_args(browser_context_args, web_proc):  # noqa: ARG001  – s
 
 # ── Private helpers ─────────────────────────────────────────────────────────────
 
+
 def _connect(page: Page, ip: str = _DEFAULT_IP, device_id: str = _DEFAULT_DEVICE_ID) -> None:
     """Fill in the connect dialog and submit it."""
     page.get_by_placeholder("IP address").fill(ip)
@@ -37,6 +39,7 @@ def _connect(page: Page, ip: str = _DEFAULT_IP, device_id: str = _DEFAULT_DEVICE
 
 
 # ── Connect dialog ─────────────────────────────────────────────────────────────
+
 
 def test_connect_dialog_shown_on_load(page: Page):
     """Connect dialog is visible when no device is connected."""
@@ -51,6 +54,7 @@ def test_connect_dialog_has_rescan_button(page: Page):
 
 
 # ── Power button ───────────────────────────────────────────────────────────────
+
 
 def test_power_button_visible_when_connected(page: Page):
     """Power button is rendered after connecting."""
@@ -76,6 +80,7 @@ def test_power_button_toggle(page: Page):
 
 # ── Speed control ──────────────────────────────────────────────────────────────
 
+
 def test_speed_preset_buttons_visible(page: Page):
     """Speed preset buttons 1, 2, and 3 appear after connecting."""
     page.goto("/")
@@ -97,6 +102,7 @@ def test_speed_preset_activates(page: Page):
 
 # ── Mode selector ──────────────────────────────────────────────────────────────
 
+
 def test_mode_buttons_present(page: Page):
     """All three operation-mode buttons are visible after connecting."""
     page.goto("/")
@@ -107,6 +113,7 @@ def test_mode_buttons_present(page: Page):
 
 
 # ── Scenarios ──────────────────────────────────────────────────────────────────
+
 
 def test_save_scenario_modal(page: Page):
     """'Save as Scenario' opens the save dialog."""
@@ -132,6 +139,7 @@ def test_save_scenario_and_appears_in_list(page: Page):
 
 
 # ── Status bar ─────────────────────────────────────────────────────────────────
+
 
 def test_status_bar_shows_connected(page: Page):
     """Status bar reflects the connected state."""
@@ -191,6 +199,7 @@ def test_switch_connect_dialog_is_prefilled_with_current_device(page: Page):
 
 # ── Details modal ───────────────────────────────────────────────────────────────
 
+
 def _open_details(page: Page) -> None:
     """Click the Details… button to open the fan details modal."""
     page.get_by_role("button", name="Details…").click(timeout=10_000)
@@ -221,6 +230,7 @@ def test_details_modal_closes_on_x(page: Page):
 
 
 # ── Schedule / RTC (inside Details modal) ──────────────────────────────────────
+
 
 def test_schedule_section_visible_in_details(page: Page):
     """Schedule controls are visible inside the fan details modal."""

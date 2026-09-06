@@ -1,4 +1,5 @@
 """Entry point: python -m webdashboard"""
+
 import uvicorn
 from webdashboard.backend.main import app
 

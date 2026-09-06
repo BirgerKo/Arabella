@@ -15,6 +15,7 @@ Running against a real network (backend must already be running):
 
 See conftest.py for the full set of environment variables.
 """
+
 from __future__ import annotations
 
 import re
@@ -26,14 +27,15 @@ from playwright.sync_api import Page, expect
 # Timeouts (milliseconds)
 # ---------------------------------------------------------------------------
 
-_SCAN_TIMEOUT    = 20_000   # UDP discovery can be slow; allow 20 s
-_CONNECT_TIMEOUT = 10_000   # time from clicking a device to the power button appearing
-_POWER_TIMEOUT   = 10_000   # time for a power-state change to propagate back from the fan
+_SCAN_TIMEOUT = 20_000  # UDP discovery can be slow; allow 20 s
+_CONNECT_TIMEOUT = 10_000  # time from clicking a device to the power button appearing
+_POWER_TIMEOUT = 10_000  # time for a power-state change to propagate back from the fan
 
 
 # ---------------------------------------------------------------------------
 # Private helpers
 # ---------------------------------------------------------------------------
+
 
 def _wait_scan_idle(page: Page) -> None:
     """Block until the Rescan button is present and no longer showing 'Scanning…'.
@@ -58,7 +60,7 @@ def _set_power(page: Page, *, on: bool) -> None:
     expect(btn).to_be_visible(timeout=_CONNECT_TIMEOUT)
 
     current_label = btn.get_attribute("aria-label")
-    currently_on  = current_label == "Turn off"
+    currently_on = current_label == "Turn off"
 
     if currently_on != on:
         btn.click()
@@ -71,6 +73,7 @@ def _set_power(page: Page, *, on: bool) -> None:
 # Test 1 – GUI startup
 # ---------------------------------------------------------------------------
 
+
 def test_gui_starts(page: Page, e2e_base_url: str) -> None:
     """The web GUI loads and immediately shows the connect dialog."""
     page.goto(e2e_base_url)
@@ -81,6 +84,7 @@ def test_gui_starts(page: Page, e2e_base_url: str) -> None:
 # ---------------------------------------------------------------------------
 # Test 2 – Fan discovery
 # ---------------------------------------------------------------------------
+
 
 def test_scan_discovers_fans(
     page: Page,
@@ -100,14 +104,13 @@ def test_scan_discovers_fans(
         # Simulator mode: at least the simulated fans must be present.
         # More may appear if real fans are also on the LAN.
         actual = device_items.count()
-        assert actual >= e2e_fan_count, (
-            f"Expected at least {e2e_fan_count} simulated fan(s), found {actual}"
-        )
+        assert actual >= e2e_fan_count, f"Expected at least {e2e_fan_count} simulated fan(s), found {actual}"
 
 
 # ---------------------------------------------------------------------------
 # Test 3 – Start / stop / start all discovered fans
 # ---------------------------------------------------------------------------
+
 
 def test_start_stop_start_all_fans(
     page: Page,
@@ -132,15 +135,8 @@ def test_start_stop_start_all_fans(
     # In simulator mode, restrict to the SIMFAN* devices so real LAN fans
     # (which may be unreachable or behave unexpectedly) are not power-cycled.
     all_names: list[str] = page.locator(".dev-name").all_text_contents()
-    device_names = (
-        [n for n in all_names if n.startswith(e2e_device_prefix)]
-        if e2e_device_prefix
-        else all_names
-    )
-    assert device_names, (
-        f"No fans matching prefix '{e2e_device_prefix}' found — "
-        "cannot run power-cycle test"
-    )
+    device_names = [n for n in all_names if n.startswith(e2e_device_prefix)] if e2e_device_prefix else all_names
+    assert device_names, f"No fans matching prefix '{e2e_device_prefix}' found — cannot run power-cycle test"
 
     # ── Power-cycle each fan ─────────────────────────────────────────────────
     for index, name in enumerate(device_names):

@@ -1,4 +1,5 @@
 """VentoControl entry point."""
+
 from __future__ import annotations
 
 import sys
@@ -12,14 +13,14 @@ from ventocontrol.ui.main_window import MainWindow
 def main():
     app = VentoApp(sys.argv)
 
-    history  = DeviceHistory()
+    history = DeviceHistory()
     registry = WindowRegistry()
 
     entry = history.last_used
     win = MainWindow(
-        host=entry.ip       if entry else "",
+        host=entry.ip if entry else "",
         device_id=entry.device_id if entry else "",
-        password=entry.password   if entry else "",
+        password=entry.password if entry else "",
         history=history,
         registry=registry,
     )

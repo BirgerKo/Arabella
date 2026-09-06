@@ -24,7 +24,7 @@ ResponseValues = dict[Param | int, bytes]
 
 
 def _encode_id(device_id: str | bytes) -> bytes:
-    raw = device_id.encode('ascii') if isinstance(device_id, str) else device_id
+    raw = device_id.encode("ascii") if isinstance(device_id, str) else device_id
     if len(raw) != 16:
         raise VentoProtocolError(f"Device ID must be 16 chars, got {len(raw)}")
     return raw
@@ -32,7 +32,7 @@ def _encode_id(device_id: str | bytes) -> bytes:
 
 def _encode_password(password: str) -> bytes:
     try:
-        raw = password.encode('ascii')
+        raw = password.encode("ascii")
     except UnicodeEncodeError as exc:
         raise VentoProtocolError("Password must contain ASCII characters") from exc
     if len(raw) > 8:
@@ -41,7 +41,7 @@ def _encode_password(password: str) -> bytes:
 
 
 def _checksum(payload: bytes) -> bytes:
-    return struct.pack('<H', sum(payload) & 0xFFFF)
+    return struct.pack("<H", sum(payload) & 0xFFFF)
 
 
 def _param_high_low(param: Param) -> tuple[int, int]:
@@ -54,9 +54,12 @@ def build_packet(device_id: str | bytes, password: str, func: Func, data: bytes)
     pwd_bytes = _encode_password(password)
     payload = (
         bytes([PROTOCOL_TYPE])
-        + bytes([len(id_bytes)]) + id_bytes
-        + bytes([len(pwd_bytes)]) + pwd_bytes
-        + bytes([int(func)]) + data
+        + bytes([len(id_bytes)])
+        + id_bytes
+        + bytes([len(pwd_bytes)])
+        + pwd_bytes
+        + bytes([int(func)])
+        + data
     )
     pkt = PACKET_START + payload + _checksum(payload)
     if len(pkt) > MAX_PACKET_SIZE:
@@ -86,16 +89,14 @@ def _build_write_data(param_values: dict[Param, int | bytes]) -> bytes:
             if expected_size is None:
                 raise VentoProtocolError(f"{p.name} needs bytes, not int")
             try:
-                val_bytes = val.to_bytes(expected_size, 'little')
+                val_bytes = val.to_bytes(expected_size, "little")
             except OverflowError as exc:
                 raise VentoProtocolError(f"{p.name} value does not fit in {expected_size} bytes") from exc
         else:
             val_bytes = bytes(val)
         actual_size = len(val_bytes)
         if expected_size is not None and actual_size != expected_size:
-            raise VentoProtocolError(
-                f"{p.name} needs exactly {expected_size} bytes, got {actual_size}"
-            )
+            raise VentoProtocolError(f"{p.name} needs exactly {expected_size} bytes, got {actual_size}")
         if actual_size > 0xFF:
             raise VentoProtocolError(f"{p.name} value is too large: {actual_size} bytes")
         if high != page:
@@ -129,7 +130,7 @@ def build_decrement(device_id: str | bytes, password: str, params: list[Param]) 
 
 
 def build_discovery() -> bytes:
-    return build_read(DEFAULT_DEVICE_ID, '', [Param.DEVICE_SEARCH, Param.UNIT_TYPE])
+    return build_read(DEFAULT_DEVICE_ID, "", [Param.DEVICE_SEARCH, Param.UNIT_TYPE])
 
 
 def verify_checksum(raw: bytes) -> None:
@@ -139,7 +140,7 @@ def verify_checksum(raw: bytes) -> None:
         raise VentoProtocolError("Missing 0xFD 0xFD header")
     if len(raw) < 23:
         raise VentoProtocolError(f"Packet too short: {len(raw)}")
-    expected = struct.unpack('<H', raw[-2:])[0]
+    expected = struct.unpack("<H", raw[-2:])[0]
     actual = sum(raw[2:-2]) & 0xFFFF
     if actual != expected:
         raise VentoChecksumError(f"Checksum mismatch: {actual:#06x} != {expected:#06x}")
@@ -147,6 +148,7 @@ def verify_checksum(raw: bytes) -> None:
 
 class _PacketHeader(NamedTuple):
     """Parsed fields from the fixed-length header of a Blauberg Vento UDP packet."""
+
     data_start: int
     device_id: bytes
     password: bytes
@@ -177,7 +179,7 @@ def _parse_packet_header(raw: bytes) -> _PacketHeader:
     return _PacketHeader(
         data_start=pwd_end + 1,
         device_id=raw[4:id_end],
-        password=raw[id_end + 1:pwd_end],
+        password=raw[id_end + 1 : pwd_end],
         func_byte=func_byte,
     )
 
@@ -189,7 +191,7 @@ def parse_response(raw: bytes) -> ResponseValues:
     if header.data_start >= len(raw) - 2:
         raise VentoProtocolError("Response packet missing payload data")
     verify_checksum(raw)
-    return _parse_data_bytes(raw[header.data_start:-2])
+    return _parse_data_bytes(raw[header.data_start : -2])
 
 
 def _parse_data_bytes(data: bytes) -> ResponseValues:
@@ -261,70 +263,76 @@ def _parse_data_bytes(data: bytes) -> ResponseValues:
 
 
 def decode_int(val: bytes) -> int:
-    return int.from_bytes(val, 'little')
+    return int.from_bytes(val, "little")
 
 
 def decode_ip(val: bytes) -> str:
     if len(val) != 4:
         raise VentoProtocolError("IP must be 4 bytes")
-    return '.'.join(str(b) for b in val)
+    return ".".join(str(b) for b in val)
 
 
 def encode_ip(ip: str) -> bytes:
-    parts = ip.split('.')
+    parts = ip.split(".")
     if len(parts) != 4:
         raise VentoProtocolError(f"Invalid IP {ip!r}")
     return bytes(int(p) for p in parts)
 
 
 def decode_text(val: bytes) -> str:
-    return val.decode('ascii', errors='replace')
+    return val.decode("ascii", errors="replace")
 
 
 def decode_firmware(val: bytes) -> dict[str, int]:
     if len(val) != 6:
         raise VentoProtocolError("Firmware must be 6 bytes")
     return {
-        'major': val[0], 'minor': val[1],
-        'day': val[2], 'month': val[3],
-        'year': int.from_bytes(val[4:6], 'little'),
+        "major": val[0],
+        "minor": val[1],
+        "day": val[2],
+        "month": val[3],
+        "year": int.from_bytes(val[4:6], "little"),
     }
 
 
 def decode_machine_hours(val: bytes) -> dict[str, int]:
     if len(val) != 4:
         raise VentoProtocolError("Machine hours must be 4 bytes")
-    return {'minutes': val[0], 'hours': val[1], 'days': int.from_bytes(val[2:4], 'little')}
+    return {"minutes": val[0], "hours": val[1], "days": int.from_bytes(val[2:4], "little")}
 
 
 def decode_rtc_time(val: bytes) -> dict[str, int]:
     if len(val) != 3:
         raise VentoProtocolError("RTC time must be 3 bytes")
-    return {'seconds': val[0], 'minutes': val[1], 'hours': val[2]}
+    return {"seconds": val[0], "minutes": val[1], "hours": val[2]}
 
 
 def decode_rtc_calendar(val: bytes) -> dict[str, int]:
     if len(val) != 4:
         raise VentoProtocolError("RTC calendar must be 4 bytes")
-    return {'day': val[0], 'day_of_week': val[1], 'month': val[2], 'year': 2000 + val[3]}
+    return {"day": val[0], "day_of_week": val[1], "month": val[2], "year": 2000 + val[3]}
 
 
 def decode_schedule(val: bytes) -> dict[str, int]:
     if len(val) != 6:
         raise VentoProtocolError("Schedule must be 6 bytes")
     return {
-        'day_of_week': val[0], 'period': val[1], 'speed': val[2],
-        '_reserved': val[3], 'end_minutes': val[4], 'end_hours': val[5],
+        "day_of_week": val[0],
+        "period": val[1],
+        "speed": val[2],
+        "_reserved": val[3],
+        "end_minutes": val[4],
+        "end_hours": val[5],
     }
 
 
 def decode_timer_countdown(val: bytes) -> dict[str, int]:
     if len(val) != 3:
         raise VentoProtocolError("Timer countdown must be 3 bytes")
-    return {'seconds': val[0], 'minutes': val[1], 'hours': val[2]}
+    return {"seconds": val[0], "minutes": val[1], "hours": val[2]}
 
 
 def decode_filter_countdown(val: bytes) -> dict[str, int]:
     if len(val) != 3:
         raise VentoProtocolError("Filter countdown must be 3 bytes")
-    return {'minutes': val[0], 'hours': val[1], 'days': val[2]}
+    return {"minutes": val[0], "hours": val[1], "days": val[2]}

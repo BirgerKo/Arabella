@@ -7,6 +7,7 @@ Covers:
 - SimDevice            — init, tick physics, apply_writes, nudge, handle dispatch
 - VentoFanSim          — construction, _dispatch routing
 """
+
 from __future__ import annotations
 
 import socket
@@ -15,8 +16,12 @@ from unittest.mock import MagicMock
 import pytest
 
 from blauberg_vento.parameters import (
-    CMD_NOT_SUP, CMD_PAGE, CMD_SIZE,
-    DEFAULT_DEVICE_ID, Func, Param,
+    CMD_NOT_SUP,
+    CMD_PAGE,
+    CMD_SIZE,
+    DEFAULT_DEVICE_ID,
+    Func,
+    Param,
 )
 from blauberg_vento.protocol import build_discovery, build_read
 from ventocontrol.simulator import (
@@ -35,6 +40,7 @@ from ventocontrol.simulator import (
 # ---------------------------------------------------------------------------
 # _make_sim_id
 # ---------------------------------------------------------------------------
+
 
 class TestMakeSimId:
     def test_length_is_16(self):
@@ -64,6 +70,7 @@ class TestMakeSimId:
 # _parse_read_request_data
 # ---------------------------------------------------------------------------
 
+
 class TestParseReadRequestData:
     def test_empty_data(self):
         assert _parse_read_request_data(b"") == []
@@ -87,11 +94,14 @@ class TestParseReadRequestData:
 
     def test_page_resets_between_params(self):
         # Two params on different pages
-        data = bytes([
-            int(Param.POWER) & 0xFF,           # page 0
-            CMD_PAGE, 0x03,
-            int(Param.NIGHT_TIMER) & 0xFF,     # page 3
-        ])
+        data = bytes(
+            [
+                int(Param.POWER) & 0xFF,  # page 0
+                CMD_PAGE,
+                0x03,
+                int(Param.NIGHT_TIMER) & 0xFF,  # page 3
+            ]
+        )
         result = _parse_read_request_data(data)
         assert int(Param.POWER) in result
         assert int(Param.NIGHT_TIMER) in result
@@ -100,6 +110,7 @@ class TestParseReadRequestData:
 # ---------------------------------------------------------------------------
 # _parse_write_data
 # ---------------------------------------------------------------------------
+
 
 class TestParseWriteData:
     def test_empty_data(self):
@@ -119,10 +130,14 @@ class TestParseWriteData:
         assert result[int(Param.FAN1_SPEED)] == bytes([0xE8, 0x03])
 
     def test_multiple_params(self):
-        data = bytes([
-            int(Param.POWER) & 0xFF, 0x01,
-            int(Param.SPEED) & 0xFF, 0x02,
-        ])
+        data = bytes(
+            [
+                int(Param.POWER) & 0xFF,
+                0x01,
+                int(Param.SPEED) & 0xFF,
+                0x02,
+            ]
+        )
         result = _parse_write_data(data)
         assert result[int(Param.POWER)] == b"\x01"
         assert result[int(Param.SPEED)] == b"\x02"
@@ -131,6 +146,7 @@ class TestParseWriteData:
 # ---------------------------------------------------------------------------
 # _build_response_data
 # ---------------------------------------------------------------------------
+
 
 class TestBuildResponseData:
     def test_empty_request_returns_empty(self):
@@ -143,7 +159,7 @@ class TestBuildResponseData:
         assert b"\x01" in data
 
     def test_unknown_param_gets_not_sup(self):
-        state = {}
+        state: dict[int, bytes] = {}
         data = _build_response_data([int(Param.POWER)], state)
         assert CMD_NOT_SUP in data
 
@@ -162,6 +178,7 @@ class TestBuildResponseData:
 # ---------------------------------------------------------------------------
 # SimDevice — initialisation
 # ---------------------------------------------------------------------------
+
 
 class TestSimDeviceInit:
     def test_device_id_is_16_chars(self):
@@ -182,8 +199,14 @@ class TestSimDeviceInit:
 
     def test_state_has_required_keys(self):
         d = SimDevice(0)
-        for key in (Param.POWER, Param.SPEED, Param.FAN1_SPEED, Param.FAN2_SPEED,
-                    Param.CURRENT_HUMIDITY, Param.OPERATION_MODE):
+        for key in (
+            Param.POWER,
+            Param.SPEED,
+            Param.FAN1_SPEED,
+            Param.FAN2_SPEED,
+            Param.CURRENT_HUMIDITY,
+            Param.OPERATION_MODE,
+        ):
             assert key in d._state
 
     def test_variant0_power_off(self):
@@ -213,6 +236,7 @@ class TestSimDeviceInit:
 # SimDevice — set_lan_ip
 # ---------------------------------------------------------------------------
 
+
 class TestSimDeviceSetLanIp:
     def test_valid_ip_stored(self):
         d = SimDevice(0)
@@ -233,12 +257,13 @@ class TestSimDeviceSetLanIp:
 # SimDevice — tick (physics)
 # ---------------------------------------------------------------------------
 
+
 class TestSimDeviceTick:
     def test_tick_does_not_raise(self):
         SimDevice(0).tick(0.1)
 
     def test_powered_off_fans_ramp_toward_zero(self):
-        d = SimDevice(0)           # variant 0: power=OFF
+        d = SimDevice(0)  # variant 0: power=OFF
         d._fan1_rpm = 800.0
         d._fan2_rpm = 800.0
         # RAMP_RATE=80 RPM/s → 800 RPM needs 10 s = 120 ticks at dt=0.1
@@ -247,7 +272,7 @@ class TestSimDeviceTick:
         assert d._fan1_rpm < 10.0
 
     def test_powered_on_fans_ramp_up(self):
-        d = SimDevice(1)           # variant 1: power=ON, speed=2
+        d = SimDevice(1)  # variant 1: power=ON, speed=2
         d._fan1_rpm = 0.0
         for _ in range(30):
             d.tick(0.1)
@@ -280,7 +305,7 @@ class TestSimDeviceTick:
     def test_manual_speed_mode(self):
         d = SimDevice(0)
         d._state[Param.POWER] = b"\x01"
-        d._state[Param.SPEED] = bytes([255])        # manual mode
+        d._state[Param.SPEED] = bytes([255])  # manual mode
         d._state[Param.MANUAL_SPEED] = bytes([128])
         d._fan1_rpm = 0.0
         for _ in range(30):
@@ -306,6 +331,7 @@ class TestSimDeviceTick:
 # SimDevice — _apply_writes
 # ---------------------------------------------------------------------------
 
+
 class TestSimDeviceApplyWrites:
     def test_normal_write_updates_state(self):
         d = SimDevice(0)
@@ -313,12 +339,12 @@ class TestSimDeviceApplyWrites:
         assert d._state[Param.SPEED] == b"\x03"
 
     def test_power_toggle_off_to_on(self):
-        d = SimDevice(0)                   # power=OFF
+        d = SimDevice(0)  # power=OFF
         d._apply_writes({int(Param.POWER): b"\x02"})
         assert d._state[Param.POWER] == b"\x01"
 
     def test_power_toggle_on_to_off(self):
-        d = SimDevice(1)                   # power=ON
+        d = SimDevice(1)  # power=ON
         d._apply_writes({int(Param.POWER): b"\x02"})
         assert d._state[Param.POWER] == b"\x00"
 
@@ -332,7 +358,7 @@ class TestSimDeviceApplyWrites:
         d._state[Param.FILTER_COUNTDOWN] = b"\x00\x00\x00"
         d._state[Param.FILTER_INDICATOR] = b"\x01"
         d._apply_writes({int(Param.FILTER_RESET): b"\x01"})
-        assert d._state[Param.FILTER_COUNTDOWN] == b"\x00\x00\xB4"
+        assert d._state[Param.FILTER_COUNTDOWN] == b"\x00\x00\xb4"
         assert d._state[Param.FILTER_INDICATOR] == b"\x00"
 
     def test_reset_alarms_clears_status(self):
@@ -350,7 +376,7 @@ class TestSimDeviceApplyWrites:
         assert d._fan2_rpm == 0.0
 
     def test_factory_reset_restores_variant_defaults(self):
-        d = SimDevice(1)              # variant 1: power=ON
+        d = SimDevice(1)  # variant 1: power=ON
         d._state[Param.SPEED] = b"\x01"
         d._apply_writes({int(Param.FACTORY_RESET): b"\x01"})
         assert d._state[Param.POWER] == b"\x01"
@@ -363,6 +389,7 @@ class TestSimDeviceApplyWrites:
 # ---------------------------------------------------------------------------
 # SimDevice — _nudge
 # ---------------------------------------------------------------------------
+
 
 class TestSimDeviceNudge:
     def test_nudge_speed_up(self):
@@ -398,6 +425,7 @@ class TestSimDeviceNudge:
 # ---------------------------------------------------------------------------
 # SimDevice — handle (mock socket)
 # ---------------------------------------------------------------------------
+
 
 class TestSimDeviceHandle:
     """Tests for handle() — use a MagicMock socket to avoid real networking."""
@@ -446,6 +474,7 @@ class TestSimDeviceHandle:
 # VentoFanSim — construction
 # ---------------------------------------------------------------------------
 
+
 class TestVentoFanSimConstruction:
     def test_default_single_device(self):
         sim = VentoFanSim(port=0)
@@ -477,6 +506,7 @@ class TestVentoFanSimConstruction:
 # ---------------------------------------------------------------------------
 # VentoFanSim — _dispatch routing
 # ---------------------------------------------------------------------------
+
 
 class TestVentoFanSimDispatch:
     """Uses a real socket for construction but replaces it with a mock for dispatch."""
@@ -518,6 +548,7 @@ class TestVentoFanSimDispatch:
 # ---------------------------------------------------------------------------
 # _get_lan_ip
 # ---------------------------------------------------------------------------
+
 
 class TestGetLanIp:
     def test_returns_string(self):

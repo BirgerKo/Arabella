@@ -1,9 +1,11 @@
 """Pydantic request and response schemas for the web API."""
+
 from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
 # ── Request bodies ────────────────────────────────────────────────────────────
+
 
 class ConnectRequest(BaseModel):
     ip: str = Field(..., min_length=1, max_length=255)
@@ -44,6 +46,7 @@ class QuickSlotsRequest(BaseModel):
 
 
 # ── Response models ───────────────────────────────────────────────────────────
+
 
 class HumiditySensorRequest(BaseModel):
     # 0 = Off, 1 = On, 2 = Invert

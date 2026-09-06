@@ -57,24 +57,55 @@ def _check_choices(name: str, value: int, choices: set[int]) -> None:
 
 
 _BASIC_STATUS_PARAMS = [
-    Param.POWER, Param.SPEED, Param.BOOST_STATUS, Param.TIMER_MODE,
-    Param.TIMER_COUNTDOWN, Param.HUMIDITY_SENSOR, Param.RELAY_SENSOR,
-    Param.VOLTAGE_SENSOR, Param.HUMIDITY_THRESHOLD, Param.VOLTAGE_THRESHOLD,
-    Param.BATTERY_VOLTAGE, Param.CURRENT_HUMIDITY, Param.VOLTAGE_SENSOR_VAL,
-    Param.RELAY_STATE, Param.MANUAL_SPEED, Param.FAN1_SPEED, Param.FAN2_SPEED,
+    Param.POWER,
+    Param.SPEED,
+    Param.BOOST_STATUS,
+    Param.TIMER_MODE,
+    Param.TIMER_COUNTDOWN,
+    Param.HUMIDITY_SENSOR,
+    Param.RELAY_SENSOR,
+    Param.VOLTAGE_SENSOR,
+    Param.HUMIDITY_THRESHOLD,
+    Param.VOLTAGE_THRESHOLD,
+    Param.BATTERY_VOLTAGE,
+    Param.CURRENT_HUMIDITY,
+    Param.VOLTAGE_SENSOR_VAL,
+    Param.RELAY_STATE,
+    Param.MANUAL_SPEED,
+    Param.FAN1_SPEED,
+    Param.FAN2_SPEED,
 ]
 _EXTENDED_CONFIG_PARAMS = [
-    Param.FILTER_COUNTDOWN, Param.FILTER_INDICATOR, Param.BOOST_DELAY,
-    Param.RTC_TIME, Param.RTC_CALENDAR, Param.WEEKLY_SCHEDULE_EN,
-    Param.DEVICE_SEARCH, Param.MACHINE_HOURS, Param.ALARM_STATUS,
-    Param.CLOUD_PERMISSION, Param.FIRMWARE_VERSION, Param.OPERATION_MODE, Param.UNIT_TYPE,
+    Param.FILTER_COUNTDOWN,
+    Param.FILTER_INDICATOR,
+    Param.BOOST_DELAY,
+    Param.RTC_TIME,
+    Param.RTC_CALENDAR,
+    Param.WEEKLY_SCHEDULE_EN,
+    Param.DEVICE_SEARCH,
+    Param.MACHINE_HOURS,
+    Param.ALARM_STATUS,
+    Param.CLOUD_PERMISSION,
+    Param.FIRMWARE_VERSION,
+    Param.OPERATION_MODE,
+    Param.UNIT_TYPE,
 ]
 _WIFI_PARAMS = [
-    Param.WIFI_MODE, Param.WIFI_SSID, Param.WIFI_ENCRYPTION, Param.WIFI_CHANNEL,
-    Param.WIFI_DHCP, Param.WIFI_IP, Param.WIFI_SUBNET, Param.WIFI_GATEWAY, Param.WIFI_CURRENT_IP,
+    Param.WIFI_MODE,
+    Param.WIFI_SSID,
+    Param.WIFI_ENCRYPTION,
+    Param.WIFI_CHANNEL,
+    Param.WIFI_DHCP,
+    Param.WIFI_IP,
+    Param.WIFI_SUBNET,
+    Param.WIFI_GATEWAY,
+    Param.WIFI_CURRENT_IP,
 ]
 _SENSOR_STATUS_PARAMS = [
-    Param.HUMIDITY_STATUS, Param.VOLTAGE_STATUS, Param.NIGHT_TIMER, Param.PARTY_TIMER,
+    Param.HUMIDITY_STATUS,
+    Param.VOLTAGE_STATUS,
+    Param.NIGHT_TIMER,
+    Param.PARTY_TIMER,
 ]
 _ALL_PARAM_GROUPS = (_BASIC_STATUS_PARAMS, _EXTENDED_CONFIG_PARAMS, _WIFI_PARAMS, _SENSOR_STATUS_PARAMS)
 
@@ -82,20 +113,20 @@ _ALL_PARAM_GROUPS = (_BASIC_STATUS_PARAMS, _EXTENDED_CONFIG_PARAMS, _WIFI_PARAMS
 def _parse_discovery_item(item: DiscoveryItem) -> DiscoveredDevice | None:
     """Parse one raw discovery response into a DiscoveredDevice, or None if malformed."""
     try:
-        raw = item['raw']
+        raw = item["raw"]
         if not isinstance(raw, (bytes, bytearray)):
             raise TypeError("Discovery item raw payload must be bytes")
         resp = parse_response(raw)
-        ip_value = item['ip']
+        ip_value = item["ip"]
         if not isinstance(ip_value, str):
             raise TypeError("Discovery item ip must be a string")
         return DiscoveredDevice(
             ip=ip_value,
-            device_id=decode_text(resp.get(Param.DEVICE_SEARCH, b'')),
-            unit_type=decode_int(resp.get(Param.UNIT_TYPE, b'\x00\x00')),
+            device_id=decode_text(resp.get(Param.DEVICE_SEARCH, b"")),
+            unit_type=decode_int(resp.get(Param.UNIT_TYPE, b"\x00\x00")),
         )
     except Exception as e:
-        log.warning("Discovery parse error %s: %s", item.get('ip', ''), e)
+        log.warning("Discovery parse error %s: %s", item.get("ip", ""), e)
         return None
 
 
@@ -126,11 +157,11 @@ class _DeviceStateBuilder:
         value = self._raw.get(param)
         return decode_int(value) if value is not None else default
 
-    def _text_field(self, param: Param, default: str = '') -> str:
+    def _text_field(self, param: Param, default: str = "") -> str:
         value = self._raw.get(param)
         return decode_text(value) if value is not None else default
 
-    def _ip_field(self, param: Param, default: str = '') -> str:
+    def _ip_field(self, param: Param, default: str = "") -> str:
         value = self._raw.get(param)
         return decode_ip(value) if value is not None else default
 
@@ -227,7 +258,7 @@ class VentoClient:
         self,
         host: str,
         device_id: str,
-        password: str = '1111',
+        password: str = "1111",
         port: int = DEFAULT_PORT,
         timeout: float = 3.0,
     ) -> None:
@@ -277,11 +308,11 @@ class VentoClient:
         self.write_params({Param.POWER: 2})
 
     def set_speed(self, speed: int) -> None:
-        _check_choices('speed', speed, {1, 2, 3})
+        _check_choices("speed", speed, {1, 2, 3})
         self.write_params({Param.SPEED: speed})
 
     def set_manual_speed(self, value: int) -> None:
-        _check_range('manual_speed', value, 0, 255)
+        _check_range("manual_speed", value, 0, 255)
         self.write_params({Param.SPEED: 255, Param.MANUAL_SPEED: value})
 
     def speed_up(self) -> RawParamMap:
@@ -291,7 +322,7 @@ class VentoClient:
         return self.decrement_params([Param.SPEED])
 
     def set_mode(self, mode: int) -> None:
-        _check_choices('mode', mode, {0, 1, 2})
+        _check_choices("mode", mode, {0, 1, 2})
         self.write_params({Param.OPERATION_MODE: mode})
 
     def set_ventilation(self) -> None:
@@ -307,60 +338,60 @@ class VentoClient:
         return bool(decode_int(self.read_params([Param.BOOST_STATUS])[Param.BOOST_STATUS]))
 
     def set_boost_delay(self, minutes: int) -> None:
-        _check_range('boost_delay', minutes, 0, 60)
+        _check_range("boost_delay", minutes, 0, 60)
         self.write_params({Param.BOOST_DELAY: minutes})
 
     def set_timer_mode(self, mode: int) -> None:
-        _check_choices('timer_mode', mode, {0, 1, 2})
+        _check_choices("timer_mode", mode, {0, 1, 2})
         self.write_params({Param.TIMER_MODE: mode})
 
     def set_night_timer(self, hours: int, minutes: int) -> None:
-        _check_range('hours', hours, 0, 23)
-        _check_range('minutes', minutes, 0, 59)
+        _check_range("hours", hours, 0, 23)
+        _check_range("minutes", minutes, 0, 59)
         self.write_params({Param.NIGHT_TIMER: bytes([minutes, hours])})
 
     def set_party_timer(self, hours: int, minutes: int) -> None:
-        _check_range('hours', hours, 0, 23)
-        _check_range('minutes', minutes, 0, 59)
+        _check_range("hours", hours, 0, 23)
+        _check_range("minutes", minutes, 0, 59)
         self.write_params({Param.PARTY_TIMER: bytes([minutes, hours])})
 
     def get_timer_countdown(self) -> TimerCountdown:
-        return TimerCountdown(**decode_timer_countdown(
-            self.read_params([Param.TIMER_COUNTDOWN])[Param.TIMER_COUNTDOWN]
-        ))
+        return TimerCountdown(
+            **decode_timer_countdown(self.read_params([Param.TIMER_COUNTDOWN])[Param.TIMER_COUNTDOWN])
+        )
 
     def set_humidity_sensor(self, sensor: int) -> None:
-        _check_choices('humidity_sensor', sensor, {0, 1, 2})
+        _check_choices("humidity_sensor", sensor, {0, 1, 2})
         self.write_params({Param.HUMIDITY_SENSOR: sensor})
 
     def set_humidity_threshold(self, relative_humidity: int) -> None:
-        _check_range('humidity_threshold', relative_humidity, 40, 80)
+        _check_range("humidity_threshold", relative_humidity, 40, 80)
         self.write_params({Param.HUMIDITY_THRESHOLD: relative_humidity})
 
     def get_current_humidity(self) -> int:
         return decode_int(self.read_params([Param.CURRENT_HUMIDITY])[Param.CURRENT_HUMIDITY])
 
     def set_relay_sensor(self, sensor: int) -> None:
-        _check_choices('relay_sensor', sensor, {0, 1, 2})
+        _check_choices("relay_sensor", sensor, {0, 1, 2})
         self.write_params({Param.RELAY_SENSOR: sensor})
 
     def set_voltage_sensor(self, sensor: int) -> None:
-        _check_choices('voltage_sensor', sensor, {0, 1, 2})
+        _check_choices("voltage_sensor", sensor, {0, 1, 2})
         self.write_params({Param.VOLTAGE_SENSOR: sensor})
 
     def set_voltage_threshold(self, percent: int) -> None:
-        _check_range('voltage_threshold', percent, 5, 100)
+        _check_range("voltage_threshold", percent, 5, 100)
         self.write_params({Param.VOLTAGE_THRESHOLD: percent})
 
     def enable_weekly_schedule(self, enabled: bool) -> None:
         self.write_params({Param.WEEKLY_SCHEDULE_EN: 1 if enabled else 0})
 
     def set_schedule_period(self, day: int, period: int, speed: int, end_h: int, end_m: int) -> None:
-        _check_range('day', day, 0, 9)
-        _check_range('period', period, 1, 4)
-        _check_range('speed', speed, 0, 3)
-        _check_range('end_h', end_h, 0, 23)
-        _check_range('end_m', end_m, 0, 59)
+        _check_range("day", day, 0, 9)
+        _check_range("period", period, 1, 4)
+        _check_range("speed", speed, 0, 3)
+        _check_range("end_h", end_h, 0, 23)
+        _check_range("end_m", end_m, 0, 59)
         self.write_params({Param.SCHEDULE_SETUP: bytes([day, period, speed, 0, end_m, end_h])})
 
     def get_schedule_period(self, day: int, period: int) -> SchedulePeriod:
@@ -369,17 +400,15 @@ class VentoClient:
         Reads are indexed by writing day+period as selector bytes, then
         reading the response which includes the stored speed and end time.
         """
-        _check_range('day', day, 0, 9)
-        _check_range('period', period, 1, 4)
-        raw = self.write_params_with_response(
-            {Param.SCHEDULE_SETUP: bytes([day, period, 0, 0, 0, 0])}
-        )
+        _check_range("day", day, 0, 9)
+        _check_range("period", period, 1, 4)
+        raw = self.write_params_with_response({Param.SCHEDULE_SETUP: bytes([day, period, 0, 0, 0, 0])})
         decoded = decode_schedule(raw[Param.SCHEDULE_SETUP])
         return SchedulePeriod(
-            period_number=decoded['period'],
-            end_hours=decoded['end_hours'],
-            end_minutes=decoded['end_minutes'],
-            speed=decoded['speed'],
+            period_number=decoded["period"],
+            end_hours=decoded["end_hours"],
+            end_minutes=decoded["end_minutes"],
+            speed=decoded["speed"],
         )
 
     def sync_rtc(self) -> None:
@@ -387,10 +416,12 @@ class VentoClient:
 
     def set_rtc(self, dt: datetime) -> None:
         day_of_week = dt.weekday() + 1
-        self.write_params({
-            Param.RTC_TIME: bytes([dt.second, dt.minute, dt.hour]),
-            Param.RTC_CALENDAR: bytes([dt.day, day_of_week, dt.month, dt.year % 100]),
-        })
+        self.write_params(
+            {
+                Param.RTC_TIME: bytes([dt.second, dt.minute, dt.hour]),
+                Param.RTC_CALENDAR: bytes([dt.day, day_of_week, dt.month, dt.year % 100]),
+            }
+        )
 
     def get_rtc(self) -> tuple[RtcTime, RtcCalendar]:
         raw = self.read_params([Param.RTC_TIME, Param.RTC_CALENDAR])
@@ -410,9 +441,7 @@ class VentoClient:
         self.write_params({Param.FILTER_RESET: 1})
 
     def get_machine_hours(self) -> MachineHours:
-        return MachineHours(**decode_machine_hours(
-            self.read_params([Param.MACHINE_HOURS])[Param.MACHINE_HOURS]
-        ))
+        return MachineHours(**decode_machine_hours(self.read_params([Param.MACHINE_HOURS])[Param.MACHINE_HOURS]))
 
     def reset_alarms(self) -> None:
         self.write_params({Param.RESET_ALARMS: 1})
@@ -421,9 +450,7 @@ class VentoClient:
         return decode_int(self.read_params([Param.ALARM_STATUS])[Param.ALARM_STATUS])
 
     def get_firmware_version(self) -> FirmwareVersion:
-        return FirmwareVersion(**decode_firmware(
-            self.read_params([Param.FIRMWARE_VERSION])[Param.FIRMWARE_VERSION]
-        ))
+        return FirmwareVersion(**decode_firmware(self.read_params([Param.FIRMWARE_VERSION])[Param.FIRMWARE_VERSION]))
 
     def get_unit_type(self) -> int:
         return decode_int(self.read_params([Param.UNIT_TYPE])[Param.UNIT_TYPE])
@@ -432,16 +459,25 @@ class VentoClient:
         return decode_text(self.read_params([Param.DEVICE_SEARCH])[Param.DEVICE_SEARCH])
 
     def get_wifi_config(self) -> WifiConfig:
-        raw = self.read_params([
-            Param.WIFI_MODE, Param.WIFI_SSID, Param.WIFI_ENCRYPTION, Param.WIFI_CHANNEL,
-            Param.WIFI_DHCP, Param.WIFI_IP, Param.WIFI_SUBNET, Param.WIFI_GATEWAY, Param.WIFI_CURRENT_IP,
-        ])
+        raw = self.read_params(
+            [
+                Param.WIFI_MODE,
+                Param.WIFI_SSID,
+                Param.WIFI_ENCRYPTION,
+                Param.WIFI_CHANNEL,
+                Param.WIFI_DHCP,
+                Param.WIFI_IP,
+                Param.WIFI_SUBNET,
+                Param.WIFI_GATEWAY,
+                Param.WIFI_CURRENT_IP,
+            ]
+        )
         return WifiConfig(
-            mode=decode_int(raw.get(Param.WIFI_MODE, b'\x01')),
-            ssid=decode_text(raw.get(Param.WIFI_SSID, b'')),
-            encryption=decode_int(raw.get(Param.WIFI_ENCRYPTION, b'4')),
-            channel=decode_int(raw.get(Param.WIFI_CHANNEL, b'\x06')),
-            dhcp=bool(decode_int(raw.get(Param.WIFI_DHCP, b'\x01'))),
+            mode=decode_int(raw.get(Param.WIFI_MODE, b"\x01")),
+            ssid=decode_text(raw.get(Param.WIFI_SSID, b"")),
+            encryption=decode_int(raw.get(Param.WIFI_ENCRYPTION, b"4")),
+            channel=decode_int(raw.get(Param.WIFI_CHANNEL, b"\x06")),
+            dhcp=bool(decode_int(raw.get(Param.WIFI_DHCP, b"\x01"))),
             ip=decode_ip(raw.get(Param.WIFI_IP, bytes(4))),
             subnet=decode_ip(raw.get(Param.WIFI_SUBNET, bytes(4))),
             gateway=decode_ip(raw.get(Param.WIFI_GATEWAY, bytes(4))),
@@ -454,14 +490,14 @@ class VentoClient:
         wifi_password: str,
         dhcp: bool = True,
         encryption: int = 52,
-        static_ip: str = '',
-        subnet: str = '',
-        gateway: str = '',
+        static_ip: str = "",
+        subnet: str = "",
+        gateway: str = "",
     ) -> None:
         params: ParamWriteMap = {
             Param.WIFI_MODE: 1,
-            Param.WIFI_SSID: ssid.encode('ascii'),
-            Param.WIFI_PASSWORD: wifi_password.encode('ascii'),
+            Param.WIFI_SSID: ssid.encode("ascii"),
+            Param.WIFI_PASSWORD: wifi_password.encode("ascii"),
             Param.WIFI_ENCRYPTION: encryption,
             Param.WIFI_DHCP: 1 if dhcp else 0,
         }
@@ -469,12 +505,12 @@ class VentoClient:
             if not static_ip:
                 raise VentoValueError("static_ip required when dhcp=False")
             params[Param.WIFI_IP] = encode_ip(static_ip)
-            params[Param.WIFI_SUBNET] = encode_ip(subnet or '255.255.255.0')
+            params[Param.WIFI_SUBNET] = encode_ip(subnet or "255.255.255.0")
             params[Param.WIFI_GATEWAY] = encode_ip(gateway or static_ip)
         self.write_params(params)
 
     def set_wifi_ap(self, channel: int = 6) -> None:
-        _check_range('channel', channel, 1, 13)
+        _check_range("channel", channel, 1, 13)
         self.write_params({Param.WIFI_MODE: 2, Param.WIFI_CHANNEL: channel})
 
     def apply_wifi_config(self) -> None:
@@ -486,7 +522,7 @@ class VentoClient:
     def change_password(self, password: str) -> None:
         if len(password) > 8:
             raise VentoValueError("Password max 8 characters")
-        self.write_params({Param.DEVICE_PASSWORD: password.encode('ascii')})
+        self.write_params({Param.DEVICE_PASSWORD: password.encode("ascii")})
         self.password = password
 
     def set_cloud_permission(self, allowed: bool) -> None:
@@ -497,7 +533,7 @@ class VentoClient:
 
     @staticmethod
     def discover(
-        broadcast: str = '255.255.255.255',
+        broadcast: str = "255.255.255.255",
         port: int = DEFAULT_PORT,
         timeout: float = 3.0,
     ) -> list[DiscoveredDevice]:
@@ -514,7 +550,7 @@ class AsyncVentoClient:
         self,
         host: str,
         device_id: str,
-        password: str = '1111',
+        password: str = "1111",
         port: int = DEFAULT_PORT,
         timeout: float = 3.0,
     ) -> None:
@@ -564,15 +600,15 @@ class AsyncVentoClient:
         await self.write_params({Param.POWER: 2})
 
     async def set_speed(self, speed: int) -> None:
-        _check_choices('speed', speed, {1, 2, 3})
+        _check_choices("speed", speed, {1, 2, 3})
         await self.write_params({Param.SPEED: speed})
 
     async def set_manual_speed(self, value: int) -> None:
-        _check_range('manual_speed', value, 0, 255)
+        _check_range("manual_speed", value, 0, 255)
         await self.write_params({Param.SPEED: 255, Param.MANUAL_SPEED: value})
 
     async def set_mode(self, mode: int) -> None:
-        _check_choices('mode', mode, {0, 1, 2})
+        _check_choices("mode", mode, {0, 1, 2})
         await self.write_params({Param.OPERATION_MODE: mode})
 
     async def set_ventilation(self) -> None:
@@ -585,67 +621,65 @@ class AsyncVentoClient:
         await self.set_mode(2)
 
     async def set_timer_mode(self, mode: int) -> None:
-        _check_choices('timer_mode', mode, {0, 1, 2})
+        _check_choices("timer_mode", mode, {0, 1, 2})
         await self.write_params({Param.TIMER_MODE: mode})
 
     async def set_night_timer(self, hours: int, minutes: int) -> None:
-        _check_range('hours', hours, 0, 23)
-        _check_range('minutes', minutes, 0, 59)
+        _check_range("hours", hours, 0, 23)
+        _check_range("minutes", minutes, 0, 59)
         await self.write_params({Param.NIGHT_TIMER: bytes([minutes, hours])})
 
     async def set_party_timer(self, hours: int, minutes: int) -> None:
-        _check_range('hours', hours, 0, 23)
-        _check_range('minutes', minutes, 0, 59)
+        _check_range("hours", hours, 0, 23)
+        _check_range("minutes", minutes, 0, 59)
         await self.write_params({Param.PARTY_TIMER: bytes([minutes, hours])})
 
     async def set_humidity_sensor(self, sensor: int) -> None:
-        _check_choices('humidity_sensor', sensor, {0, 1, 2})
+        _check_choices("humidity_sensor", sensor, {0, 1, 2})
         await self.write_params({Param.HUMIDITY_SENSOR: sensor})
 
     async def set_humidity_threshold(self, relative_humidity: int) -> None:
-        _check_range('humidity_threshold', relative_humidity, 40, 80)
+        _check_range("humidity_threshold", relative_humidity, 40, 80)
         await self.write_params({Param.HUMIDITY_THRESHOLD: relative_humidity})
 
     async def set_relay_sensor(self, sensor: int) -> None:
-        _check_choices('relay_sensor', sensor, {0, 1, 2})
+        _check_choices("relay_sensor", sensor, {0, 1, 2})
         await self.write_params({Param.RELAY_SENSOR: sensor})
 
     async def set_voltage_sensor(self, sensor: int) -> None:
-        _check_choices('voltage_sensor', sensor, {0, 1, 2})
+        _check_choices("voltage_sensor", sensor, {0, 1, 2})
         await self.write_params({Param.VOLTAGE_SENSOR: sensor})
 
     async def set_voltage_threshold(self, percent: int) -> None:
-        _check_range('voltage_threshold', percent, 5, 100)
+        _check_range("voltage_threshold", percent, 5, 100)
         await self.write_params({Param.VOLTAGE_THRESHOLD: percent})
 
     async def enable_weekly_schedule(self, enabled: bool) -> None:
         await self.write_params({Param.WEEKLY_SCHEDULE_EN: 1 if enabled else 0})
 
     async def set_schedule_period(self, day: int, period: int, speed: int, end_h: int, end_m: int) -> None:
-        _check_range('day', day, 0, 9)
-        _check_range('period', period, 1, 4)
-        _check_range('speed', speed, 0, 3)
-        _check_range('end_h', end_h, 0, 23)
-        _check_range('end_m', end_m, 0, 59)
+        _check_range("day", day, 0, 9)
+        _check_range("period", period, 1, 4)
+        _check_range("speed", speed, 0, 3)
+        _check_range("end_h", end_h, 0, 23)
+        _check_range("end_m", end_m, 0, 59)
         await self.write_params({Param.SCHEDULE_SETUP: bytes([day, period, speed, 0, end_m, end_h])})
 
     async def get_schedule_period(self, day: int, period: int) -> SchedulePeriod:
         """Read back a single schedule period from the device."""
-        _check_range('day', day, 0, 9)
-        _check_range('period', period, 1, 4)
-        raw = await self.write_params_with_response(
-            {Param.SCHEDULE_SETUP: bytes([day, period, 0, 0, 0, 0])}
-        )
+        _check_range("day", day, 0, 9)
+        _check_range("period", period, 1, 4)
+        raw = await self.write_params_with_response({Param.SCHEDULE_SETUP: bytes([day, period, 0, 0, 0, 0])})
         decoded = decode_schedule(raw[Param.SCHEDULE_SETUP])
         return SchedulePeriod(
-            period_number=decoded['period'],
-            end_hours=decoded['end_hours'],
-            end_minutes=decoded['end_minutes'],
-            speed=decoded['speed'],
+            period_number=decoded["period"],
+            end_hours=decoded["end_hours"],
+            end_minutes=decoded["end_minutes"],
+            speed=decoded["speed"],
         )
 
     async def set_boost_delay(self, minutes: int) -> None:
-        _check_range('boost_delay', minutes, 0, 60)
+        _check_range("boost_delay", minutes, 0, 60)
         await self.write_params({Param.BOOST_DELAY: minutes})
 
     async def reset_filter_timer(self) -> None:
@@ -659,10 +693,12 @@ class AsyncVentoClient:
 
     async def set_rtc(self, dt: datetime) -> None:
         day_of_week = dt.weekday() + 1
-        await self.write_params({
-            Param.RTC_TIME: bytes([dt.second, dt.minute, dt.hour]),
-            Param.RTC_CALENDAR: bytes([dt.day, day_of_week, dt.month, dt.year % 100]),
-        })
+        await self.write_params(
+            {
+                Param.RTC_TIME: bytes([dt.second, dt.minute, dt.hour]),
+                Param.RTC_CALENDAR: bytes([dt.day, day_of_week, dt.month, dt.year % 100]),
+            }
+        )
 
     async def factory_reset(self) -> None:
         await self.write_params({Param.FACTORY_RESET: 1})
@@ -670,7 +706,7 @@ class AsyncVentoClient:
     async def change_password(self, password: str) -> None:
         if len(password) > 8:
             raise VentoValueError("Password max 8 characters")
-        await self.write_params({Param.DEVICE_PASSWORD: password.encode('ascii')})
+        await self.write_params({Param.DEVICE_PASSWORD: password.encode("ascii")})
         self.password = password
 
     async def set_cloud_permission(self, allowed: bool) -> None:
@@ -678,7 +714,7 @@ class AsyncVentoClient:
 
     @staticmethod
     async def discover(
-        broadcast: str = '255.255.255.255',
+        broadcast: str = "255.255.255.255",
         port: int = DEFAULT_PORT,
         timeout: float = 3.0,
     ) -> list[DiscoveredDevice]:

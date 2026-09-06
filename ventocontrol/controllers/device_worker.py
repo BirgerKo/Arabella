@@ -1,4 +1,5 @@
 """DeviceWorker — runs VentoClient I/O on a dedicated QThread."""
+
 from __future__ import annotations
 
 import ipaddress
@@ -17,13 +18,13 @@ class DeviceWorker(QObject):
     """All blocking VentoClient calls happen here (runs in its own QThread)."""
 
     # Outgoing signals
-    discovery_result   = Signal(list)        # list[DiscoveredDevice]
-    connected          = Signal(object)      # DeviceState on first successful poll
-    state_updated      = Signal(object)      # DeviceState
-    error              = Signal(str)         # human-readable error text
-    command_done       = Signal()            # a write command completed OK
-    schedule_loaded    = Signal(object)      # dict {(day, period): SchedulePeriod}
-    connection_failed  = Signal(str)         # emitted only when do_connect fails
+    discovery_result = Signal(list)  # list[DiscoveredDevice]
+    connected = Signal(object)  # DeviceState on first successful poll
+    state_updated = Signal(object)  # DeviceState
+    error = Signal(str)  # human-readable error text
+    command_done = Signal()  # a write command completed OK
+    schedule_loaded = Signal(object)  # dict {(day, period): SchedulePeriod}
+    connection_failed = Signal(str)  # emitted only when do_connect fails
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -80,12 +81,12 @@ class DeviceWorker(QObject):
         no response — fans are allocated contiguously starting at .11.
         """
         devices = []
-        for last_octet in range(11, 42):        # 127.0.0.11 … 127.0.0.41
+        for last_octet in range(11, 42):  # 127.0.0.11 … 127.0.0.41
             ip = f"127.0.0.{last_octet}"
             try:
                 found = VentoClient.discover(broadcast=ip, timeout=0.5)
                 if not found:
-                    break                       # no fan here — stop scanning
+                    break  # no fan here — stop scanning
                 devices.extend(found)
             except VentoError:
                 break

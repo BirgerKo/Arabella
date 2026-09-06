@@ -2,10 +2,10 @@
 
 Reuses ventocontrol.scenarios.ScenarioStore which has no Qt dependencies.
 """
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status
-
 from ventocontrol.scenarios import (
     FanSettings,
     ScenarioEntry,
@@ -13,6 +13,7 @@ from ventocontrol.scenarios import (
     ScenarioStore,
     get_settings_for_device,
 )
+
 from webdashboard.backend.dependencies import get_device_manager, get_scenario_store
 from webdashboard.backend.device_manager import DeviceManager
 from webdashboard.backend.models import (
@@ -60,9 +61,9 @@ async def save_scenario(
 ):
     """Save the current device state as a new scenario."""
     if not manager.is_connected:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                            detail="Not connected to any device")
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Not connected to any device")
     state = manager.current_state
+    assert state is not None
     settings = ScenarioSettings(
         power=state.power,
         speed=state.speed,
@@ -114,20 +115,20 @@ async def apply_scenario(
 ):
     """Apply a saved scenario to the connected device."""
     if not manager.is_connected:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                            detail="Not connected to any device")
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Not connected to any device")
     scenarios = store.get_scenarios()
     entry = next((s for s in scenarios if s.name == name), None)
     if entry is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Scenario not found")
 
-    device_id = manager.current_state.device_id
+    state = manager.current_state
+    assert state is not None
+    device_id = state.device_id
     settings = get_settings_for_device(entry, device_id)
     if settings is None:
         # No per-device settings; apply first fan's settings
         if not entry.fans:
-            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                                detail="Scenario has no fan settings")
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Scenario has no fan settings")
         settings = entry.fans[0].settings
 
     try:
@@ -157,13 +158,13 @@ async def add_fan_to_scenario(
 ):
     """Merge the current fan's state into an existing scenario (adds or replaces)."""
     if not manager.is_connected:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                            detail="Not connected to any device")
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Not connected to any device")
     scenarios = store.get_scenarios()
     entry = next((s for s in scenarios if s.name == name), None)
     if entry is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Scenario not found")
     state = manager.current_state
+    assert state is not None
     new_fan = FanSettings(
         device_id=state.device_id,
         settings=ScenarioSettings(

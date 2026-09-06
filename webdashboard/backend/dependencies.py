@@ -2,6 +2,7 @@
 
 These are thin adapters that expose singletons to request handlers.
 """
+
 from __future__ import annotations
 
 from typing import Generator

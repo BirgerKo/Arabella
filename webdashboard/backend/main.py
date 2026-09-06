@@ -3,6 +3,7 @@
 Wires together the routers, WebSocket endpoint, static file serving,
 and application lifecycle (startup / shutdown).
 """
+
 from __future__ import annotations
 
 import logging

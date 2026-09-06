@@ -7,6 +7,7 @@ after each successful poll or command.
 Architecture note: this module contains the core use-case logic and must
 not import FastAPI, Pydantic, or any other framework.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -93,75 +94,74 @@ class DeviceManager:
     # ── Commands ──────────────────────────────────────────────────────────────
 
     async def set_power(self, on: bool) -> None:
-        self._require_connection()
+        client = self._require_client()
         if on:
-            await self._client.turn_on()
+            await client.turn_on()
         else:
-            await self._client.turn_off()
+            await client.turn_off()
         await self._poll_after_command()
 
     async def set_speed(self, speed: int) -> None:
         """Set speed: 1/2/3 for presets; 0-254 triggers manual_speed."""
-        self._require_connection()
+        client = self._require_client()
         if 1 <= speed <= 3:
-            await self._client.set_speed(speed)
+            await client.set_speed(speed)
         else:
-            await self._client.set_manual_speed(speed)
+            await client.set_manual_speed(speed)
         await self._poll_after_command()
 
     async def set_mode(self, mode: int) -> None:
         """Set operation mode: 0=Ventilation, 1=Heat Recovery, 2=Supply."""
-        self._require_connection()
-        await self._client.set_mode(mode)
+        client = self._require_client()
+        await client.set_mode(mode)
         await self._poll_after_command()
 
     async def set_boost(self, on: bool) -> None:
-        self._require_connection()
+        client = self._require_client()
         from blauberg_vento.parameters import Param
-        await self._client.write_params({Param.BOOST_STATUS: 1 if on else 0})
+
+        await client.write_params({Param.BOOST_STATUS: 1 if on else 0})
         await self._poll_after_command()
 
     async def set_humidity_sensor(self, sensor: int) -> None:
         """Set humidity sensor mode: 0=Off, 1=On, 2=Invert."""
-        self._require_connection()
-        await self._client.set_humidity_sensor(sensor)
+        client = self._require_client()
+        await client.set_humidity_sensor(sensor)
         await self._poll_after_command()
 
     async def set_humidity_threshold(self, threshold: int) -> None:
         """Set humidity threshold in percent relative humidity (40–80)."""
-        self._require_connection()
-        await self._client.set_humidity_threshold(threshold)
+        client = self._require_client()
+        await client.set_humidity_threshold(threshold)
         await self._poll_after_command()
 
     async def enable_schedule(self, enabled: bool) -> None:
         """Enable or disable the weekly schedule."""
-        self._require_connection()
-        await self._client.enable_weekly_schedule(enabled)
+        client = self._require_client()
+        await client.enable_weekly_schedule(enabled)
         await self._poll_after_command()
 
-    async def set_schedule_period(
-        self, day: int, period: int, speed: int, end_h: int, end_m: int
-    ) -> None:
+    async def set_schedule_period(self, day: int, period: int, speed: int, end_h: int, end_m: int) -> None:
         """Write one schedule period to the device."""
-        self._require_connection()
-        await self._client.set_schedule_period(day, period, speed, end_h, end_m)
+        client = self._require_client()
+        await client.set_schedule_period(day, period, speed, end_h, end_m)
 
     async def get_full_schedule(self) -> list[list]:
         """Read all 32 schedule periods (8 day groups × 4 periods) from the device."""
-        self._require_connection()
+        client = self._require_client()
         result = []
         for day in range(8):
             row = []
             for period in range(1, 5):
-                sp = await self._client.get_schedule_period(day, period)
+                sp = await client.get_schedule_period(day, period)
                 row.append(sp)
             result.append(row)
         return result
 
     async def sync_rtc(self) -> None:
         """Synchronise the device real-time clock to system time."""
-        self._require_connection()
-        await self._client.sync_rtc()
+        client = self._require_client()
+        await client.sync_rtc()
         await self._poll_after_command()
 
     # ── Discovery ─────────────────────────────────────────────────────────────
@@ -176,6 +176,11 @@ class DeviceManager:
     def _require_connection(self) -> None:
         if not self.is_connected:
             raise RuntimeError("Not connected to any device")
+
+    def _require_client(self) -> AsyncVentoClient:
+        self._require_connection()
+        assert self._client is not None
+        return self._client
 
     def _start_polling(self) -> None:
         self._poll_task = asyncio.create_task(self._poll_loop())
@@ -199,9 +204,7 @@ class DeviceManager:
             except Exception as exc:
                 log.warning("Poll error after retries: %s", exc)
                 if self._broadcast_callback:
-                    await self._broadcast_callback(
-                        {"type": "error", "data": {"message": str(exc)}}
-                    )
+                    await self._broadcast_callback({"type": "error", "data": {"message": str(exc)}})
 
     async def _poll_with_retry(self) -> None:
         """Poll repeatedly when a temporary connection failure occurs."""
@@ -229,6 +232,4 @@ class DeviceManager:
             return
         self._state = await self._client.get_state()
         if self._broadcast_callback:
-            await self._broadcast_callback(
-                {"type": "state", "data": _state_to_dict(self._state)}
-            )
+            await self._broadcast_callback({"type": "state", "data": _state_to_dict(self._state)})

@@ -7,6 +7,7 @@ to the same device.
 All tests use monkeypatch to redirect I/O to a tmp_path directory so they
 never touch ~/.ventocontrol/.
 """
+
 from __future__ import annotations
 
 import json
@@ -20,35 +21,34 @@ from ventocontrol.history import DeviceHistory, HistoryEntry, _MAX_ENTRIES
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture()
 def history(tmp_path, monkeypatch):
     """A DeviceHistory backed by a temp directory."""
-    monkeypatch.setattr("ventocontrol.history._HISTORY_FILE",
-                        tmp_path / "history.json")
+    monkeypatch.setattr("ventocontrol.history._HISTORY_FILE", tmp_path / "history.json")
     monkeypatch.setattr("ventocontrol.history._HISTORY_DIR", tmp_path)
     return DeviceHistory()
 
 
-def _record(h: DeviceHistory, device_id="DEV1", ip="1.2.3.4",
-            unit_type_name="Vento Expert W30", password="1111") -> None:
-    h.record(device_id=device_id, ip=ip,
-             unit_type_name=unit_type_name, password=password)
+def _record(
+    h: DeviceHistory, device_id="DEV1", ip="1.2.3.4", unit_type_name="Vento Expert W30", password="1111"
+) -> None:
+    h.record(device_id=device_id, ip=ip, unit_type_name=unit_type_name, password=password)
 
 
 # ---------------------------------------------------------------------------
 # TestHistoryEntry
 # ---------------------------------------------------------------------------
 
+
 class TestHistoryEntry:
     def test_defaults(self):
-        e = HistoryEntry(device_id="X", ip="1.2.3.4",
-                         unit_type_name="Vento", password="1111")
-        assert e.name      == ""
+        e = HistoryEntry(device_id="X", ip="1.2.3.4", unit_type_name="Vento", password="1111")
+        assert e.name == ""
         assert e.last_seen == ""
 
     def test_custom_name(self):
-        e = HistoryEntry(device_id="X", ip="1.2.3.4",
-                         unit_type_name="Vento", password="1111", name="Bedroom")
+        e = HistoryEntry(device_id="X", ip="1.2.3.4", unit_type_name="Vento", password="1111", name="Bedroom")
         assert e.name == "Bedroom"
 
 
@@ -56,20 +56,21 @@ class TestHistoryEntry:
 # TestDeviceHistoryBasics
 # ---------------------------------------------------------------------------
 
+
 class TestDeviceHistoryBasics:
     def test_empty_on_new(self, history):
-        assert history.entries   == []
+        assert history.entries == []
         assert history.last_used is None
 
     def test_record_adds_entry(self, history):
         _record(history)
         assert len(history.entries) == 1
         e = history.entries[0]
-        assert e.device_id      == "DEV1"
-        assert e.ip             == "1.2.3.4"
+        assert e.device_id == "DEV1"
+        assert e.ip == "1.2.3.4"
         assert e.unit_type_name == "Vento Expert W30"
-        assert e.password       == "1111"
-        assert e.last_seen      != ""   # timestamp set
+        assert e.password == "1111"
+        assert e.last_seen != ""  # timestamp set
 
     def test_last_used_is_most_recent(self, history):
         _record(history, device_id="DEV1")
@@ -81,7 +82,7 @@ class TestDeviceHistoryBasics:
         _record(history, device_id="DEV2")
         _record(history, device_id="DEV1")  # re-connect to DEV1
         assert history.entries[0].device_id == "DEV1"
-        assert len(history.entries) == 2    # no duplicate
+        assert len(history.entries) == 2  # no duplicate
 
     def test_record_cap(self, history):
         for i in range(_MAX_ENTRIES + 3):
@@ -91,12 +92,11 @@ class TestDeviceHistoryBasics:
     def test_clear(self, history):
         _record(history)
         history.clear()
-        assert history.entries   == []
+        assert history.entries == []
         assert history.last_used is None
 
     def test_missing_file(self, tmp_path, monkeypatch):
-        monkeypatch.setattr("ventocontrol.history._HISTORY_FILE",
-                            tmp_path / "no_file.json")
+        monkeypatch.setattr("ventocontrol.history._HISTORY_FILE", tmp_path / "no_file.json")
         monkeypatch.setattr("ventocontrol.history._HISTORY_DIR", tmp_path)
         h = DeviceHistory()
         assert h.entries == []
@@ -113,6 +113,7 @@ class TestDeviceHistoryBasics:
 # ---------------------------------------------------------------------------
 # TestDeviceHistoryPersistence
 # ---------------------------------------------------------------------------
+
 
 class TestDeviceHistoryPersistence:
     def test_reload_restores_entries(self, tmp_path, monkeypatch):
@@ -169,7 +170,7 @@ class TestDeviceHistoryPersistence:
         h1 = DeviceHistory()
         _record(h1, device_id="DEV1")
         h1.rename("DEV1", "Temp Name")
-        h1.rename("DEV1", "")   # clear it
+        h1.rename("DEV1", "")  # clear it
 
         h2 = DeviceHistory()
         assert h2.entries[0].name == ""
@@ -178,6 +179,7 @@ class TestDeviceHistoryPersistence:
 # ---------------------------------------------------------------------------
 # TestRenameAfterReconnect   ← the critical bug-prevention tests
 # ---------------------------------------------------------------------------
+
 
 class TestRenameAfterReconnect:
     def test_name_preserved_on_reconnect(self, history):
@@ -193,8 +195,8 @@ class TestRenameAfterReconnect:
 
         e = history.entries[0]
         assert e.device_id == "DEV1"
-        assert e.ip        == "10.0.0.99"   # IP updated
-        assert e.name      == "Living Room" # name preserved ← was "" before fix
+        assert e.ip == "10.0.0.99"  # IP updated
+        assert e.name == "Living Room"  # name preserved ← was "" before fix
 
     def test_name_preserved_on_reconnect_and_reload(self, tmp_path, monkeypatch):
         """
@@ -208,7 +210,7 @@ class TestRenameAfterReconnect:
         h1 = DeviceHistory()
         _record(h1, device_id="DEV1")
         h1.rename("DEV1", "Kitchen Fan")
-        _record(h1, device_id="DEV1")   # reconnect
+        _record(h1, device_id="DEV1")  # reconnect
 
         # Simulate restart
         h2 = DeviceHistory()
@@ -221,5 +223,5 @@ class TestRenameAfterReconnect:
 
     def test_rename_unknown_device_is_noop(self, history):
         """Renaming a device_id not in history should not crash."""
-        history.rename("GHOST", "Ghost Fan")   # should not raise
+        history.rename("GHOST", "Ghost Fan")  # should not raise
         assert history.entries == []

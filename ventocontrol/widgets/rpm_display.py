@@ -1,4 +1,5 @@
 """RPMDisplay — numeric RPM readout for a single fan."""
+
 from __future__ import annotations
 
 from PySide6.QtCore import Qt

@@ -1,4 +1,5 @@
 """VentoApp — QApplication subclass with dark theme."""
+
 from __future__ import annotations
 
 import sys
@@ -9,16 +10,16 @@ from PySide6.QtWidgets import QApplication
 # ---------------------------------------------------------------------------
 # Colour palette
 # ---------------------------------------------------------------------------
-BG       = "#1e1e2e"
-SURFACE  = "#2a2a3e"
+BG = "#1e1e2e"
+SURFACE = "#2a2a3e"
 SURFACE2 = "#313145"
-ACCENT   = "#5e81f4"
-SUCCESS  = "#50fa7b"
-WARNING  = "#ffb86c"
-DANGER   = "#ff5555"
-TEXT     = "#f8f8f2"
-TEXT2    = "#6272a4"
-BORDER   = "#44475a"
+ACCENT = "#5e81f4"
+SUCCESS = "#50fa7b"
+WARNING = "#ffb86c"
+DANGER = "#ff5555"
+TEXT = "#f8f8f2"
+TEXT2 = "#6272a4"
+BORDER = "#44475a"
 
 DARK_QSS = f"""
 /* ── Global ── */

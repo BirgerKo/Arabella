@@ -43,7 +43,7 @@ class VentoTransport:
     def discover(
         self,
         pkt: bytes,
-        broadcast: str = '255.255.255.255',
+        broadcast: str = "255.255.255.255",
         port: int = DEFAULT_PORT,
         timeout: float = 3.0,
         max_devices: int = 64,
@@ -58,7 +58,7 @@ class VentoTransport:
                 while len(results) < max_devices:
                     try:
                         data, addr = s.recvfrom(_UDP_BUFFER_SIZE)
-                        results.append({'ip': addr[0], 'raw': data})
+                        results.append({"ip": addr[0], "raw": data})
                     except TimeoutError:
                         break
         except OSError as e:
@@ -88,7 +88,7 @@ class _DiscoveryProtocol(asyncio.DatagramProtocol):
         self._queue = queue
 
     def datagram_received(self, data: bytes, addr: RemoteAddress) -> None:
-        self._queue.put_nowait({'ip': addr[0], 'raw': data})
+        self._queue.put_nowait({"ip": addr[0], "raw": data})
 
 
 class AsyncVentoTransport:
@@ -137,7 +137,7 @@ class AsyncVentoTransport:
     async def discover(
         self,
         pkt: bytes,
-        broadcast: str = '255.255.255.255',
+        broadcast: str = "255.255.255.255",
         port: int = DEFAULT_PORT,
         timeout: float = 3.0,
         max_devices: int = 64,

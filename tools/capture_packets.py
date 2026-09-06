@@ -14,6 +14,7 @@ Usage:
 Requires root / capture permissions:
     sudo python tools/capture_packets.py
 """
+
 from __future__ import annotations
 
 import argparse
@@ -27,8 +28,11 @@ sys.path.insert(0, str(ROOT))
 
 from blauberg_vento.parameters import Func, Param
 from blauberg_vento.protocol import (
-    decode_schedule, decode_rtc_time, decode_rtc_calendar,
-    parse_response, verify_checksum,
+    decode_schedule,
+    decode_rtc_time,
+    decode_rtc_calendar,
+    parse_response,
+    verify_checksum,
 )
 from blauberg_vento.exceptions import VentoError
 
@@ -45,15 +49,22 @@ _FUNC_NAMES = {
 }
 
 _SCHEDULE_DAYS = {
-    0: "Mon", 1: "Tue", 2: "Wed", 3: "Thu",
-    4: "Fri", 5: "Sat", 6: "Sun", 7: "All",
+    0: "Mon",
+    1: "Tue",
+    2: "Wed",
+    3: "Thu",
+    4: "Fri",
+    5: "Sat",
+    6: "Sun",
+    7: "All",
 }
 
 
 # ── Packet decoder ───────────────────────────────────────────────────────────
 
+
 def _hex(data: bytes) -> str:
-    return data.hex(' ').upper()
+    return data.hex(" ").upper()
 
 
 def _decode_packet(raw: bytes, src: str, dst: str) -> str:
@@ -72,19 +83,19 @@ def _decode_packet(raw: bytes, src: str, dst: str) -> str:
 
     # Parse header manually (mirrors protocol._parse_packet_header)
     proto_type = raw[2]
-    id_size    = raw[3]
-    id_end     = 4 + id_size
-    device_id  = raw[4:id_end].decode('ascii', errors='replace')
-    pwd_size   = raw[id_end]
-    pwd_end    = id_end + 1 + pwd_size
-    password   = raw[id_end + 1:pwd_end].decode('ascii', errors='replace')
-    func_byte  = raw[pwd_end]
-    func_name  = _FUNC_NAMES.get(func_byte, f"UNKNOWN(0x{func_byte:02X})")
+    id_size = raw[3]
+    id_end = 4 + id_size
+    device_id = raw[4:id_end].decode("ascii", errors="replace")
+    pwd_size = raw[id_end]
+    pwd_end = id_end + 1 + pwd_size
+    password = raw[id_end + 1 : pwd_end].decode("ascii", errors="replace")
+    func_byte = raw[pwd_end]
+    func_name = _FUNC_NAMES.get(func_byte, f"UNKNOWN(0x{func_byte:02X})")
 
     lines.append(f"  Device-ID: {device_id!r}  Password: {password!r}")
     lines.append(f"  Function:  {func_name} (0x{func_byte:02X})")
 
-    data_bytes = raw[pwd_end + 1:-2]
+    data_bytes = raw[pwd_end + 1 : -2]
     lines.append(f"  DATA({len(data_bytes)}B): {_hex(data_bytes)}")
 
     # Decode the data section into param → value pairs
@@ -102,9 +113,9 @@ def _decode_data_section(data: bytes) -> list[tuple[str, str]]:
     param_size = 1
     i = 0
 
-    CMD_PAGE    = 0xFF
-    CMD_FUNC    = 0xFC
-    CMD_SIZE    = 0xFE
+    CMD_PAGE = 0xFF
+    CMD_FUNC = 0xFC
+    CMD_SIZE = 0xFE
     CMD_NOT_SUP = 0xFD
 
     while i < len(data):
@@ -138,7 +149,7 @@ def _decode_data_section(data: bytes) -> list[tuple[str, str]]:
 
         param_num = (page << 8) | b
         i += 1
-        val = bytes(data[i:i + param_size])
+        val = bytes(data[i : i + param_size])
         i += param_size
 
         try:
@@ -163,7 +174,7 @@ def _decode_value(param_num: int, val: bytes) -> str:
 
     if p == Param.SCHEDULE_SETUP and len(val) == 6:
         d = decode_schedule(val)
-        day_name = _SCHEDULE_DAYS.get(d['day_of_week'], str(d['day_of_week']))
+        day_name = _SCHEDULE_DAYS.get(d["day_of_week"], str(d["day_of_week"]))
         return (
             f"{hex_str}  →  day={day_name}({d['day_of_week']}) "
             f"period={d['period']} speed={d['speed']} "
@@ -176,7 +187,7 @@ def _decode_value(param_num: int, val: bytes) -> str:
 
     if p == Param.RTC_CALENDAR and len(val) == 4:
         c = decode_rtc_calendar(val)
-        day_name = _SCHEDULE_DAYS.get(c['day_of_week'] - 1, str(c['day_of_week']))
+        day_name = _SCHEDULE_DAYS.get(c["day_of_week"] - 1, str(c["day_of_week"]))
         return f"{hex_str}  →  {c['year']}-{c['month']:02d}-{c['day']:02d} ({day_name})"
 
     if len(val) <= 2:
@@ -187,18 +198,26 @@ def _decode_value(param_num: int, val: bytes) -> str:
 
 # ── tshark runner ────────────────────────────────────────────────────────────
 
+
 def run_capture(iface: str, count: int | None) -> None:
     """Launch tshark, read tab-separated output line-by-line, decode each packet."""
     cmd = [
         "tshark",
-        "-i", iface,
-        "-f", "udp port 4000",
-        "-T", "fields",
-        "-e", "ip.src",
-        "-e", "ip.dst",
-        "-e", "udp.payload",
-        "-E", "separator=|",
-        "-l",                   # flush after each packet
+        "-i",
+        iface,
+        "-f",
+        "udp port 4000",
+        "-T",
+        "fields",
+        "-e",
+        "ip.src",
+        "-e",
+        "ip.dst",
+        "-e",
+        "udp.payload",
+        "-E",
+        "separator=|",
+        "-l",  # flush after each packet
     ]
     if count:
         cmd += ["-c", str(count)]
@@ -232,7 +251,7 @@ def run_capture(iface: str, count: int | None) -> None:
                 continue
             pkt_num += 1
             raw = bytes.fromhex(payload_hex.replace(":", ""))
-            print(f"{'─'*60}")
+            print(f"{'─' * 60}")
             print(f"Packet #{pkt_num}")
             print(_decode_packet(raw, src, dst))
             print()
@@ -244,17 +263,18 @@ def run_capture(iface: str, count: int | None) -> None:
 
 
 def _handle_packet(num: int, src: str, dst: str, raw: bytes) -> None:
-    print(f"{'─'*60}")
+    print(f"{'─' * 60}")
     print(f"Packet #{num}")
     print(_decode_packet(raw, src, dst))
 
-    print(f"{'─'*60}")
+    print(f"{'─' * 60}")
     print(f"Packet #{num}")
     print(_decode_packet(raw, src, dst))
     print()
 
 
 # ── CLI entry point ──────────────────────────────────────────────────────────
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)

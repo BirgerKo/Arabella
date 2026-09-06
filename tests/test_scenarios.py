@@ -5,6 +5,7 @@ and all ScenarioStore methods (persistence, migration, edge cases).
 
 All tests use a tmp_path-backed store so they never touch ~/.ventocontrol/.
 """
+
 from __future__ import annotations
 
 import json
@@ -25,11 +26,11 @@ from ventocontrol.scenarios import (
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture()
 def store(tmp_path, monkeypatch):
     """A ScenarioStore wired to a temp directory instead of ~/.ventocontrol/."""
-    monkeypatch.setattr("ventocontrol.scenarios._SCENARIOS_FILE",
-                        tmp_path / "scenarios.json")
+    monkeypatch.setattr("ventocontrol.scenarios._SCENARIOS_FILE", tmp_path / "scenarios.json")
     monkeypatch.setattr("ventocontrol.scenarios._SCENARIOS_DIR", tmp_path)
     return ScenarioStore()
 
@@ -37,6 +38,7 @@ def store(tmp_path, monkeypatch):
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _settings(**kwargs) -> ScenarioSettings:
     return ScenarioSettings(**kwargs)
@@ -46,8 +48,7 @@ def _entry(name: str, device_ids: list[str] | None = None, **kwargs) -> Scenario
     """Build a ScenarioEntry with one FanSettings per device_id."""
     if device_ids is None:
         device_ids = ["DEV1"]
-    fans = [FanSettings(device_id=did, settings=_settings(**kwargs))
-            for did in device_ids]
+    fans = [FanSettings(device_id=did, settings=_settings(**kwargs)) for did in device_ids]
     return ScenarioEntry(name=name, fans=fans)
 
 
@@ -55,41 +56,47 @@ def _entry(name: str, device_ids: list[str] | None = None, **kwargs) -> Scenario
 # TestScenarioSettings
 # ---------------------------------------------------------------------------
 
+
 class TestScenarioSettings:
     def test_all_none_default(self):
         s = ScenarioSettings()
-        assert s.power             is None
-        assert s.speed             is None
-        assert s.manual_speed      is None
-        assert s.operation_mode    is None
-        assert s.boost_active      is None
-        assert s.humidity_sensor   is None
+        assert s.power is None
+        assert s.speed is None
+        assert s.manual_speed is None
+        assert s.operation_mode is None
+        assert s.boost_active is None
+        assert s.humidity_sensor is None
         assert s.humidity_threshold is None
 
     def test_partial_construction(self):
         s = ScenarioSettings(power=True, speed=2)
-        assert s.power == True   # noqa: E712
+        assert s.power == True  # noqa: E712
         assert s.speed == 2
         assert s.operation_mode is None
 
     def test_all_fields(self):
         s = ScenarioSettings(
-            power=False, speed=255, manual_speed=128,
-            operation_mode=1, boost_active=True,
-            humidity_sensor=1, humidity_threshold=60,
+            power=False,
+            speed=255,
+            manual_speed=128,
+            operation_mode=1,
+            boost_active=True,
+            humidity_sensor=1,
+            humidity_threshold=60,
         )
-        assert s.power              is False
-        assert s.speed              == 255
-        assert s.manual_speed       == 128
-        assert s.operation_mode     == 1
-        assert s.boost_active       is True
-        assert s.humidity_sensor    == 1
+        assert s.power is False
+        assert s.speed == 255
+        assert s.manual_speed == 128
+        assert s.operation_mode == 1
+        assert s.boost_active is True
+        assert s.humidity_sensor == 1
         assert s.humidity_threshold == 60
 
 
 # ---------------------------------------------------------------------------
 # TestFanSettings
 # ---------------------------------------------------------------------------
+
 
 class TestFanSettings:
     def test_basic(self):
@@ -105,6 +112,7 @@ class TestFanSettings:
 # ---------------------------------------------------------------------------
 # TestScenarioEntry
 # ---------------------------------------------------------------------------
+
 
 class TestScenarioEntry:
     def test_single_fan(self):
@@ -147,6 +155,7 @@ class TestScenarioEntry:
 # TestScenarioStorePersistence
 # ---------------------------------------------------------------------------
 
+
 class TestScenarioStorePersistence:
     def test_save_and_reload(self, tmp_path, monkeypatch):
         f = tmp_path / "scenarios.json"
@@ -188,7 +197,7 @@ class TestScenarioStorePersistence:
 
         entries = store.get_scenarios()
         assert len(entries) == 10
-        assert entries[0].name  == "Scenario 1"
+        assert entries[0].name == "Scenario 1"
         assert entries[-1].name == "Scenario 10"
 
         # Quick slot that pointed to the evicted entry is cleared
@@ -252,17 +261,21 @@ class TestScenarioStorePersistence:
 
     def test_migration_v1(self, tmp_path, monkeypatch):
         """A v1 JSON file is auto-migrated to v2 on load."""
-        f   = tmp_path / "scenarios.json"
-        v1  = {
+        f = tmp_path / "scenarios.json"
+        v1 = {
             "devices": {
                 "DEV_A": {
                     "scenarios": [
                         {
                             "name": "Night",
                             "settings": {
-                                "power": True, "speed": 1, "manual_speed": None,
-                                "operation_mode": 0, "boost_active": False,
-                                "humidity_sensor": 0, "humidity_threshold": None,
+                                "power": True,
+                                "speed": 1,
+                                "manual_speed": None,
+                                "operation_mode": 0,
+                                "boost_active": False,
+                                "humidity_sensor": 0,
+                                "humidity_threshold": None,
                             },
                         }
                     ],
@@ -274,7 +287,7 @@ class TestScenarioStorePersistence:
         monkeypatch.setattr("ventocontrol.scenarios._SCENARIOS_FILE", f)
         monkeypatch.setattr("ventocontrol.scenarios._SCENARIOS_DIR", tmp_path)
 
-        store   = ScenarioStore()
+        store = ScenarioStore()
         entries = store.get_scenarios()
 
         assert len(entries) == 1
@@ -291,24 +304,40 @@ class TestScenarioStorePersistence:
 
     def test_migration_v1_name_collision(self, tmp_path, monkeypatch):
         """Two devices with a same-named scenario get disambiguated with a suffix."""
-        f  = tmp_path / "scenarios.json"
+        f = tmp_path / "scenarios.json"
         v1 = {
             "devices": {
                 "DEVA": {
                     "scenarios": [
-                        {"name": "Night", "settings": {"power": True, "speed": 1,
-                         "manual_speed": None, "operation_mode": 0,
-                         "boost_active": False, "humidity_sensor": 0,
-                         "humidity_threshold": None}},
+                        {
+                            "name": "Night",
+                            "settings": {
+                                "power": True,
+                                "speed": 1,
+                                "manual_speed": None,
+                                "operation_mode": 0,
+                                "boost_active": False,
+                                "humidity_sensor": 0,
+                                "humidity_threshold": None,
+                            },
+                        },
                     ],
                     "quick_slots": [None, None, None],
                 },
                 "DEVB": {
                     "scenarios": [
-                        {"name": "Night", "settings": {"power": False, "speed": 2,
-                         "manual_speed": None, "operation_mode": 0,
-                         "boost_active": False, "humidity_sensor": 0,
-                         "humidity_threshold": None}},
+                        {
+                            "name": "Night",
+                            "settings": {
+                                "power": False,
+                                "speed": 2,
+                                "manual_speed": None,
+                                "operation_mode": 0,
+                                "boost_active": False,
+                                "humidity_sensor": 0,
+                                "humidity_threshold": None,
+                            },
+                        },
                     ],
                     "quick_slots": [None, None, None],
                 },
@@ -318,7 +347,7 @@ class TestScenarioStorePersistence:
         monkeypatch.setattr("ventocontrol.scenarios._SCENARIOS_FILE", f)
         monkeypatch.setattr("ventocontrol.scenarios._SCENARIOS_DIR", tmp_path)
 
-        store   = ScenarioStore()
+        store = ScenarioStore()
         entries = store.get_scenarios()
 
         assert len(entries) == 2
@@ -332,6 +361,7 @@ class TestScenarioStorePersistence:
 # TestScenarioStoreMultiFan
 # ---------------------------------------------------------------------------
 
+
 class TestScenarioStoreMultiFan:
     def test_multi_fan_save_load(self, tmp_path, monkeypatch):
         f = tmp_path / "scenarios.json"
@@ -342,13 +372,13 @@ class TestScenarioStoreMultiFan:
         entry = ScenarioEntry(
             name="Multi",
             fans=[
-                FanSettings("DEV1", ScenarioSettings(power=True,  speed=1)),
+                FanSettings("DEV1", ScenarioSettings(power=True, speed=1)),
                 FanSettings("DEV2", ScenarioSettings(power=False, speed=2)),
             ],
         )
         s1.save_scenario(entry)
 
-        s2     = ScenarioStore()
+        s2 = ScenarioStore()
         loaded = s2.get_scenarios()
         assert len(loaded) == 1
         assert len(loaded[0].fans) == 2
@@ -395,20 +425,24 @@ class TestScenarioStoreMultiFan:
     def test_overwrite_multi_fan_in_place(self, store):
         """Overwriting a multi-fan scenario preserves list order."""
         store.save_scenario(_entry("First", ["DEV1"], speed=1))
-        store.save_scenario(ScenarioEntry(
-            name="Multi",
-            fans=[FanSettings("DEV1", ScenarioSettings(speed=2))],
-        ))
+        store.save_scenario(
+            ScenarioEntry(
+                name="Multi",
+                fans=[FanSettings("DEV1", ScenarioSettings(speed=2))],
+            )
+        )
         store.save_scenario(_entry("Last", ["DEV1"], speed=3))
 
         # Overwrite "Multi" with a 2-fan version
-        store.save_scenario(ScenarioEntry(
-            name="Multi",
-            fans=[
-                FanSettings("DEV1", ScenarioSettings(speed=99)),
-                FanSettings("DEV2", ScenarioSettings(speed=88)),
-            ],
-        ))
+        store.save_scenario(
+            ScenarioEntry(
+                name="Multi",
+                fans=[
+                    FanSettings("DEV1", ScenarioSettings(speed=99)),
+                    FanSettings("DEV2", ScenarioSettings(speed=88)),
+                ],
+            )
+        )
 
         entries = store.get_scenarios()
         assert len(entries) == 3
@@ -421,6 +455,7 @@ class TestScenarioStoreMultiFan:
 # ---------------------------------------------------------------------------
 # TestScenarioStoreEdgeCases
 # ---------------------------------------------------------------------------
+
 
 class TestScenarioStoreEdgeCases:
     def test_empty_fans_list(self, store):
@@ -440,7 +475,7 @@ class TestScenarioStoreEdgeCases:
         s1 = ScenarioStore()
         s1.save_scenario(_entry("🌡 Natt-modus", ["DEV1"], speed=1))
 
-        s2     = ScenarioStore()
+        s2 = ScenarioStore()
         loaded = s2.get_scenarios()
         assert loaded[0].name == "🌡 Natt-modus"
 
@@ -465,11 +500,18 @@ class TestScenarioStoreEdgeCases:
                 {
                     "name": "Good",
                     "fans": [
-                        {"device_id": "DEV1",
-                         "settings": {"power": True, "speed": 1,
-                                      "manual_speed": None, "operation_mode": None,
-                                      "boost_active": None, "humidity_sensor": None,
-                                      "humidity_threshold": None}}
+                        {
+                            "device_id": "DEV1",
+                            "settings": {
+                                "power": True,
+                                "speed": 1,
+                                "manual_speed": None,
+                                "operation_mode": None,
+                                "boost_active": None,
+                                "humidity_sensor": None,
+                                "humidity_threshold": None,
+                            },
+                        }
                     ],
                 },
                 {
@@ -483,7 +525,7 @@ class TestScenarioStoreEdgeCases:
         monkeypatch.setattr("ventocontrol.scenarios._SCENARIOS_FILE", f)
         monkeypatch.setattr("ventocontrol.scenarios._SCENARIOS_DIR", tmp_path)
 
-        store   = ScenarioStore()
+        store = ScenarioStore()
         entries = store.get_scenarios()
         assert len(entries) == 1
         assert entries[0].name == "Good"

@@ -26,9 +26,10 @@ pip install -e ".[gui]"      # add PyQt6 for the desktop GUI
 
 ```python
 from blauberg_vento import VentoClient
+
 devices = VentoClient.discover()
-client  = VentoClient('192.168.1.50', 'ABCD1234EFGH5678')
-state   = client.get_state()
+client = VentoClient("192.168.1.50", "ABCD1234EFGH5678")
+state = client.get_state()
 print(state)
 client.turn_on()
 client.set_speed(2)

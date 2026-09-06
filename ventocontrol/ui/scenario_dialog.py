@@ -7,19 +7,36 @@ SaveScenarioDialog       — name + fan-picker when saving a new scenario
 ManageScenariosDialog    — list all scenarios with per-row Delete buttons
 EditScenarioDialog       — full editor: name + fan list + settings editor
 """
+
 from __future__ import annotations
 
 from typing import Optional
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFormLayout,
-    QGroupBox, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem,
-    QMenu, QPushButton, QSpinBox, QVBoxLayout, QWidget,
+    QCheckBox,
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QListWidgetItem,
+    QMenu,
+    QPushButton,
+    QSpinBox,
+    QVBoxLayout,
+    QWidget,
 )
 
 from ventocontrol.scenarios import (
-    FanSettings, ScenarioEntry, ScenarioSettings, ScenarioStore,
+    FanSettings,
+    ScenarioEntry,
+    ScenarioSettings,
+    ScenarioStore,
     get_settings_for_device,
 )
 
@@ -38,6 +55,7 @@ _MODE_VALUES = [0, 1, 2]
 # ---------------------------------------------------------------------------
 # ScenarioSettingsEditor
 # ---------------------------------------------------------------------------
+
 
 class ScenarioSettingsEditor(QWidget):
     """
@@ -68,8 +86,8 @@ class ScenarioSettingsEditor(QWidget):
         form.addRow("Power:", self._row(self._cb_power, self._co_power))
 
         # ── Speed ──────────────────────────────────────────────────────
-        self._cb_speed  = QCheckBox()
-        self._co_speed  = QComboBox()
+        self._cb_speed = QCheckBox()
+        self._co_speed = QComboBox()
         self._co_speed.addItems(_SPEED_LABELS)
         self._sp_manual = QSpinBox()
         self._sp_manual.setRange(0, 255)
@@ -147,8 +165,7 @@ class ScenarioSettingsEditor(QWidget):
         # Mode
         if settings.operation_mode is not None:
             self._cb_mode.setChecked(True)
-            idx = _MODE_VALUES.index(settings.operation_mode) \
-                if settings.operation_mode in _MODE_VALUES else 0
+            idx = _MODE_VALUES.index(settings.operation_mode) if settings.operation_mode in _MODE_VALUES else 0
             self._co_mode.setCurrentIndex(idx)
         else:
             self._cb_mode.setChecked(False)
@@ -180,7 +197,7 @@ class ScenarioSettingsEditor(QWidget):
         boost_active = humidity_sensor = humidity_threshold = None
 
         if self._cb_power.isChecked():
-            power = (self._co_power.currentIndex() == 0)
+            power = self._co_power.currentIndex() == 0
 
         if self._cb_speed.isChecked():
             speed = _SPEED_VALUES[self._co_speed.currentIndex()]
@@ -191,7 +208,7 @@ class ScenarioSettingsEditor(QWidget):
             operation_mode = _MODE_VALUES[self._co_mode.currentIndex()]
 
         if self._cb_boost.isChecked():
-            boost_active = (self._co_boost.currentIndex() == 0)
+            boost_active = self._co_boost.currentIndex() == 0
 
         if self._cb_hum_sensor.isChecked():
             humidity_sensor = 1 if self._co_hum_sensor.currentIndex() == 0 else 0
@@ -215,7 +232,7 @@ class ScenarioSettingsEditor(QWidget):
     def _row(cb: QCheckBox, widget: QWidget) -> QWidget:
         """Wrap a [checkbox][widget] pair in a compact QWidget."""
         container = QWidget()
-        layout    = QHBoxLayout(container)
+        layout = QHBoxLayout(container)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(6)
         layout.addWidget(cb)
@@ -224,17 +241,18 @@ class ScenarioSettingsEditor(QWidget):
         return container
 
     def _on_speed_cb_toggle(self, checked: bool) -> None:
-        is_manual = (self._co_speed.currentIndex() == _SPEED_LABELS.index("Manual"))
+        is_manual = self._co_speed.currentIndex() == _SPEED_LABELS.index("Manual")
         self._sp_manual.setEnabled(checked and is_manual)
 
     def _on_speed_combo_changed(self, index: int) -> None:
-        is_manual = (index == _SPEED_LABELS.index("Manual"))
+        is_manual = index == _SPEED_LABELS.index("Manual")
         self._sp_manual.setEnabled(self._cb_speed.isChecked() and is_manual)
 
 
 # ---------------------------------------------------------------------------
 # SaveScenarioDialog
 # ---------------------------------------------------------------------------
+
 
 class SaveScenarioDialog(QDialog):
     """
@@ -263,9 +281,9 @@ class SaveScenarioDialog(QDialog):
         parent=None,
     ):
         super().__init__(parent)
-        self._fan_settings   = fan_settings
+        self._fan_settings = fan_settings
         self._existing_names = existing_names
-        self._device_labels  = device_labels or {}
+        self._device_labels = device_labels or {}
         self.setWindowTitle("Save as Scenario")
         self.setMinimumWidth(380)
         self.setModal(True)
@@ -300,17 +318,14 @@ class SaveScenarioDialog(QDialog):
             fan_layout = QVBoxLayout(self._fan_group)
             for fs in fan_settings:
                 label = self._label_for(fs.device_id)
-                cb    = QCheckBox(label)
+                cb = QCheckBox(label)
                 cb.setChecked(True)
                 cb.toggled.connect(self._update_ok_btn)
                 self._fan_checks.append((cb, fs))
                 fan_layout.addWidget(cb)
 
         # ── Buttons ─────────────────────────────────────────────────────
-        self._bbox = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Save |
-            QDialogButtonBox.StandardButton.Cancel
-        )
+        self._bbox = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
         self._ok = self._bbox.button(QDialogButtonBox.StandardButton.Save)
         self._bbox.accepted.connect(self.accept)
         self._bbox.rejected.connect(self.reject)
@@ -346,17 +361,15 @@ class SaveScenarioDialog(QDialog):
 
     def _on_text_changed(self, text: str) -> None:
         stripped = text.strip()
-        n        = len(stripped)
-        valid    = _NAME_MIN <= n <= _NAME_MAX
+        n = len(stripped)
+        valid = _NAME_MIN <= n <= _NAME_MAX
 
         self._counter.setText(f"{n}\u202f/\u202f{_NAME_MAX}")
         colour = "#6272a4" if n == 0 else ("#50fa7b" if valid else "#ff5555")
         self._counter.setStyleSheet(f"color: {colour}; font-weight: bold;")
 
         if stripped in self._existing_names:
-            self._warn.setText(
-                f'\u26a0\ufe0f  "{stripped}" already exists — it will be overwritten.'
-            )
+            self._warn.setText(f'\u26a0\ufe0f  "{stripped}" already exists — it will be overwritten.')
             self._warn.setStyleSheet("color: #ffb86c;")
             self._warn.setVisible(True)
         else:
@@ -366,15 +379,15 @@ class SaveScenarioDialog(QDialog):
 
     def _update_ok_btn(self) -> None:
         stripped = self._edit.text().strip()
-        name_ok  = _NAME_MIN <= len(stripped) <= _NAME_MAX
-        fans_ok  = any(cb.isChecked() for cb, _ in self._fan_checks) \
-                   if self._fan_checks else True
+        name_ok = _NAME_MIN <= len(stripped) <= _NAME_MAX
+        fans_ok = any(cb.isChecked() for cb, _ in self._fan_checks) if self._fan_checks else True
         self._ok.setEnabled(name_ok and fans_ok)
 
 
 # ---------------------------------------------------------------------------
 # ManageScenariosDialog
 # ---------------------------------------------------------------------------
+
 
 class ManageScenariosDialog(QDialog):
     """
@@ -398,20 +411,20 @@ class ManageScenariosDialog(QDialog):
 
     def __init__(
         self,
-        store:     ScenarioStore,
-        device_id: str = "",    # needed for quick-slot management; "" disables combos
-        registry  = None,       # WindowRegistry | None — forwarded to EditScenarioDialog
-        history   = None,       # DeviceHistory  | None — forwarded to EditScenarioDialog
-        parent    = None,
+        store: ScenarioStore,
+        device_id: str = "",  # needed for quick-slot management; "" disables combos
+        registry=None,  # WindowRegistry | None — forwarded to EditScenarioDialog
+        history=None,  # DeviceHistory  | None — forwarded to EditScenarioDialog
+        parent=None,
     ):
         super().__init__(parent)
-        self._store     = store
+        self._store = store
         self._device_id = device_id
-        self._registry  = registry
-        self._history   = history
+        self._registry = registry
+        self._history = history
 
-        self._row_widgets: list[QWidget]        = []
-        self._row_combos:  dict[str, QComboBox] = {}
+        self._row_widgets: list[QWidget] = []
+        self._row_combos: dict[str, QComboBox] = {}
 
         self.setWindowTitle("Manage Scenarios")
         self.setMinimumWidth(540)
@@ -455,7 +468,7 @@ class ManageScenariosDialog(QDialog):
             return
         self._status_lbl.setVisible(False)
 
-        slots    = self._store.get_quick_slots(self._device_id) if self._device_id else []
+        slots = self._store.get_quick_slots(self._device_id) if self._device_id else []
         slot_map = {name: idx for idx, name in enumerate(slots) if name is not None}
 
         for entry in scenarios:
@@ -464,7 +477,7 @@ class ManageScenariosDialog(QDialog):
     def _add_row(self, entry: ScenarioEntry, slot_idx: int) -> None:
         """Create and append one scenario row to self._rows_layout."""
         row_widget = QWidget()
-        row        = QHBoxLayout(row_widget)
+        row = QHBoxLayout(row_widget)
         row.setContentsMargins(0, 2, 0, 2)
         row.setSpacing(8)
 
@@ -474,7 +487,7 @@ class ManageScenariosDialog(QDialog):
         row.addWidget(name_lbl, 1)
 
         # Fan count (muted)
-        n       = len(entry.fans)
+        n = len(entry.fans)
         fan_lbl = QLabel(f"{n} fan{'s' if n != 1 else ''}")
         fan_lbl.setStyleSheet("color: #6272a4; font-size: 11px;")
         row.addWidget(fan_lbl)
@@ -486,9 +499,7 @@ class ManageScenariosDialog(QDialog):
         slot_combo.setCurrentIndex(max(0, slot_idx + 1))  # -1 → 0 ("—")
         slot_combo.setEnabled(bool(self._device_id))
         slot_combo.setToolTip("Assign to a Mode quick-access slot")
-        slot_combo.currentIndexChanged.connect(
-            lambda idx, n=entry.name: self._on_slot_changed(n, idx)
-        )
+        slot_combo.currentIndexChanged.connect(lambda idx, n=entry.name: self._on_slot_changed(n, idx))
         self._row_combos[entry.name] = slot_combo
         row.addWidget(slot_combo)
 
@@ -527,7 +538,7 @@ class ManageScenariosDialog(QDialog):
         """Sync every slot combo to the current store state (no signal loops)."""
         if not self._device_id:
             return
-        slots    = self._store.get_quick_slots(self._device_id)
+        slots = self._store.get_quick_slots(self._device_id)
         slot_map = {name: idx for idx, name in enumerate(slots) if name is not None}
         for name, combo in self._row_combos.items():
             combo.blockSignals(True)
@@ -563,6 +574,7 @@ class ManageScenariosDialog(QDialog):
 # EditScenarioDialog
 # ---------------------------------------------------------------------------
 
+
 class EditScenarioDialog(QDialog):
     """
     Full editor for a scenario: rename it and edit per-fan settings.
@@ -591,21 +603,18 @@ class EditScenarioDialog(QDialog):
         self,
         entry: ScenarioEntry,
         all_scenarios: list[ScenarioEntry],
-        registry,                            # WindowRegistry | None
-        history=None,                        # DeviceHistory  | None
+        registry,  # WindowRegistry | None
+        history=None,  # DeviceHistory  | None
         parent=None,
     ):
         super().__init__(parent)
         self._original_name = entry.name
         self._all_scenarios = all_scenarios
-        self._registry      = registry
-        self._history       = history
+        self._registry = registry
+        self._history = history
 
         # Working copy of the fan list
-        self._fans: list[FanSettings] = [
-            FanSettings(device_id=f.device_id, settings=f.settings)
-            for f in entry.fans
-        ]
+        self._fans: list[FanSettings] = [FanSettings(device_id=f.device_id, settings=f.settings) for f in entry.fans]
         # Index of the fan whose settings are currently shown in the editor
         self._pending_idx: Optional[int] = None
 
@@ -620,9 +629,7 @@ class EditScenarioDialog(QDialog):
         self._name_edit.textChanged.connect(self._on_name_changed)
 
         self._name_counter = QLabel()
-        self._name_counter.setAlignment(
-            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
-        )
+        self._name_counter.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         self._name_counter.setMinimumWidth(50)
 
         name_row = QHBoxLayout()
@@ -639,7 +646,7 @@ class EditScenarioDialog(QDialog):
         self._fan_list.setMaximumWidth(240)
         self._fan_list.currentRowChanged.connect(self._on_fan_row_changed)
 
-        self._add_fan_btn    = QPushButton("Add fan…")
+        self._add_fan_btn = QPushButton("Add fan…")
         self._remove_fan_btn = QPushButton("Remove fan")
         self._remove_fan_btn.setObjectName("DangerBtn")
         self._add_fan_btn.clicked.connect(self._on_add_fan)
@@ -656,7 +663,7 @@ class EditScenarioDialog(QDialog):
         fan_col.addLayout(fan_btn_row)
 
         # ── Settings editor (right panel) ───────────────────────────────
-        self._settings_label  = QLabel("Select a fan to edit its settings.")
+        self._settings_label = QLabel("Select a fan to edit its settings.")
         self._settings_label.setWordWrap(True)
         self._settings_editor = ScenarioSettingsEditor()
         self._settings_editor.setVisible(False)
@@ -672,10 +679,7 @@ class EditScenarioDialog(QDialog):
         fans_row.addLayout(settings_col, 2)
 
         # ── Buttons ─────────────────────────────────────────────────────
-        self._bbox = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Save |
-            QDialogButtonBox.StandardButton.Cancel
-        )
+        self._bbox = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
         self._ok = self._bbox.button(QDialogButtonBox.StandardButton.Save)
         self._bbox.accepted.connect(self._on_accept)
         self._bbox.rejected.connect(self.reject)
@@ -752,9 +756,7 @@ class EditScenarioDialog(QDialog):
 
         if self._pending_idx is not None:
             fan = self._fans[self._pending_idx]
-            self._settings_label.setText(
-                f"Settings for: {self._label_for_device(fan.device_id)}"
-            )
+            self._settings_label.setText(f"Settings for: {self._label_for_device(fan.device_id)}")
             self._settings_editor.setVisible(True)
             self._settings_editor.load(fan.settings)
         else:
@@ -763,19 +765,16 @@ class EditScenarioDialog(QDialog):
 
     def _on_name_changed(self, text: str) -> None:
         stripped = text.strip()
-        n        = len(stripped)
-        valid    = _NAME_MIN <= n <= _NAME_MAX
+        n = len(stripped)
+        valid = _NAME_MIN <= n <= _NAME_MAX
 
         self._name_counter.setText(f"{n}\u202f/\u202f{_NAME_MAX}")
         colour = "#6272a4" if n == 0 else ("#50fa7b" if valid else "#ff5555")
         self._name_counter.setStyleSheet(f"color: {colour}; font-weight: bold;")
 
         # Warn on name collision with a *different* scenario
-        if stripped != self._original_name and \
-                any(e.name == stripped for e in self._all_scenarios):
-            self._name_warn.setText(
-                f'\u26a0\ufe0f  "{stripped}" already exists — it will be overwritten.'
-            )
+        if stripped != self._original_name and any(e.name == stripped for e in self._all_scenarios):
+            self._name_warn.setText(f'\u26a0\ufe0f  "{stripped}" already exists — it will be overwritten.')
             self._name_warn.setStyleSheet("color: #ffb86c;")
             self._name_warn.setVisible(True)
         else:
@@ -789,10 +788,7 @@ class EditScenarioDialog(QDialog):
             return
 
         existing_ids = {f.device_id for f in self._fans}
-        candidates   = [
-            w for w in self._registry.all_connected
-            if w._current_device_id not in existing_ids
-        ]
+        candidates = [w for w in self._registry.all_connected if w._current_device_id not in existing_ids]
 
         menu = QMenu(self)
         if not candidates:
@@ -801,28 +797,30 @@ class EditScenarioDialog(QDialog):
         else:
             for win in candidates:
                 label = self._label_for_device(win._current_device_id)
-                act   = menu.addAction(label)
+                act = menu.addAction(label)
                 act.setData(win)
 
-        chosen = menu.exec(
-            self._add_fan_btn.mapToGlobal(self._add_fan_btn.rect().bottomLeft())
-        )
+        chosen = menu.exec(self._add_fan_btn.mapToGlobal(self._add_fan_btn.rect().bottomLeft()))
         if chosen is None or chosen.data() is None:
             return
 
-        win       = chosen.data()
+        win = chosen.data()
         device_id = win._current_device_id
-        s         = win._last_state
+        s = win._last_state
 
-        new_settings = ScenarioSettings(
-            power=s.power,
-            speed=s.speed,
-            manual_speed=s.manual_speed,
-            operation_mode=s.operation_mode,
-            boost_active=s.boost_active,
-            humidity_sensor=s.humidity_sensor,
-            humidity_threshold=s.humidity_threshold,
-        ) if s is not None else ScenarioSettings()
+        new_settings = (
+            ScenarioSettings(
+                power=s.power,
+                speed=s.speed,
+                manual_speed=s.manual_speed,
+                operation_mode=s.operation_mode,
+                boost_active=s.boost_active,
+                humidity_sensor=s.humidity_sensor,
+                humidity_threshold=s.humidity_threshold,
+            )
+            if s is not None
+            else ScenarioSettings()
+        )
 
         # Flush current editor before modifying the list
         self._flush_editor()
@@ -839,7 +837,7 @@ class EditScenarioDialog(QDialog):
         row = self._fan_list.currentRow()
         if row < 0 or row >= len(self._fans):
             return
-        self._pending_idx = None   # discard pending edits for removed fan
+        self._pending_idx = None  # discard pending edits for removed fan
         self._fans.pop(row)
         self._populate_fan_list()
         self._fan_list.setCurrentRow(min(row, len(self._fans) - 1))

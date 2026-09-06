@@ -1,10 +1,16 @@
 """SpeedControl — three preset speed buttons plus a manual slider."""
+
 from __future__ import annotations
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
-    QButtonGroup, QHBoxLayout, QLabel, QPushButton,
-    QSlider, QVBoxLayout, QWidget,
+    QButtonGroup,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QSlider,
+    QVBoxLayout,
+    QWidget,
 )
 
 _SPEED_LABELS = {1: "Speed 1", 2: "Speed 2", 3: "Speed 3"}
@@ -14,8 +20,8 @@ _MANUAL_SPEED = 255
 class SpeedControl(QWidget):
     """Emits speed_changed(int 1/2/3) or manual_speed_changed(int 0-255)."""
 
-    speed_changed        = Signal(int)   # 1, 2, or 3
-    manual_speed_changed = Signal(int)   # 0-255
+    speed_changed = Signal(int)  # 1, 2, or 3
+    manual_speed_changed = Signal(int)  # 0-255
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -65,7 +71,7 @@ class SpeedControl(QWidget):
         self._slider.valueChanged.connect(self._on_slider_changed)
 
     def _on_preset_clicked(self, btn_id: int):
-        is_manual = (btn_id == _MANUAL_SPEED)
+        is_manual = btn_id == _MANUAL_SPEED
         self._slider.setEnabled(is_manual)
         if not is_manual:
             self.speed_changed.emit(btn_id)

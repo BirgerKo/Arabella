@@ -1,10 +1,15 @@
 """RenameDialog — assign a custom name to a connected fan."""
+
 from __future__ import annotations
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QDialog, QDialogButtonBox, QHBoxLayout, QLabel,
-    QLineEdit, QVBoxLayout,
+    QDialog,
+    QDialogButtonBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QVBoxLayout,
 )
 
 NAME_MIN = 4
@@ -39,10 +44,7 @@ class RenameDialog(QDialog):
         hint.setObjectName("HintLabel")
 
         # ── Buttons ────────────────────────────────────────────────────
-        self._bbox = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Ok |
-            QDialogButtonBox.StandardButton.Cancel
-        )
+        self._bbox = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         self._ok = self._bbox.button(QDialogButtonBox.StandardButton.Ok)
         self._bbox.accepted.connect(self.accept)
         self._bbox.rejected.connect(self.reject)
@@ -73,14 +75,14 @@ class RenameDialog(QDialog):
         n = len(text.strip())
         valid = NAME_MIN <= n <= NAME_MAX
 
-        self._counter.setText(f"{n}\u202f/\u202f{NAME_MAX}")   # narrow no-break space
+        self._counter.setText(f"{n}\u202f/\u202f{NAME_MAX}")  # narrow no-break space
 
         if n == 0:
-            colour = "#6272a4"   # muted — nothing typed yet
+            colour = "#6272a4"  # muted — nothing typed yet
         elif valid:
-            colour = "#50fa7b"   # green — valid
+            colour = "#50fa7b"  # green — valid
         else:
-            colour = "#ff5555"   # red — too short (or strip edge case)
+            colour = "#ff5555"  # red — too short (or strip edge case)
 
         self._counter.setStyleSheet(f"color: {colour}; font-weight: bold;")
         self._ok.setEnabled(valid)

@@ -1,4 +1,5 @@
 """Device discovery and connection endpoints."""
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -18,9 +19,9 @@ router = APIRouter(prefix="/api", tags=["devices"])
 async def get_state(manager: DeviceManager = Depends(get_device_manager)):
     """Return the current cached device state."""
     if not manager.is_connected:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                            detail="Not connected to any device")
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Not connected to any device")
     state = manager.current_state
+    assert state is not None
     return DeviceStateResponse(
         connected=True,
         ip=state.ip,
@@ -62,8 +63,7 @@ async def connect_device(
     try:
         state = await manager.connect(body.ip, body.device_id, body.password)
     except Exception as exc:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY,
-                            detail=str(exc)) from exc
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
     return DeviceStateResponse(
         connected=True,
         ip=state.ip,

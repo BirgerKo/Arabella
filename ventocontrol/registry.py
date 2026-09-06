@@ -1,4 +1,5 @@
 """WindowRegistry — tracks all open MainWindow instances for cross-window dispatch."""
+
 from __future__ import annotations
 
 
@@ -9,7 +10,7 @@ class WindowRegistry:
     """
 
     def __init__(self):
-        self._windows = []   # list[MainWindow]
+        self._windows = []  # list[MainWindow]
 
     def register(self, window) -> None:
         """Add a window to the registry (idempotent)."""
@@ -30,7 +31,4 @@ class WindowRegistry:
     @property
     def all_connected(self) -> list:
         """All visible windows that have a connected device."""
-        return [
-            w for w in self._windows
-            if w._current_device_id and w.isVisible()
-        ]
+        return [w for w in self._windows if w._current_device_id and w.isVisible()]

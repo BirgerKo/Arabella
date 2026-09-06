@@ -1,4 +1,5 @@
 """MainWindow — the fan control dashboard."""
+
 from __future__ import annotations
 
 import time
@@ -7,9 +8,16 @@ from typing import Optional
 from PySide6.QtCore import Qt, QThread, QTimer, Signal, Slot
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
-    QDialog, QGroupBox, QHBoxLayout, QLabel,
-    QMainWindow, QMenu, QPushButton,
-    QStatusBar, QVBoxLayout, QWidget,
+    QDialog,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QMainWindow,
+    QMenu,
+    QPushButton,
+    QStatusBar,
+    QVBoxLayout,
+    QWidget,
 )
 
 from blauberg_vento.models import DeviceState
@@ -18,7 +26,10 @@ from ventocontrol.controllers.device_worker import DeviceWorker
 from ventocontrol.history import DeviceHistory
 from ventocontrol.registry import WindowRegistry
 from ventocontrol.scenarios import (
-    FanSettings, ScenarioEntry, ScenarioSettings, ScenarioStore,
+    FanSettings,
+    ScenarioEntry,
+    ScenarioSettings,
+    ScenarioStore,
 )
 from ventocontrol.controllers.poller import Poller
 from ventocontrol.ui.connect_dialog import ConnectDialog
@@ -26,7 +37,8 @@ from ventocontrol.ui.fan_details_dialog import FanDetailsDialog
 from ventocontrol.ui.rename_dialog import RenameDialog
 from ventocontrol.ui.schedule_dialog import ScheduleDialog
 from ventocontrol.ui.scenario_dialog import (
-    ManageScenariosDialog, SaveScenarioDialog,
+    ManageScenariosDialog,
+    SaveScenarioDialog,
 )
 from ventocontrol.widgets.mode_selector import ModeSelector
 from ventocontrol.widgets.power_button import PowerButton
@@ -34,14 +46,8 @@ from ventocontrol.widgets.speed_control import SpeedControl
 from ventocontrol.widgets.status_led import StatusLED
 
 # Inline styles for quick-scenario buttons
-_QS_ASSIGNED = (
-    f"QPushButton#QuickScenarioBtn {{"
-    f"color:{TEXT}; border-style:solid; border-color:{ACCENT};}}"
-)
-_QS_UNASSIGNED = (
-    f"QPushButton#QuickScenarioBtn {{"
-    f"color:{TEXT2}; border-style:dashed; border-color:{BORDER};}}"
-)
+_QS_ASSIGNED = f"QPushButton#QuickScenarioBtn {{color:{TEXT}; border-style:solid; border-color:{ACCENT};}}"
+_QS_UNASSIGNED = f"QPushButton#QuickScenarioBtn {{color:{TEXT2}; border-style:dashed; border-color:{BORDER};}}"
 
 
 def _schedule_btn_text(enabled: bool) -> str:
@@ -50,24 +56,24 @@ def _schedule_btn_text(enabled: bool) -> str:
 
 class MainWindow(QMainWindow):
     # ── Command signals (emitted on main thread, received on worker thread) ──
-    _sig_connect        = Signal(str, str, str)
-    _sig_poll           = Signal()
-    _sig_set_power      = Signal(bool)
-    _sig_set_speed      = Signal(int)
+    _sig_connect = Signal(str, str, str)
+    _sig_poll = Signal()
+    _sig_set_power = Signal(bool)
+    _sig_set_speed = Signal(int)
     _sig_set_manual_spd = Signal(int)
-    _sig_set_mode       = Signal(int)
-    _sig_set_boost         = Signal(bool)
-    _sig_set_hum_sensor    = Signal(int)
-    _sig_set_hum_thresh    = Signal(int)
-    _sig_set_schedule_en   = Signal(bool)
-    _sig_get_schedule      = Signal()
+    _sig_set_mode = Signal(int)
+    _sig_set_boost = Signal(bool)
+    _sig_set_hum_sensor = Signal(int)
+    _sig_set_hum_thresh = Signal(int)
+    _sig_set_schedule_en = Signal(bool)
+    _sig_get_schedule = Signal()
 
     def __init__(
         self,
         host: str = "",
         device_id: str = "",
         password: str = "",
-        history:  DeviceHistory  | None = None,
+        history: DeviceHistory | None = None,
         registry: WindowRegistry | None = None,
         parent=None,
     ):
@@ -75,21 +81,21 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("VentoControl")
         self.setMinimumSize(380, 460)
 
-        self._host              = host
-        self._password          = password
-        self._history           = history
-        self._registry          = registry
+        self._host = host
+        self._password = password
+        self._history = history
+        self._registry = registry
         self._current_device_id = ""
-        self._last_state:    Optional[DeviceState] = None
-        self._last_poll_time: Optional[float]      = None
-        self._child_windows: list[MainWindow]      = []
+        self._last_state: Optional[DeviceState] = None
+        self._last_poll_time: Optional[float] = None
+        self._child_windows: list[MainWindow] = []
 
         # Global scenario store (shared across all windows via same file)
-        self._scenarios      = ScenarioStore()
+        self._scenarios = ScenarioStore()
         # Quick-slot buttons — built in _build_ui
-        self._quick_btns: list[QPushButton]          = []
+        self._quick_btns: list[QPushButton] = []
         self._fan_details_dlg: Optional[FanDetailsDialog] = None
-        self._schedule_dlg:    Optional[ScheduleDialog]   = None
+        self._schedule_dlg: Optional[ScheduleDialog] = None
 
         # Register with the window registry so multi-fan scenarios can find us
         if self._registry is not None:
@@ -163,9 +169,7 @@ class MainWindow(QMainWindow):
         device_row.addStretch()
         self._details_btn = QPushButton("Details…")
         self._details_btn.setObjectName("DetailsBtn")
-        self._details_btn.setToolTip(
-            "Show fan details: boost, humidity, RPM, schedule, scenarios"
-        )
+        self._details_btn.setToolTip("Show fan details: boost, humidity, RPM, schedule, scenarios")
         self._details_btn.setEnabled(False)
         self._details_btn.clicked.connect(self._open_fan_details)
         device_row.addWidget(self._details_btn)
@@ -216,9 +220,7 @@ class MainWindow(QMainWindow):
             btn.setStyleSheet(_QS_UNASSIGNED)
             btn.clicked.connect(lambda checked=False, idx=i: self._on_quick_clicked(idx))
             btn.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-            btn.customContextMenuRequested.connect(
-                lambda pos, idx=i: self._on_quick_context(idx, pos)
-            )
+            btn.customContextMenuRequested.connect(lambda pos, idx=i: self._on_quick_context(idx, pos))
             self._quick_btns.append(btn)
             quick_layout.addWidget(btn)
         root.addWidget(quick_box)
@@ -250,8 +252,8 @@ class MainWindow(QMainWindow):
         sb = QStatusBar()
         self.setStatusBar(sb)
         self._sb_conn_led = StatusLED("grey", 10)
-        self._sb_id_lbl   = QLabel("—")
-        self._sb_ip_lbl   = QLabel(self._host)
+        self._sb_id_lbl = QLabel("—")
+        self._sb_ip_lbl = QLabel(self._host)
         self._sb_poll_lbl = QLabel("—")
         sb.addPermanentWidget(self._sb_conn_led)
         sb.addPermanentWidget(self._sb_id_lbl)
@@ -338,7 +340,7 @@ class MainWindow(QMainWindow):
     # ------------------------------------------------------------------
 
     def _apply_state(self, s: DeviceState):
-        self._last_state        = s
+        self._last_state = s
         self._current_device_id = s.device_id
         display_name = self._get_display_name(s)
         self._device_lbl.setText(display_name)
@@ -366,13 +368,17 @@ class MainWindow(QMainWindow):
             self._fan_details_dlg.refresh(s)
 
         if s.alarm_status == 0:
-            self._alarm_led.set_ok();      self._alarm_lbl.setText("OK")
+            self._alarm_led.set_ok()
+            self._alarm_lbl.setText("OK")
         elif s.alarm_status == 1:
-            self._alarm_led.set_error();   self._alarm_lbl.setText("ALARM")
+            self._alarm_led.set_error()
+            self._alarm_lbl.setText("ALARM")
         elif s.alarm_status == 2:
-            self._alarm_led.set_warning(); self._alarm_lbl.setText("Warning")
+            self._alarm_led.set_warning()
+            self._alarm_lbl.setText("Warning")
         else:
-            self._alarm_led.set_inactive(); self._alarm_lbl.setText("—")
+            self._alarm_led.set_inactive()
+            self._alarm_lbl.setText("—")
 
     def _set_status(self, text: str, colour: str):
         self._conn_led.set_colour(colour)
@@ -414,10 +420,7 @@ class MainWindow(QMainWindow):
             self._fan_details_dlg.activateWindow()
             return
 
-        display_name = (
-            self._get_display_name(self._last_state)
-            if self._last_state else "Fan Details"
-        )
+        display_name = self._get_display_name(self._last_state) if self._last_state else "Fan Details"
         dlg = FanDetailsDialog(
             title=display_name,
             scenarios=self._scenarios,
@@ -502,8 +505,7 @@ class MainWindow(QMainWindow):
 
         for fan in entry.fans:
             # Try to find the window via the registry first
-            win = self._registry.get_for_device(fan.device_id) \
-                if self._registry is not None else None
+            win = self._registry.get_for_device(fan.device_id) if self._registry is not None else None
 
             # Fallback: apply to self if this window matches the device_id
             if win is None and fan.device_id == self._current_device_id:
@@ -535,9 +537,7 @@ class MainWindow(QMainWindow):
             add_sub = menu.addMenu("Add to existing…")
             for s in scenarios:
                 act = add_sub.addAction(s.name)
-                act.triggered.connect(
-                    lambda checked=False, name=s.name: self._add_to_scenario(name)
-                )
+                act.triggered.connect(lambda checked=False, name=s.name: self._add_to_scenario(name))
         btn = self._save_scenario_btn
         menu.exec(btn.mapToGlobal(btn.rect().bottomLeft()))
 
@@ -575,54 +575,53 @@ class MainWindow(QMainWindow):
             return
 
         # Collect FanSettings from every connected window (including self)
-        all_fans:    list[FanSettings]    = []
-        device_labels: dict[str, str]    = {}
+        all_fans: list[FanSettings] = []
+        device_labels: dict[str, str] = {}
 
-        windows_to_capture = (
-            self._registry.all_connected
-            if self._registry is not None
-            else []
-        )
+        windows_to_capture = self._registry.all_connected if self._registry is not None else []
         # Ensure self is always included
         seen_ids: set[str] = set()
         for win in windows_to_capture:
             if win._last_state is None:
                 continue
-            s   = win._last_state
+            s = win._last_state
             did = win._current_device_id
             if did in seen_ids:
                 continue
             seen_ids.add(did)
-            all_fans.append(FanSettings(
-                device_id=did,
-                settings=ScenarioSettings(
-                    power=s.power,
-                    speed=s.speed,
-                    manual_speed=s.manual_speed,
-                    operation_mode=s.operation_mode,
-                    boost_active=s.boost_active,
-                    humidity_sensor=s.humidity_sensor,
-                    humidity_threshold=s.humidity_threshold,
-                ),
-            ))
-            device_labels[did] = self._get_display_name(s) \
-                if win is self else win._get_display_name(s)
+            all_fans.append(
+                FanSettings(
+                    device_id=did,
+                    settings=ScenarioSettings(
+                        power=s.power,
+                        speed=s.speed,
+                        manual_speed=s.manual_speed,
+                        operation_mode=s.operation_mode,
+                        boost_active=s.boost_active,
+                        humidity_sensor=s.humidity_sensor,
+                        humidity_threshold=s.humidity_threshold,
+                    ),
+                )
+            )
+            device_labels[did] = self._get_display_name(s) if win is self else win._get_display_name(s)
 
         # Fallback: registry not set or empty — use self
         if not all_fans and self._last_state is not None:
             s = self._last_state
-            all_fans.append(FanSettings(
-                device_id=self._current_device_id,
-                settings=ScenarioSettings(
-                    power=s.power,
-                    speed=s.speed,
-                    manual_speed=s.manual_speed,
-                    operation_mode=s.operation_mode,
-                    boost_active=s.boost_active,
-                    humidity_sensor=s.humidity_sensor,
-                    humidity_threshold=s.humidity_threshold,
-                ),
-            ))
+            all_fans.append(
+                FanSettings(
+                    device_id=self._current_device_id,
+                    settings=ScenarioSettings(
+                        power=s.power,
+                        speed=s.speed,
+                        manual_speed=s.manual_speed,
+                        operation_mode=s.operation_mode,
+                        boost_active=s.boost_active,
+                        humidity_sensor=s.humidity_sensor,
+                        humidity_threshold=s.humidity_threshold,
+                    ),
+                )
+            )
             device_labels[self._current_device_id] = self._get_display_name(s)
 
         existing = [e.name for e in self._scenarios.get_scenarios()]
@@ -681,9 +680,7 @@ class MainWindow(QMainWindow):
         menu.addSeparator()
         for entry in scenarios:
             act = QAction(entry.name, self)
-            act.triggered.connect(
-                lambda checked=False, e=entry: self._activate_scenario(e)
-            )
+            act.triggered.connect(lambda checked=False, e=entry: self._activate_scenario(e))
             menu.addAction(act)
 
     # ------------------------------------------------------------------
@@ -694,7 +691,7 @@ class MainWindow(QMainWindow):
         """Update label, tooltip, enabled state, and style of all 3 quick buttons."""
         if not self._current_device_id:
             return
-        slots     = self._scenarios.get_quick_slots(self._current_device_id)
+        slots = self._scenarios.get_quick_slots(self._current_device_id)
         entry_map = {e.name: e for e in self._scenarios.get_scenarios()}
 
         for i, btn in enumerate(self._quick_btns):
@@ -733,8 +730,8 @@ class MainWindow(QMainWindow):
         """Right-click context menu to assign or clear a quick slot."""
         if not self._current_device_id:
             return
-        scenarios    = self._scenarios.get_scenarios()
-        slots        = self._scenarios.get_quick_slots(self._current_device_id)
+        scenarios = self._scenarios.get_scenarios()
+        slots = self._scenarios.get_quick_slots(self._current_device_id)
         current_asgn = slots[index] if index < len(slots) else None
 
         menu = QMenu(self)
@@ -747,10 +744,7 @@ class MainWindow(QMainWindow):
                 act = QAction(entry.name, self)
                 act.setCheckable(True)
                 act.setChecked(entry.name == current_asgn)
-                act.triggered.connect(
-                    lambda checked=False, n=entry.name, idx=index:
-                        self._assign_quick_slot(idx, n)
-                )
+                act.triggered.connect(lambda checked=False, n=entry.name, idx=index: self._assign_quick_slot(idx, n))
                 menu.addAction(act)
         else:
             no_act = QAction("No scenarios saved yet", self)
@@ -760,16 +754,14 @@ class MainWindow(QMainWindow):
         if current_asgn is not None:
             menu.addSeparator()
             clear_act = QAction("Clear slot", self)
-            clear_act.triggered.connect(
-                lambda checked=False, idx=index: self._assign_quick_slot(idx, None)
-            )
+            clear_act.triggered.connect(lambda checked=False, idx=index: self._assign_quick_slot(idx, None))
             menu.addAction(clear_act)
 
         btn = self._quick_btns[index]
         menu.exec(btn.mapToGlobal(pos))
 
     def _assign_quick_slot(self, index: int, name: Optional[str]) -> None:
-        slots        = self._scenarios.get_quick_slots(self._current_device_id)
+        slots = self._scenarios.get_quick_slots(self._current_device_id)
         slots[index] = name
         self._scenarios.set_quick_slots(self._current_device_id, slots)
         self._refresh_quick_buttons()
@@ -780,8 +772,7 @@ class MainWindow(QMainWindow):
 
     def _control_widgets(self):
         """Return the interactive control widgets (used for enable/disable)."""
-        return (self._power_btn, self._speed_ctrl, self._mode_sel,
-                self._sched_en_btn, self._details_btn)
+        return (self._power_btn, self._speed_ctrl, self._mode_sel, self._sched_en_btn, self._details_btn)
 
     def _get_display_name(self, state: DeviceState) -> str:
         """Return the user-set name if available, otherwise the unit type name."""
@@ -869,7 +860,7 @@ class MainWindow(QMainWindow):
                 self._poller.start()
             return
         host, device_id, password = dlg.connection_params()
-        self._host     = host
+        self._host = host
         self._password = password
         self._start_connecting(host)
         self._sig_connect.emit(host, device_id, password)

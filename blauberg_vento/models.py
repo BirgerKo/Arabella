@@ -3,8 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import NamedTuple
 
-_DAY_ABBREVIATIONS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-_SCHEDULE_SPEED_NAMES = ['Standby', 'Speed 1', 'Speed 2', 'Speed 3']
+_DAY_ABBREVIATIONS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+_SCHEDULE_SPEED_NAMES = ["Standby", "Speed 1", "Speed 2", "Speed 3"]
 
 TimerTuple = tuple[int, int]
 
@@ -39,7 +39,7 @@ class RtcCalendar:
     day_of_week: int
 
     def __str__(self) -> str:
-        dow = _DAY_ABBREVIATIONS[self.day_of_week - 1] if 1 <= self.day_of_week <= 7 else '?'
+        dow = _DAY_ABBREVIATIONS[self.day_of_week - 1] if 1 <= self.day_of_week <= 7 else "?"
         return f"{self.year}-{self.month:02d}-{self.day:02d} ({dow})"
 
 
@@ -109,11 +109,11 @@ class WifiConfig:
 
     @property
     def mode_name(self) -> str:
-        return {1: 'Client', 2: 'Access Point'}.get(self.mode, 'Unknown')
+        return {1: "Client", 2: "Access Point"}.get(self.mode, "Unknown")
 
     @property
     def encryption_name(self) -> str:
-        return {48: 'OPEN', 50: 'WPA_PSK', 51: 'WPA2_PSK', 52: 'WPA_WPA2_PSK'}.get(self.encryption, 'Unknown')
+        return {48: "OPEN", 50: "WPA_PSK", 51: "WPA2_PSK", 52: "WPA_WPA2_PSK"}.get(self.encryption, "Unknown")
 
 
 class _UnitTypeInfo(NamedTuple):
@@ -123,9 +123,9 @@ class _UnitTypeInfo(NamedTuple):
 
 # Single source of truth for unit type metadata — add new models here only
 _UNIT_TYPE_INFO: dict[int, _UnitTypeInfo] = {
-    3: _UnitTypeInfo('Vento Expert A50-1/A85-1/A100-1 W V.2', is_a30=False),
-    4: _UnitTypeInfo('Vento Expert Duo A30-1 W V.2',           is_a30=False),
-    5: _UnitTypeInfo('Vento Expert A30 W V.2',                  is_a30=True),
+    3: _UnitTypeInfo("Vento Expert A50-1/A85-1/A100-1 W V.2", is_a30=False),
+    4: _UnitTypeInfo("Vento Expert Duo A30-1 W V.2", is_a30=False),
+    5: _UnitTypeInfo("Vento Expert A30 W V.2", is_a30=True),
 }
 
 # Backward-compatible aliases kept for external consumers
@@ -135,8 +135,8 @@ UNIT_TYPE_IS_A30 = {k: v.is_a30 for k, v in _UNIT_TYPE_INFO.items()}
 
 @dataclass
 class DeviceState:
-    ip: str = ''
-    device_id: str = ''
+    ip: str = ""
+    device_id: str = ""
     unit_type: int = 0
     power: bool | None = None
     speed: int | None = None
@@ -176,7 +176,7 @@ class DeviceState:
     @property
     def unit_type_name(self) -> str:
         info = _UNIT_TYPE_INFO.get(self.unit_type or 0)
-        return info.name if info else f'Unknown ({self.unit_type})'
+        return info.name if info else f"Unknown ({self.unit_type})"
 
     @property
     def is_a30(self) -> bool:
@@ -186,20 +186,20 @@ class DeviceState:
     @property
     def operation_mode_name(self) -> str:
         mode = self.operation_mode if self.operation_mode is not None else 0
-        return {0: 'Ventilation', 1: 'Heat Recovery', 2: 'Supply'}.get(mode, 'Unknown')
+        return {0: "Ventilation", 1: "Heat Recovery", 2: "Supply"}.get(mode, "Unknown")
 
     @property
     def speed_name(self) -> str:
         speed = self.speed if self.speed is not None else 0
         if speed == 255:
             manual_speed = self.manual_speed if self.manual_speed is not None else 0
-            return f'Manual ({manual_speed})'
-        return {1: 'Speed 1', 2: 'Speed 2', 3: 'Speed 3'}.get(speed, 'Unknown')
+            return f"Manual ({manual_speed})"
+        return {1: "Speed 1", 2: "Speed 2", 3: "Speed 3"}.get(speed, "Unknown")
 
     @property
     def alarm_name(self) -> str:
         status = self.alarm_status if self.alarm_status is not None else -1
-        return {0: 'OK', 1: 'Alarm', 2: 'Warning'}.get(status, 'Unknown')
+        return {0: "OK", 1: "Alarm", 2: "Warning"}.get(status, "Unknown")
 
     def __repr__(self) -> str:
         return (
@@ -213,12 +213,12 @@ class DiscoveredDevice:
     ip: str
     device_id: str
     unit_type: int
-    unit_type_name: str = ''
+    unit_type_name: str = ""
 
     def __post_init__(self) -> None:
         if not self.unit_type_name:
             info = _UNIT_TYPE_INFO.get(self.unit_type)
-            self.unit_type_name = info.name if info else f'Unknown ({self.unit_type})'
+            self.unit_type_name = info.name if info else f"Unknown ({self.unit_type})"
 
     def __repr__(self) -> str:
         return f"<DiscoveredDevice ip={self.ip!r} id={self.device_id!r} type={self.unit_type_name!r}>"

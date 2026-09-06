@@ -1,4 +1,5 @@
 """Integration tests for scenario endpoints."""
+
 import pytest
 from unittest.mock import MagicMock, AsyncMock
 from httpx import ASGITransport, AsyncClient
@@ -20,16 +21,17 @@ def make_store_with(scenarios):
 
 
 def make_connected_manager(device_id="VENT-01"):
-    state = DeviceState(ip="10.0.0.1", device_id=device_id, power=True, speed=2, operation_mode=0,
-                        boost_active=False, alarm_status=0)
+    state = DeviceState(
+        ip="10.0.0.1", device_id=device_id, power=True, speed=2, operation_mode=0, boost_active=False, alarm_status=0
+    )
     mgr = MagicMock()
     mgr.is_connected = True
     mgr.current_state = state
-    mgr.set_power              = AsyncMock()
-    mgr.set_speed              = AsyncMock()
-    mgr.set_mode               = AsyncMock()
-    mgr.set_boost              = AsyncMock()
-    mgr.set_humidity_sensor    = AsyncMock()
+    mgr.set_power = AsyncMock()
+    mgr.set_speed = AsyncMock()
+    mgr.set_mode = AsyncMock()
+    mgr.set_boost = AsyncMock()
+    mgr.set_humidity_sensor = AsyncMock()
     mgr.set_humidity_threshold = AsyncMock()
     return mgr
 
@@ -39,11 +41,10 @@ def setup(tmp_path):
     """Returns (AsyncClient, store, manager) with overrides applied."""
     entry = ScenarioEntry(
         name="Night",
-        fans=[FanSettings(device_id="VENT-01",
-                          settings=ScenarioSettings(power=True, speed=1, operation_mode=0))]
+        fans=[FanSettings(device_id="VENT-01", settings=ScenarioSettings(power=True, speed=1, operation_mode=0))],
     )
     store = make_store_with([entry])
-    mgr   = make_connected_manager()
+    mgr = make_connected_manager()
 
     app.dependency_overrides[dependencies.get_scenario_store] = lambda: store
     app.dependency_overrides[dependencies.get_device_manager] = lambda: mgr
@@ -126,8 +127,7 @@ async def test_get_quick_slots(setup):
 async def test_set_quick_slots(setup):
     client, store, mgr = setup
     async with client as c:
-        resp = await c.put("/api/scenarios/quick-slots/VENT-01",
-                           json={"slots": ["Night", None, None]})
+        resp = await c.put("/api/scenarios/quick-slots/VENT-01", json={"slots": ["Night", None, None]})
     assert resp.status_code == 200
     store.set_quick_slots.assert_called_once_with("VENT-01", ["Night", None, None])
 

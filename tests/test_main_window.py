@@ -1,4 +1,5 @@
 """Tests for MainWindow UI behaviour — requires an offscreen Qt display."""
+
 from __future__ import annotations
 
 import os
@@ -13,13 +14,17 @@ from PySide6.QtWidgets import QApplication
 from blauberg_vento.models import DeviceState
 from ventocontrol.history import DeviceHistory
 from ventocontrol.scenarios import (
-    FanSettings, ScenarioEntry, ScenarioSettings, ScenarioStore,
+    FanSettings,
+    ScenarioEntry,
+    ScenarioSettings,
+    ScenarioStore,
 )
 from ventocontrol.ui.fan_details_dialog import FanDetailsDialog
 from ventocontrol.ui.main_window import MainWindow
 
 
 # ── Fixtures ─────────────────────────────────────────────────────────────────
+
 
 @pytest.fixture(scope="session")
 def qapp():
@@ -31,6 +36,7 @@ def qapp():
 def tmp_history(tmp_path):
     """DeviceHistory backed by a temp directory."""
     import ventocontrol.history as _h
+
     original = _h._HISTORY_FILE
     _h._HISTORY_FILE = tmp_path / "history.json"
     yield DeviceHistory()
@@ -44,8 +50,7 @@ def window(qapp, tmp_history):
     win.close()
 
 
-def _make_state(ip="192.168.1.10", device_id="TESTDEVICE000001",
-                unit_type=5, power=True, speed=2) -> DeviceState:
+def _make_state(ip="192.168.1.10", device_id="TESTDEVICE000001", unit_type=5, power=True, speed=2) -> DeviceState:
     return DeviceState(
         ip=ip,
         device_id=device_id,
@@ -62,8 +67,8 @@ def _make_state(ip="192.168.1.10", device_id="TESTDEVICE000001",
 
 # ── Requirement 1: IP address on hover ───────────────────────────────────────
 
-class TestDeviceLabelIpOnHover:
 
+class TestDeviceLabelIpOnHover:
     def test_label_shows_name_only(self, window):
         state = _make_state(ip="10.0.0.1")
         window._apply_state(state)
@@ -83,11 +88,12 @@ class TestDeviceLabelIpOnHover:
 
 # ── Requirement 2: Scenario operations ───────────────────────────────────────
 
-class TestScenarioButton:
 
+class TestScenarioButton:
     def test_add_to_scenario_adds_fan(self, window, tmp_path, monkeypatch):
         """_add_to_scenario merges current fan into an existing scenario."""
         import ventocontrol.scenarios as _s
+
         original = _s._SCENARIOS_FILE
         _s._SCENARIOS_FILE = tmp_path / "scenarios.json"
 
@@ -106,9 +112,7 @@ class TestScenarioButton:
 
         window._add_to_scenario("Night Mode")
 
-        updated = next(
-            s for s in window._scenarios.get_scenarios() if s.name == "Night Mode"
-        )
+        updated = next(s for s in window._scenarios.get_scenarios() if s.name == "Night Mode")
         device_ids = [f.device_id for f in updated.fans]
         assert "FANDEVICE000001" in device_ids
         assert "OTHERFAN0000001" in device_ids
@@ -117,6 +121,7 @@ class TestScenarioButton:
     def test_add_to_scenario_updates_existing_fan(self, window, tmp_path):
         """_add_to_scenario replaces an existing fan entry rather than duplicating it."""
         import ventocontrol.scenarios as _s
+
         original = _s._SCENARIOS_FILE
         _s._SCENARIOS_FILE = tmp_path / "scenarios2.json"
 
@@ -125,10 +130,12 @@ class TestScenarioButton:
         window._current_device_id = "FANDEVICE000001"
         window._last_state = state
 
-        existing = ScenarioEntry(name="Day Mode", fans=[
-            FanSettings(device_id="FANDEVICE000001",
-                        settings=ScenarioSettings(power=True, speed=3)),
-        ])
+        existing = ScenarioEntry(
+            name="Day Mode",
+            fans=[
+                FanSettings(device_id="FANDEVICE000001", settings=ScenarioSettings(power=True, speed=3)),
+            ],
+        )
         window._scenarios.save_scenario(existing)
 
         window._add_to_scenario("Day Mode")
@@ -150,8 +157,8 @@ class TestScenarioButton:
 
 # ── Details button ────────────────────────────────────────────────────────────
 
-class TestDetailsButton:
 
+class TestDetailsButton:
     def test_details_button_disabled_before_connect(self, window):
         """Details button is disabled until a device connects."""
         assert not window._details_btn.isEnabled()
@@ -165,9 +172,11 @@ class TestDetailsButton:
 
 # ── FanDetailsDialog ──────────────────────────────────────────────────────────
 
+
 @pytest.fixture
 def details_dialog(qapp, tmp_path):
     import ventocontrol.scenarios as _s
+
     original = _s._SCENARIOS_FILE
     _s._SCENARIOS_FILE = tmp_path / "scenarios.json"
     dlg = FanDetailsDialog(title="Test Fan", scenarios=ScenarioStore())
@@ -177,12 +186,11 @@ def details_dialog(qapp, tmp_path):
 
 
 class TestFanDetailsDialog:
-
     def test_schedule_buttons_present(self, details_dialog):
         """Schedule controls exist in the details dialog."""
-        assert hasattr(details_dialog, '_sched_en_btn')
-        assert hasattr(details_dialog, '_sched_edit_btn')
-        assert hasattr(details_dialog, '_sync_rtc_btn')
+        assert hasattr(details_dialog, "_sched_en_btn")
+        assert hasattr(details_dialog, "_sched_edit_btn")
+        assert hasattr(details_dialog, "_sync_rtc_btn")
 
     def test_schedule_enable_emits_signal(self, details_dialog, qapp):
         """Clicking the schedule enable button emits the schedule-enable signal."""
@@ -201,7 +209,8 @@ class TestFanDetailsDialog:
 
     def test_refresh_reflects_schedule_enabled(self, details_dialog):
         state = DeviceState(
-            ip="192.168.1.1", device_id="TESTDEVICE000001",
+            ip="192.168.1.1",
+            device_id="TESTDEVICE000001",
             weekly_schedule_enabled=True,
         )
         details_dialog.refresh(state)
@@ -210,7 +219,8 @@ class TestFanDetailsDialog:
 
     def test_refresh_reflects_schedule_disabled(self, details_dialog):
         state = DeviceState(
-            ip="192.168.1.1", device_id="TESTDEVICE000001",
+            ip="192.168.1.1",
+            device_id="TESTDEVICE000001",
             weekly_schedule_enabled=False,
         )
         details_dialog.refresh(state)
@@ -219,7 +229,8 @@ class TestFanDetailsDialog:
 
     def test_refresh_updates_boost(self, details_dialog):
         state = DeviceState(
-            ip="192.168.1.1", device_id="TESTDEVICE000001",
+            ip="192.168.1.1",
+            device_id="TESTDEVICE000001",
             boost_active=True,
         )
         details_dialog.refresh(state)
