@@ -8,7 +8,7 @@ from .models import (
     DeviceState, DiscoveredDevice, FilterCountdown, FirmwareVersion,
     MachineHours, RtcCalendar, RtcTime, SchedulePeriod, TimerCountdown, WifiConfig,
 )
-from .parameters import DEFAULT_PORT, Func, Param
+from .parameters import DEFAULT_PORT, Param
 from .protocol import (
     build_discovery, build_read, build_write, build_write_resp,
     build_increment, build_decrement, decode_filter_countdown, decode_firmware,
@@ -19,13 +19,17 @@ from .transport import AsyncVentoTransport, VentoTransport
 
 log = logging.getLogger(__name__)
 
+DiscoveryItem = dict[str, str | bytes]
+RawParamMap = dict[Param | int, bytes]
+ParamWriteMap = dict[Param, int | bytes]
+
 
 def _check_range(name: str, value: int, low: int, high: int) -> None:
     if not low <= value <= high:
         raise VentoValueError(f"{name} must be in [{low},{high}], got {value}")
 
 
-def _check_choices(name: str, value: int, choices: set) -> None:
+def _check_choices(name: str, value: int, choices: set[int]) -> None:
     if value not in choices:
         raise VentoValueError(f"{name} must be one of {sorted(choices)}, got {value}")
 
@@ -53,25 +57,31 @@ _SENSOR_STATUS_PARAMS = [
 _ALL_PARAM_GROUPS = (_BASIC_STATUS_PARAMS, _EXTENDED_CONFIG_PARAMS, _WIFI_PARAMS, _SENSOR_STATUS_PARAMS)
 
 
-def _parse_discovery_item(item: dict) -> DiscoveredDevice | None:
+def _parse_discovery_item(item: DiscoveryItem) -> DiscoveredDevice | None:
     """Parse one raw discovery response into a DiscoveredDevice, or None if malformed."""
     try:
-        resp = parse_response(item['raw'])
+        raw = item['raw']
+        if not isinstance(raw, (bytes, bytearray)):
+            raise TypeError("Discovery item raw payload must be bytes")
+        resp = parse_response(raw)
+        ip_value = item['ip']
+        if not isinstance(ip_value, str):
+            raise TypeError("Discovery item ip must be a string")
         return DiscoveredDevice(
-            ip=item['ip'],
+            ip=ip_value,
             device_id=decode_text(resp.get(Param.DEVICE_SEARCH, b'')),
             unit_type=decode_int(resp.get(Param.UNIT_TYPE, b'\x00\x00')),
         )
     except Exception as e:
-        log.warning("Discovery parse error %s: %s", item['ip'], e)
+        log.warning("Discovery parse error %s: %s", item.get('ip', ''), e)
         return None
 
 
 class _DeviceStateBuilder:
     """Assembles a DeviceState from the raw parameter dict returned by the device."""
 
-    def __init__(self, raw: dict, host: str) -> None:
-        self._raw = raw
+    def __init__(self, raw: RawParamMap, host: str) -> None:
+        self._raw: RawParamMap = raw
         self._host = host
 
     def _int_field(self, param: Param, default: int | None = None) -> int | None:
@@ -162,10 +172,10 @@ class _DeviceStateBuilder:
         if not any(p in self._raw for p in (Param.WIFI_MODE, Param.WIFI_SSID, Param.WIFI_IP)):
             return
         state.wifi = WifiConfig(
-            mode=self._int_field(Param.WIFI_MODE, 0),
+            mode=self._int_field(Param.WIFI_MODE, 0) or 0,
             ssid=self._text_field(Param.WIFI_SSID),
-            encryption=self._int_field(Param.WIFI_ENCRYPTION, 52),
-            channel=self._int_field(Param.WIFI_CHANNEL, 1),
+            encryption=self._int_field(Param.WIFI_ENCRYPTION, 52) or 52,
+            channel=self._int_field(Param.WIFI_CHANNEL, 1) or 1,
             dhcp=bool(self._int_field(Param.WIFI_DHCP, 1)),
             ip=self._ip_field(Param.WIFI_IP),
             subnet=self._ip_field(Param.WIFI_SUBNET),
@@ -189,29 +199,29 @@ class VentoClient:
         self.port = port
         self._transport = VentoTransport(timeout=timeout)
 
-    def _send_recv(self, packet: bytes) -> dict:
+    def _send_recv(self, packet: bytes) -> RawParamMap:
         return parse_response(self._transport.send_recv(self.host, packet, self.port))
 
     def _send_only(self, packet: bytes) -> None:
         self._transport.send_only(self.host, packet, self.port)
 
-    def read_params(self, params: list[Param]) -> dict:
+    def read_params(self, params: list[Param]) -> RawParamMap:
         return self._send_recv(build_read(self.device_id, self.password, list(params)))
 
-    def write_params(self, param_values: dict) -> None:
+    def write_params(self, param_values: ParamWriteMap) -> None:
         self._send_only(build_write(self.device_id, self.password, param_values))
 
-    def write_params_with_response(self, param_values: dict) -> dict:
+    def write_params_with_response(self, param_values: ParamWriteMap) -> RawParamMap:
         return self._send_recv(build_write_resp(self.device_id, self.password, param_values))
 
-    def increment_params(self, params: list[Param]) -> dict:
+    def increment_params(self, params: list[Param]) -> RawParamMap:
         return self._send_recv(build_increment(self.device_id, self.password, list(params)))
 
-    def decrement_params(self, params: list[Param]) -> dict:
+    def decrement_params(self, params: list[Param]) -> RawParamMap:
         return self._send_recv(build_decrement(self.device_id, self.password, list(params)))
 
     def get_state(self) -> DeviceState:
-        combined = {}
+        combined: RawParamMap = {}
         for group in _ALL_PARAM_GROUPS:
             try:
                 combined.update(self.read_params(group))
@@ -236,10 +246,10 @@ class VentoClient:
         _check_range('manual_speed', value, 0, 255)
         self.write_params({Param.SPEED: 255, Param.MANUAL_SPEED: value})
 
-    def speed_up(self) -> dict:
+    def speed_up(self) -> RawParamMap:
         return self.increment_params([Param.SPEED])
 
-    def speed_down(self) -> dict:
+    def speed_down(self) -> RawParamMap:
         return self.decrement_params([Param.SPEED])
 
     def set_mode(self, mode: int) -> None:
@@ -410,7 +420,7 @@ class VentoClient:
         subnet: str = '',
         gateway: str = '',
     ) -> None:
-        params = {
+        params: ParamWriteMap = {
             Param.WIFI_MODE: 1,
             Param.WIFI_SSID: ssid.encode('ascii'),
             Param.WIFI_PASSWORD: wifi_password.encode('ascii'),
@@ -482,23 +492,23 @@ class AsyncVentoClient:
     async def __aexit__(self, *_) -> None:
         pass
 
-    async def _send_recv(self, packet: bytes) -> dict:
+    async def _send_recv(self, packet: bytes) -> RawParamMap:
         return parse_response(await self._transport.send_recv(self.host, packet, self.port))
 
     async def _send_only(self, packet: bytes) -> None:
         await self._transport.send_only(self.host, packet, self.port)
 
-    async def read_params(self, params: list[Param]) -> dict:
+    async def read_params(self, params: list[Param]) -> RawParamMap:
         return await self._send_recv(build_read(self.device_id, self.password, list(params)))
 
-    async def write_params(self, param_values: dict) -> None:
+    async def write_params(self, param_values: ParamWriteMap) -> None:
         await self._send_only(build_write(self.device_id, self.password, param_values))
 
-    async def write_params_with_response(self, param_values: dict) -> dict:
+    async def write_params_with_response(self, param_values: ParamWriteMap) -> RawParamMap:
         return await self._send_recv(build_write_resp(self.device_id, self.password, param_values))
 
     async def get_state(self) -> DeviceState:
-        combined = {}
+        combined: RawParamMap = {}
         for group in _ALL_PARAM_GROUPS:
             try:
                 combined.update(await self.read_params(group))
