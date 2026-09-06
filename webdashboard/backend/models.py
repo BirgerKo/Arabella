@@ -1,16 +1,14 @@
 """Pydantic request and response schemas for the web API."""
 from __future__ import annotations
 
-from typing import Optional
 from pydantic import BaseModel, Field
-
 
 # ── Request bodies ────────────────────────────────────────────────────────────
 
 class ConnectRequest(BaseModel):
-    ip: str
-    device_id: str
-    password: str = "1111"
+    ip: str = Field(..., min_length=1, max_length=255)
+    device_id: str = Field(..., min_length=16, max_length=16)
+    password: str = Field("1111", min_length=1, max_length=8)
 
 
 class PowerRequest(BaseModel):
@@ -37,12 +35,12 @@ class SaveScenarioRequest(BaseModel):
 
 
 class UpdateScenarioRequest(BaseModel):
-    name: Optional[str] = Field(None, min_length=1, max_length=30)
+    name: str | None = Field(None, min_length=1, max_length=30)
 
 
 class QuickSlotsRequest(BaseModel):
     # 3-element list; each element is a scenario name or null
-    slots: list[Optional[str]] = Field(..., min_length=3, max_length=3)
+    slots: list[str | None] = Field(..., min_length=3, max_length=3)
 
 
 # ── Response models ───────────────────────────────────────────────────────────
@@ -88,22 +86,22 @@ class DeviceStateResponse(BaseModel):
     connected: bool
     ip: str
     device_id: str
-    power: Optional[bool]
-    speed: Optional[int]
-    manual_speed: Optional[int]
-    operation_mode: Optional[int]
+    power: bool | None
+    speed: int | None
+    manual_speed: int | None
+    operation_mode: int | None
     operation_mode_name: str
-    boost_active: Optional[bool]
-    humidity_sensor: Optional[int] = None
-    humidity_threshold: Optional[int] = None
-    current_humidity: Optional[int] = None
-    fan1_rpm: Optional[int]
-    fan2_rpm: Optional[int]
-    alarm_status: Optional[int]
+    boost_active: bool | None
+    humidity_sensor: int | None = None
+    humidity_threshold: int | None = None
+    current_humidity: int | None = None
+    fan1_rpm: int | None
+    fan2_rpm: int | None
+    alarm_status: int | None
     alarm_name: str
-    weekly_schedule_enabled: Optional[bool] = None
-    rtc_time: Optional[str] = None
-    rtc_calendar: Optional[str] = None
+    weekly_schedule_enabled: bool | None = None
+    rtc_time: str | None = None
+    rtc_calendar: str | None = None
 
 
 class DiscoveredDeviceResponse(BaseModel):
@@ -114,13 +112,13 @@ class DiscoveredDeviceResponse(BaseModel):
 
 
 class ScenarioSettingsModel(BaseModel):
-    power: Optional[bool] = None
-    speed: Optional[int] = None
-    manual_speed: Optional[int] = None
-    operation_mode: Optional[int] = None
-    boost_active: Optional[bool] = None
-    humidity_sensor: Optional[int] = None
-    humidity_threshold: Optional[int] = None
+    power: bool | None = None
+    speed: int | None = None
+    manual_speed: int | None = None
+    operation_mode: int | None = None
+    boost_active: bool | None = None
+    humidity_sensor: int | None = None
+    humidity_threshold: int | None = None
 
 
 class FanSettingsModel(BaseModel):
@@ -135,7 +133,7 @@ class ScenarioResponse(BaseModel):
 
 class QuickSlotsResponse(BaseModel):
     device_id: str
-    slots: list[Optional[str]]
+    slots: list[str | None]
 
 
 class ErrorResponse(BaseModel):

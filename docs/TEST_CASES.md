@@ -46,7 +46,7 @@ cd /Users/birger/Python/Arabella && python3.11 -m pytest -q
 | `tests/webdashboard/test_hub.py` | — | 5 | WebSocket broadcast hub: connect, disconnect, broadcast, dead socket cleanup |
 | `tests/webdashboard/test_device_manager.py` | — | 22 | DeviceManager connect/disconnect, power/speed/mode/boost/humidity/schedule/RTC commands, fan switching, broadcast callback, discovery, reconnect safety, and polling retry/backoff |
 | `tests/webdashboard/test_routers_commands.py` | — | 18 | Command HTTP endpoints (power/speed/mode/boost/humidity/schedule_enable/schedule_period/sync_rtc), 503 when disconnected, 422 validation |
-| `tests/webdashboard/test_routers_devices.py` | — | 10 | Device state, connect, fan switching, disconnect, and discovery HTTP endpoints |
+| `tests/webdashboard/test_routers_devices.py` | — | 14 | Device state, validated connect, fan switching, disconnect, and discovery HTTP endpoints |
 | `tests/webdashboard/test_routers_scenarios.py` | — | 11 | Scenario CRUD, quick-slot, and add-fan-to-scenario HTTP endpoints |
 | `tests/webdashboard/e2e/test_dashboard.py` | — | 22 | Playwright E2E: connect dialog, power toggle, speed/mode controls, scenario save+list, fan switching, Details modal open/close, schedule enable/editor, sync RTC |
 | `webdashboard/frontend/tests/connect.spec.js` | — | 6 | Playwright E2E (React UI): connect dialog shown when disconnected, device scan, discovered-device click, manual form, error display, Switch button |
@@ -632,6 +632,7 @@ by a mock. Fan-switching is covered end-to-end at the router level.
 | `test_connect_returns_device_state` | `POST /api/connect` returns the device's initial state | HTTP 200; `device_id` matches request; `manager.connect` awaited with correct args |
 | `test_connect_uses_provided_password` | Password in the request body is forwarded to `manager.connect` | `manager.connect` awaited with the custom password |
 | `test_connect_returns_502_on_connection_error` | A connection timeout or refused error returns HTTP 502 with the error message | HTTP 502; `"Timeout"` in response detail |
+| `test_connect_rejects_invalid_request` | Empty IP, short device ID, empty password, and overlong password are rejected at the API boundary | HTTP 422; manager is not called |
 | `test_switch_fan_returns_new_device_state` | Two sequential `POST /api/connect` calls each return the state of the respective device | First response: `device_id == "FAN-A"`, `speed == 1`; second: `device_id == "FAN-B"`, `speed == 3` |
 | `test_switch_fan_connect_called_with_correct_credentials` | Each switch call forwards the exact IP, device ID, and password to `manager.connect` | `connect` awaited twice with the correct distinct credentials |
 | `test_disconnect_returns_204` | `DELETE /api/connect` calls `manager.disconnect()` and returns 204 | HTTP 204; `disconnect` called once |

@@ -2,14 +2,14 @@
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from httpx import ASGITransport, AsyncClient
-
+from blauberg_vento.exceptions import VentoConnectionError
 from blauberg_vento.models import DeviceState, DiscoveredDevice
+from httpx import ASGITransport, AsyncClient
 from webdashboard.backend import dependencies
 from webdashboard.backend.main import app
 
 
-def _make_state(ip: str = "10.0.0.1", device_id: str = "VENT-01", speed: int = 2) -> DeviceState:
+def _make_state(ip: str = "10.0.0.1", device_id: str = "VENT000000000001", speed: int = 2) -> DeviceState:
     return DeviceState(
         ip=ip,
         device_id=device_id,
@@ -65,7 +65,7 @@ async def test_get_state_returns_200_when_connected():
     body = resp.json()
     assert body["connected"] is True
     assert body["ip"] == "10.0.0.1"
-    assert body["device_id"] == "VENT-01"
+    assert body["device_id"] == "VENT000000000001"
 
 
 @pytest.mark.asyncio
@@ -89,13 +89,13 @@ async def test_connect_returns_device_state():
     app.dependency_overrides[dependencies.get_device_manager] = lambda: mgr
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
-        resp = await c.post("/api/connect", json={"ip": "10.0.0.1", "device_id": "VENT-01"})
+        resp = await c.post("/api/connect", json={"ip": "10.0.0.1", "device_id": "VENT000000000001"})
 
     assert resp.status_code == 200
     body = resp.json()
     assert body["connected"] is True
-    assert body["device_id"] == "VENT-01"
-    mgr.connect.assert_awaited_once_with("10.0.0.1", "VENT-01", "1111")
+    assert body["device_id"] == "VENT000000000001"
+    mgr.connect.assert_awaited_once_with("10.0.0.1", "VENT000000000001", "1111")
 
 
 @pytest.mark.asyncio
@@ -106,23 +106,47 @@ async def test_connect_uses_provided_password():
     app.dependency_overrides[dependencies.get_device_manager] = lambda: mgr
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
-        resp = await c.post("/api/connect", json={"ip": "10.0.0.1", "device_id": "VENT-01", "password": "secret"})
+        resp = await c.post(
+            "/api/connect",
+            json={"ip": "10.0.0.1", "device_id": "VENT000000000001", "password": "secret"},
+        )
 
     assert resp.status_code == 200
-    mgr.connect.assert_awaited_once_with("10.0.0.1", "VENT-01", "secret")
+    mgr.connect.assert_awaited_once_with("10.0.0.1", "VENT000000000001", "secret")
 
 
 @pytest.mark.asyncio
 async def test_connect_returns_502_on_connection_error():
     mgr = _make_disconnected_manager()
-    mgr.connect = AsyncMock(side_effect=Exception("Timeout"))
+    mgr.connect = AsyncMock(side_effect=VentoConnectionError("Timeout"))
     app.dependency_overrides[dependencies.get_device_manager] = lambda: mgr
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
-        resp = await c.post("/api/connect", json={"ip": "10.0.0.99", "device_id": "DEAD"})
+        resp = await c.post("/api/connect", json={"ip": "10.0.0.99", "device_id": "DEAD000000000001"})
 
     assert resp.status_code == 502
     assert "Timeout" in resp.json()["detail"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"ip": "", "device_id": "VENT-000000000001"},
+        {"ip": "10.0.0.1", "device_id": "SHORT"},
+        {"ip": "10.0.0.1", "device_id": "VENT-000000000001", "password": ""},
+        {"ip": "10.0.0.1", "device_id": "VENT-000000000001", "password": "123456789"},
+    ],
+)
+async def test_connect_rejects_invalid_request(payload):
+    mgr = _make_disconnected_manager()
+    app.dependency_overrides[dependencies.get_device_manager] = lambda: mgr
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        resp = await c.post("/api/connect", json=payload)
+
+    assert resp.status_code == 422
+    mgr.connect.assert_not_awaited()
 
 
 # ── Fan switching via POST /api/connect ────────────────────────────────────────
@@ -130,14 +154,14 @@ async def test_connect_returns_502_on_connection_error():
 @pytest.mark.asyncio
 async def test_switch_fan_returns_new_device_state():
     """POST /api/connect a second time must return the new device's state, not the old one."""
-    state_a = _make_state(ip="10.0.0.1", device_id="FAN-A", speed=1)
-    state_b = _make_state(ip="10.0.0.2", device_id="FAN-B", speed=3)
+    state_a = _make_state(ip="10.0.0.1", device_id="FAN0000000000001", speed=1)
+    state_b = _make_state(ip="10.0.0.2", device_id="FAN0000000000002", speed=3)
 
     connect_calls: list[tuple] = []
 
     async def fake_connect(ip: str, device_id: str, password: str = "1111") -> DeviceState:
         connect_calls.append((ip, device_id))
-        return state_a if device_id == "FAN-A" else state_b
+        return state_a if device_id == "FAN0000000000001" else state_b
 
     mgr = MagicMock()
     mgr.is_connected = True
@@ -145,19 +169,19 @@ async def test_switch_fan_returns_new_device_state():
     app.dependency_overrides[dependencies.get_device_manager] = lambda: mgr
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
-        resp_a = await c.post("/api/connect", json={"ip": "10.0.0.1", "device_id": "FAN-A"})
-        resp_b = await c.post("/api/connect", json={"ip": "10.0.0.2", "device_id": "FAN-B"})
+        resp_a = await c.post("/api/connect", json={"ip": "10.0.0.1", "device_id": "FAN0000000000001"})
+        resp_b = await c.post("/api/connect", json={"ip": "10.0.0.2", "device_id": "FAN0000000000002"})
 
     assert resp_a.status_code == 200
-    assert resp_a.json()["device_id"] == "FAN-A"
+    assert resp_a.json()["device_id"] == "FAN0000000000001"
     assert resp_a.json()["speed"] == 1
 
     assert resp_b.status_code == 200
-    assert resp_b.json()["device_id"] == "FAN-B"
+    assert resp_b.json()["device_id"] == "FAN0000000000002"
     assert resp_b.json()["speed"] == 3
     assert resp_b.json()["ip"] == "10.0.0.2"
 
-    assert connect_calls == [("10.0.0.1", "FAN-A"), ("10.0.0.2", "FAN-B")]
+    assert connect_calls == [("10.0.0.1", "FAN0000000000001"), ("10.0.0.2", "FAN0000000000002")]
 
 
 @pytest.mark.asyncio
@@ -169,12 +193,12 @@ async def test_switch_fan_connect_called_with_correct_credentials():
     app.dependency_overrides[dependencies.get_device_manager] = lambda: mgr
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
-        await c.post("/api/connect", json={"ip": "10.0.0.1", "device_id": "FAN-A", "password": "pw1"})
-        await c.post("/api/connect", json={"ip": "10.0.0.2", "device_id": "FAN-B", "password": "pw2"})
+        await c.post("/api/connect", json={"ip": "10.0.0.1", "device_id": "FAN0000000000001", "password": "pw1"})
+        await c.post("/api/connect", json={"ip": "10.0.0.2", "device_id": "FAN0000000000002", "password": "pw2"})
 
     assert mgr.connect.await_count == 2
-    mgr.connect.assert_any_await("10.0.0.1", "FAN-A", "pw1")
-    mgr.connect.assert_any_await("10.0.0.2", "FAN-B", "pw2")
+    mgr.connect.assert_any_await("10.0.0.1", "FAN0000000000001", "pw1")
+    mgr.connect.assert_any_await("10.0.0.2", "FAN0000000000002", "pw2")
 
 
 # ── DELETE /api/connect ────────────────────────────────────────────────────────
