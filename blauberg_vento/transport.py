@@ -11,6 +11,10 @@ log = logging.getLogger(__name__)
 
 _UDP_BUFFER_SIZE = 1024
 
+DiscoveryResult = dict[str, str | bytes]
+RemoteAddress = tuple[str, int]
+DatagramResponse = tuple[bytes, RemoteAddress]
+
 
 class VentoTransport:
     def __init__(self, timeout: float = 3.0) -> None:
@@ -43,8 +47,8 @@ class VentoTransport:
         port: int = DEFAULT_PORT,
         timeout: float = 3.0,
         max_devices: int = 64,
-    ) -> list[dict]:
-        results = []
+    ) -> list[DiscoveryResult]:
+        results: list[DiscoveryResult] = []
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
                 s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
@@ -65,10 +69,10 @@ class VentoTransport:
 class _SingleResponseProtocol(asyncio.DatagramProtocol):
     """Asyncio UDP protocol that resolves a Future with the first datagram received."""
 
-    def __init__(self, future: asyncio.Future) -> None:
+    def __init__(self, future: asyncio.Future[DatagramResponse]) -> None:
         self._future = future
 
-    def datagram_received(self, data: bytes, addr: tuple) -> None:
+    def datagram_received(self, data: bytes, addr: RemoteAddress) -> None:
         if not self._future.done():
             self._future.set_result((data, addr))
 
@@ -80,10 +84,10 @@ class _SingleResponseProtocol(asyncio.DatagramProtocol):
 class _DiscoveryProtocol(asyncio.DatagramProtocol):
     """Asyncio UDP protocol that enqueues every datagram received for discovery."""
 
-    def __init__(self, queue: asyncio.Queue) -> None:
+    def __init__(self, queue: asyncio.Queue[DiscoveryResult]) -> None:
         self._queue = queue
 
-    def datagram_received(self, data: bytes, addr: tuple) -> None:
+    def datagram_received(self, data: bytes, addr: RemoteAddress) -> None:
         self._queue.put_nowait({'ip': addr[0], 'raw': data})
 
 
@@ -94,7 +98,7 @@ class AsyncVentoTransport:
     async def send_recv(self, host: str, packet: bytes, port: int = DEFAULT_PORT, timeout: float | None = None) -> bytes:
         t = timeout if timeout is not None else self.timeout
         loop = asyncio.get_running_loop()
-        future = loop.create_future()
+        future: asyncio.Future[DatagramResponse] = loop.create_future()
         try:
             transport, _ = await loop.create_datagram_endpoint(
                 lambda: _SingleResponseProtocol(future),
@@ -128,9 +132,9 @@ class AsyncVentoTransport:
         port: int = DEFAULT_PORT,
         timeout: float = 3.0,
         max_devices: int = 64,
-    ) -> list[dict]:
+    ) -> list[DiscoveryResult]:
         loop = asyncio.get_running_loop()
-        queue: asyncio.Queue = asyncio.Queue()
+        queue: asyncio.Queue[DiscoveryResult] = asyncio.Queue()
         try:
             transport, _ = await loop.create_datagram_endpoint(
                 lambda: _DiscoveryProtocol(queue),
@@ -139,7 +143,7 @@ class AsyncVentoTransport:
             )
         except OSError as e:
             raise VentoDiscoveryError(f"Async discovery error: {e}") from e
-        results = []
+        results: list[DiscoveryResult] = []
         try:
             transport.sendto(pkt, (broadcast, port))
             deadline = loop.time() + timeout

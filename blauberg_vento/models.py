@@ -6,6 +6,8 @@ from typing import NamedTuple
 _DAY_ABBREVIATIONS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 _SCHEDULE_SPEED_NAMES = ['Standby', 'Speed 1', 'Speed 2', 'Speed 3']
 
+TimerTuple = tuple[int, int]
+
 
 @dataclass
 class FirmwareVersion:
@@ -89,6 +91,10 @@ class SchedulePeriod:
         return f"Period {self.period_number}: -> {self.end_hours:02d}:{self.end_minutes:02d} @ {speed_name}"
 
 
+ScheduleKey = tuple[int, int]
+ScheduleMap = dict[ScheduleKey, SchedulePeriod]
+
+
 @dataclass
 class WifiConfig:
     mode: int
@@ -140,8 +146,8 @@ class DeviceState:
     boost_delay_minutes: int | None = None
     timer_mode: int | None = None
     timer_countdown: TimerCountdown | None = None
-    night_timer: tuple | None = None
-    party_timer: tuple | None = None
+    night_timer: TimerTuple | None = None
+    party_timer: TimerTuple | None = None
     humidity_sensor: int | None = None
     humidity_threshold: int | None = None
     current_humidity: int | None = None
@@ -163,33 +169,37 @@ class DeviceState:
     rtc_time: RtcTime | None = None
     rtc_calendar: RtcCalendar | None = None
     weekly_schedule_enabled: bool | None = None
-    schedule: dict = field(default_factory=dict)
+    schedule: ScheduleMap = field(default_factory=lambda: {})
     wifi: WifiConfig | None = None
     cloud_permitted: bool | None = None
 
     @property
     def unit_type_name(self) -> str:
-        info = _UNIT_TYPE_INFO.get(self.unit_type)
+        info = _UNIT_TYPE_INFO.get(self.unit_type or 0)
         return info.name if info else f'Unknown ({self.unit_type})'
 
     @property
     def is_a30(self) -> bool:
-        info = _UNIT_TYPE_INFO.get(self.unit_type)
+        info = _UNIT_TYPE_INFO.get(self.unit_type or 0)
         return info.is_a30 if info else False
 
     @property
     def operation_mode_name(self) -> str:
-        return {0: 'Ventilation', 1: 'Heat Recovery', 2: 'Supply'}.get(self.operation_mode, 'Unknown')
+        mode = self.operation_mode if self.operation_mode is not None else 0
+        return {0: 'Ventilation', 1: 'Heat Recovery', 2: 'Supply'}.get(mode, 'Unknown')
 
     @property
     def speed_name(self) -> str:
-        if self.speed == 255:
-            return f'Manual ({self.manual_speed})'
-        return {1: 'Speed 1', 2: 'Speed 2', 3: 'Speed 3'}.get(self.speed, 'Unknown')
+        speed = self.speed if self.speed is not None else 0
+        if speed == 255:
+            manual_speed = self.manual_speed if self.manual_speed is not None else 0
+            return f'Manual ({manual_speed})'
+        return {1: 'Speed 1', 2: 'Speed 2', 3: 'Speed 3'}.get(speed, 'Unknown')
 
     @property
     def alarm_name(self) -> str:
-        return {0: 'OK', 1: 'Alarm', 2: 'Warning'}.get(self.alarm_status, 'Unknown')
+        status = self.alarm_status if self.alarm_status is not None else -1
+        return {0: 'OK', 1: 'Alarm', 2: 'Warning'}.get(status, 'Unknown')
 
     def __repr__(self) -> str:
         return (
