@@ -31,7 +31,10 @@ def _encode_id(device_id: str | bytes) -> bytes:
 
 
 def _encode_password(password: str) -> bytes:
-    raw = password.encode('ascii')
+    try:
+        raw = password.encode('ascii')
+    except UnicodeEncodeError as exc:
+        raise VentoProtocolError("Password must contain ASCII characters") from exc
     if len(raw) > 8:
         raise VentoProtocolError("Password max 8 chars")
     return raw
@@ -82,10 +85,19 @@ def _build_write_data(param_values: dict[Param, int | bytes]) -> bytes:
         if isinstance(val, int):
             if expected_size is None:
                 raise VentoProtocolError(f"{p.name} needs bytes, not int")
-            val_bytes = val.to_bytes(expected_size, 'little')
+            try:
+                val_bytes = val.to_bytes(expected_size, 'little')
+            except OverflowError as exc:
+                raise VentoProtocolError(f"{p.name} value does not fit in {expected_size} bytes") from exc
         else:
             val_bytes = bytes(val)
         actual_size = len(val_bytes)
+        if expected_size is not None and actual_size != expected_size:
+            raise VentoProtocolError(
+                f"{p.name} needs exactly {expected_size} bytes, got {actual_size}"
+            )
+        if actual_size > 0xFF:
+            raise VentoProtocolError(f"{p.name} value is too large: {actual_size} bytes")
         if high != page:
             data += bytes([CMD_PAGE, high])
             page = high
@@ -150,9 +162,17 @@ def _parse_packet_header(raw: bytes) -> _PacketHeader:
     if raw[2] != PROTOCOL_TYPE:
         raise VentoProtocolError(f"Unknown type {raw[2]:#04x}")
     id_size = raw[3]
+    if id_size != 16:
+        raise VentoProtocolError(f"Invalid device ID length: {id_size}")
     id_end = 4 + id_size
+    if id_end >= len(raw) - 2:
+        raise VentoProtocolError("Packet missing password length")
     pwd_size = raw[id_end]
+    if pwd_size > 8:
+        raise VentoProtocolError(f"Invalid password length: {pwd_size}")
     pwd_end = id_end + 1 + pwd_size
+    if pwd_end >= len(raw) - 2:
+        raise VentoProtocolError("Packet missing function byte")
     func_byte = raw[pwd_end]
     return _PacketHeader(
         data_start=pwd_end + 1,
@@ -184,6 +204,8 @@ def _parse_data_bytes(data: bytes) -> ResponseValues:
         b = data[i]
 
         if b == CMD_PAGE:
+            if i + 1 >= len(data):
+                raise VentoProtocolError("Page command missing page number")
             i += 1
             page = data[i]
             i += 1
@@ -191,20 +213,29 @@ def _parse_data_bytes(data: bytes) -> ResponseValues:
             continue
 
         if b == CMD_FUNC:
+            if i + 1 >= len(data):
+                raise VentoProtocolError("Function command missing function value")
             i += 2
             param_size = 1
             continue
 
         if b == CMD_SIZE:
+            if i + 1 >= len(data):
+                raise VentoProtocolError("Size command missing size value")
             i += 1
             param_size = data[i]
+            if param_size == 0:
+                raise VentoProtocolError("Parameter size must be greater than zero")
             i += 1
+            if i >= len(data):
+                raise VentoProtocolError("Size command missing parameter")
             b = data[i]
 
         if b == CMD_NOT_SUP:
+            if i + 1 >= len(data):
+                raise VentoProtocolError("Unsupported parameter command is truncated")
             i += 1
-            if i < len(data):
-                unsupported.append((page << 8) | data[i])
+            unsupported.append((page << 8) | data[i])
             i += 1
             param_size = 1
             continue
