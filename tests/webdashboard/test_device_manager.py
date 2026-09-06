@@ -2,6 +2,7 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from blauberg_vento.exceptions import VentoTimeoutError
 from blauberg_vento.models import DeviceState, DiscoveredDevice
 from webdashboard.backend.device_manager import DeviceManager, _state_to_dict
 
@@ -300,6 +301,39 @@ async def test_failed_reconnect_preserves_active_device(manager):
     assert manager._client is client_a
     assert manager._poll_task is poll_task_a
     manager.disconnect()
+
+
+@pytest.mark.asyncio
+async def test_poll_retries_after_temporary_timeout(manager):
+    state = _make_state()
+    mock_client = MagicMock()
+    mock_client.get_state = AsyncMock(side_effect=[VentoTimeoutError("temporary"), state])
+    manager._client = mock_client
+    manager._state = state
+
+    with patch("webdashboard.backend.device_manager.asyncio.sleep", new=AsyncMock()) as sleep:
+        await manager._poll_with_retry()
+
+    assert manager.current_state is state
+    assert mock_client.get_state.await_count == 2
+    sleep.assert_awaited_once_with(0.5)
+
+
+@pytest.mark.asyncio
+async def test_poll_reports_error_after_retry_exhaustion(manager):
+    mock_client = MagicMock()
+    mock_client.get_state = AsyncMock(side_effect=VentoTimeoutError("offline"))
+    manager._client = mock_client
+    manager._state = _make_state()
+    callback = AsyncMock()
+    manager.set_broadcast_callback(callback)
+
+    with patch("webdashboard.backend.device_manager.asyncio.sleep", new=AsyncMock()):
+        with pytest.raises(VentoTimeoutError, match="offline"):
+            await manager._poll_with_retry()
+
+    assert mock_client.get_state.await_count == 4
+    callback.assert_not_awaited()
 
 
 @pytest.mark.asyncio

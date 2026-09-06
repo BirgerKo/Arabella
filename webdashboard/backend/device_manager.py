@@ -14,11 +14,13 @@ import logging
 from typing import Any
 
 from blauberg_vento.client import AsyncVentoClient
+from blauberg_vento.exceptions import VentoConnectionError
 from blauberg_vento.models import DeviceState, DiscoveredDevice
 
 log = logging.getLogger(__name__)
 
 _POLL_INTERVAL_SECONDS = 2.0
+_POLL_RETRY_DELAYS_SECONDS = (0.5, 1.0, 2.0)
 
 
 def _state_to_dict(state: DeviceState) -> dict[str, Any]:
@@ -191,15 +193,31 @@ class DeviceManager:
         while True:
             await asyncio.sleep(_POLL_INTERVAL_SECONDS)
             try:
-                await self._poll_and_broadcast()
+                await self._poll_with_retry()
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
-                log.warning("Poll error: %s", exc)
+                log.warning("Poll error after retries: %s", exc)
                 if self._broadcast_callback:
                     await self._broadcast_callback(
                         {"type": "error", "data": {"message": str(exc)}}
                     )
+
+    async def _poll_with_retry(self) -> None:
+        """Poll repeatedly when a temporary connection failure occurs."""
+        for retry_number, delay in enumerate((0.0, *_POLL_RETRY_DELAYS_SECONDS)):
+            if delay:
+                await asyncio.sleep(delay)
+            try:
+                await self._poll_and_broadcast()
+                return
+            except VentoConnectionError:
+                if retry_number == len(_POLL_RETRY_DELAYS_SECONDS):
+                    raise
+                log.warning(
+                    "Poll connection failed; retrying in %.1fs",
+                    _POLL_RETRY_DELAYS_SECONDS[retry_number],
+                )
 
     async def _poll_after_command(self) -> None:
         """Wait briefly so the fan can apply the command, then broadcast fresh state."""

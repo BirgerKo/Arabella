@@ -64,7 +64,7 @@ cd /Users/birger/Python/Arabella && python3.11 -m pytest -q
 | `tests/test_simulator.py` | 13 | 75 | Simulator ID generation, protocol helpers, SimDevice physics, VentoFanSim routing |
 | `tests/test_main_window.py` | 4 | 15 | MainWindow UI: IP-on-hover label, Scenario operations, Details button; FanDetailsDialog: schedule/RTC/boost signals and refresh |
 | `tests/webdashboard/test_hub.py` | — | 5 | WebSocket broadcast hub: connect, disconnect, broadcast, dead socket cleanup |
-| `tests/webdashboard/test_device_manager.py` | — | 19 | DeviceManager connect/disconnect, power/speed/mode/boost/humidity/schedule/RTC commands, fan switching, broadcast callback, discovery; `_state_to_dict` schedule fields |
+| `tests/webdashboard/test_device_manager.py` | — | 22 | DeviceManager connect/disconnect, power/speed/mode/boost/humidity/schedule/RTC commands, fan switching, broadcast callback, discovery, reconnect safety, and polling retry/backoff |
 | `tests/webdashboard/test_routers_commands.py` | — | 18 | Command HTTP endpoints (power/speed/mode/boost/humidity/schedule_enable/schedule_period/sync_rtc), 503 when disconnected, 422 validation |
 | `tests/webdashboard/test_routers_devices.py` | — | 10 | Device state, connect, fan switching, disconnect, and discovery HTTP endpoints |
 | `tests/webdashboard/test_routers_scenarios.py` | — | 11 | Scenario CRUD, quick-slot, and add-fan-to-scenario HTTP endpoints |
@@ -631,6 +631,9 @@ that wraps `AsyncVentoClient`. All UDP I/O is mocked.
 | `test_discover_delegates_to_client` | `DeviceManager.discover()` delegates to `AsyncVentoClient.discover()` | Returns the mocked device list |
 | `test_broadcast_callback_called_after_command` | After `set_power()`, the registered broadcast callback receives a `type: state` message | `type == "state"` in received messages |
 | `test_connect_replaces_active_device` | Connecting to a second device cancels the first poller and makes the new device active | `current_state.device_id == "FAN-B"`; old poll task is done; new poll task is different |
+| `test_failed_reconnect_preserves_active_device` | A failed replacement-device state fetch does not discard the active connection | Existing client, state, and poll task remain active |
+| `test_poll_retries_after_temporary_timeout` | A temporary polling timeout is retried with backoff and can recover | `get_state` is awaited twice and the fresh state is retained |
+| `test_poll_reports_error_after_retry_exhaustion` | Persistent polling timeouts stop retrying after the bounded attempts | Four polls are attempted and the timeout is raised |
 | `test_switch_preserves_connection_to_new_device` | After switching, commands are sent to the second device, not the first | `client_b.turn_on` awaited; `client_a.turn_on` not called |
 | `test_switch_active_state_reflects_new_device` | After switching, `current_state` carries the new device's IP, ID, speed, and RPM values | All fields reflect device B (ip, device_id, speed, fan1_rpm) |
 
