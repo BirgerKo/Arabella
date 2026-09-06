@@ -2,11 +2,11 @@ import { useState, useEffect } from 'react'
 import { api } from '../api.js'
 import './ConnectDialog.css'
 
-export default function ConnectDialog({ onConnect, onCancel }) {
+export default function ConnectDialog({ onConnect, onCancel, initialIp = '', initialDeviceId = '' }) {
   const [discovered, setDiscovered] = useState([])
   const [scanning, setScanning] = useState(false)
-  const [ip, setIp] = useState('')
-  const [deviceId, setDeviceId] = useState('')
+  const [ip, setIp] = useState(initialIp)
+  const [deviceId, setDeviceId] = useState(initialDeviceId)
   const [password, setPassword] = useState('1111')
   const [error, setError] = useState(null)
   const [connecting, setConnecting] = useState(false)

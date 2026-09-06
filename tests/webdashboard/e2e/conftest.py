@@ -21,7 +21,9 @@ from __future__ import annotations
 import os
 import socket
 import subprocess
+import sys
 import time
+import urllib.request
 from pathlib import Path
 
 import pytest
@@ -35,7 +37,7 @@ _BASE_URL  = os.getenv("VENTO_BASE_URL", "http://localhost:8080")
 _FAN_COUNT = int(os.getenv("VENTO_FAN_COUNT", "3"))
 
 _REPO_ROOT = Path(__file__).parents[3]   # …/Arabella/
-_PYTHON    = "python3.11"
+_PYTHON    = sys.executable
 _BACKEND_HOST = "127.0.0.1"
 _BACKEND_PORT = 8080
 _SIMULATOR_STARTUP_SECONDS = 1.0  # UDP socket binds quickly; 1 s is more than enough
@@ -73,7 +75,13 @@ def sim_proc():
         return
 
     proc = subprocess.Popen(
-        [_PYTHON, "-m", "ventocontrol.simulator", "--count", str(_FAN_COUNT)],
+        [
+            _PYTHON,
+            "-m",
+            "ventocontrol.simulator",
+            "--count",
+            str(_FAN_COUNT),
+        ],
         cwd=_REPO_ROOT,
     )
     time.sleep(_SIMULATOR_STARTUP_SECONDS)
@@ -107,6 +115,22 @@ def web_proc(sim_proc):  # noqa: ARG001  – sim_proc must start first
         proc.wait(timeout=5)
     except subprocess.TimeoutExpired:
         proc.kill()
+
+
+@pytest.fixture(autouse=True)
+def reset_simulator_connection(web_proc):  # noqa: ARG001  – ensure backend is ready
+    """Start each simulator E2E test with no active device connection."""
+    if _MODE == "simulator":
+        try:
+            urllib.request.urlopen(
+                urllib.request.Request(
+                    f"{_BASE_URL}/api/connect",
+                    method="DELETE",
+                ),
+                timeout=2,
+            ).close()
+        except OSError:
+            pass
 
 
 @pytest.fixture(scope="session")

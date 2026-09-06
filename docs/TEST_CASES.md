@@ -1,9 +1,51 @@
 # Test Cases — Arabella / VentoControl
+|
 
-Human-readable catalogue of all 220+ pytest test cases. Each entry describes
-**what** the test checks, **why** it exists, and **what result** confirms it passes.
+---
 
-Run the full suite:
+## test_protocol_invalid.py
+
+Regression tests for malformed UDP responses. These cases ensure invalid framing
+is reported as a protocol error and corrupted checksums retain their distinct
+checksum exception.
+
+| Test | Purpose | Expected result |
+|------|---------|----------------|
+| `test_invalid_packet_rejections` | Reject short, incorrectly framed, and checksum-invalid packets | The matching protocol or checksum exception is raised |
+| `test_parse_response_rejects_truncated_packet` | Reject a response with no payload data | `VentoProtocolError` raised |
+
+## test_transport.py
+
+Transport contract tests for failure semantics used by callers and integrations.
+
+| Test | Purpose | Expected result |
+|------|---------|----------------|
+| `test_sync_send_recv_raises_timeout_error` | Distinguish a synchronous receive timeout from a generic socket failure | `VentoTimeoutError` raised |
+| `test_async_send_recv_raises_timeout_error` | Keep asynchronous receive timeout semantics consistent with sync transport | `VentoTimeoutError` raised |
+| `test_async_send_only_wraps_socket_creation_error` | Prevent raw socket setup errors leaking from async write operations | `VentoConnectionError` raised |
+
+---
+
+## test_protocol_invalid.py
+
+Regression tests for malformed UDP responses, including truncated frames and invalid checksums.
+
+| Test | Purpose | Expected result |
+|------|---------|----------------|
+| `test_invalid_packet_rejections` | Reject malformed and checksum-invalid packets | The matching protocol or checksum exception is raised |
+| `test_parse_response_rejects_truncated_packet` | Reject a response with no payload data | `VentoProtocolError` raised |
+
+## test_transport.py
+
+Transport failure-semantics tests for synchronous and asynchronous callers.
+
+| Test | Purpose | Expected result |
+|------|---------|----------------|
+| `test_sync_send_recv_raises_timeout_error` | Distinguish receive timeouts from generic socket failures | `VentoTimeoutError` raised |
+| `test_async_send_recv_raises_timeout_error` | Keep async timeout behavior consistent with sync transport | `VentoTimeoutError` raised |
+| `test_async_send_only_wraps_socket_creation_error` | Normalize async socket setup failures | `VentoConnectionError` raised |
+
+## test_scenarios.py
 ```bash
 cd /Users/birger/Python/Arabella && python3.11 -m pytest -q
 ```
@@ -16,6 +58,8 @@ cd /Users/birger/Python/Arabella && python3.11 -m pytest -q
 |-----------|---------|-------|--------------|
 | `tests/test_history.py` | 4 | 18 | Device connection history, fan renaming, persistence |
 | `tests/test_protocol.py` | 5 | 28 | UDP packet building, parsing, decoders, input validation |
+| `tests/test_protocol_invalid.py` | 2 | 4 | Malformed, truncated, and checksum-invalid packet rejection |
+| `tests/test_transport.py` | — | 3 | Sync/async timeout and socket error semantics |
 | `tests/test_scenarios.py` | 6 | 32 | Scenario store CRUD, quick-slots, v1→v2 migration |
 | `tests/test_simulator.py` | 13 | 75 | Simulator ID generation, protocol helpers, SimDevice physics, VentoFanSim routing |
 | `tests/test_main_window.py` | 4 | 15 | MainWindow UI: IP-on-hover label, Scenario operations, Details button; FanDetailsDialog: schedule/RTC/boost signals and refresh |

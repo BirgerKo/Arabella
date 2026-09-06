@@ -135,10 +135,19 @@ python -m webdashboard
 ### E2E tests (Playwright)
 
 ```bash
-pip install pytest-playwright
-playwright install chromium
+pip install -e ".[dev,web]"
+python -m playwright install chromium
 python -m webdashboard &   # start backend first
 pytest tests/webdashboard/e2e/ --base-url http://localhost:8080
+```
+
+The Python E2E fixtures start the simulator and dashboard automatically in their
+default simulator mode. Frontend Playwright tests run independently with:
+
+```bash
+cd webdashboard/frontend
+npm install
+npm test
 ```
 
 ---

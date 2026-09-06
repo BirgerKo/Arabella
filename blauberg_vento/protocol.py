@@ -113,7 +113,11 @@ def build_discovery() -> bytes:
 
 def verify_checksum(raw: bytes) -> None:
     if len(raw) < 4:
-        raise VentoChecksumError("Packet too short")
+        raise VentoProtocolError("Packet too short")
+    if raw[0] != 0xFD or raw[1] != 0xFD:
+        raise VentoProtocolError("Missing 0xFD 0xFD header")
+    if len(raw) < 23:
+        raise VentoProtocolError(f"Packet too short: {len(raw)}")
     expected = struct.unpack('<H', raw[-2:])[0]
     actual = sum(raw[2:-2]) & 0xFFFF
     if actual != expected:
@@ -150,10 +154,12 @@ def _parse_packet_header(raw: bytes) -> _PacketHeader:
 
 
 def parse_response(raw: bytes) -> ResponseValues:
-    verify_checksum(raw)
     header = _parse_packet_header(raw)
     if header.func_byte != int(Func.RESPONSE):
         raise VentoProtocolError(f"Expected FUNC=0x06, got {header.func_byte:#04x}")
+    if header.data_start >= len(raw) - 2:
+        raise VentoProtocolError("Response packet missing payload data")
+    verify_checksum(raw)
     return _parse_data_bytes(raw[header.data_start:-2])
 
 

@@ -4,7 +4,7 @@ import asyncio
 import socket
 import logging
 
-from .exceptions import VentoConnectionError, VentoDiscoveryError
+from .exceptions import VentoConnectionError, VentoDiscoveryError, VentoTimeoutError
 from .parameters import DEFAULT_PORT
 
 log = logging.getLogger(__name__)
@@ -29,7 +29,7 @@ class VentoTransport:
                 data, _ = s.recvfrom(_UDP_BUFFER_SIZE)
                 return data
         except socket.timeout:
-            raise VentoConnectionError(f"Timeout from {host}:{port}")
+            raise VentoTimeoutError(f"Timeout from {host}:{port}")
         except OSError as e:
             raise VentoConnectionError(f"Socket error {host}:{port}: {e}") from e
 
@@ -111,16 +111,19 @@ class AsyncVentoTransport:
             data, _ = await asyncio.wait_for(future, timeout=t)
             return data
         except asyncio.TimeoutError:
-            raise VentoConnectionError(f"Async timeout {host}:{port}")
+            raise VentoTimeoutError(f"Async timeout {host}:{port}")
         finally:
             transport.close()
 
     async def send_only(self, host: str, packet: bytes, port: int = DEFAULT_PORT) -> None:
         loop = asyncio.get_running_loop()
-        transport, _ = await loop.create_datagram_endpoint(
-            asyncio.DatagramProtocol,
-            remote_addr=(host, port),
-        )
+        try:
+            transport, _ = await loop.create_datagram_endpoint(
+                asyncio.DatagramProtocol,
+                remote_addr=(host, port),
+            )
+        except OSError as e:
+            raise VentoConnectionError(f"Cannot open socket {host}:{port}: {e}") from e
         transport.sendto(packet)
         await asyncio.sleep(0)  # yield so the event loop flushes the write buffer before closing
         transport.close()

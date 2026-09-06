@@ -19,11 +19,11 @@ from playwright.sync_api import Page, expect
 BASE = "http://localhost:8080"
 
 _DEFAULT_IP        = "127.0.0.1"
-_DEFAULT_DEVICE_ID = "VENT-SIM"
+_DEFAULT_DEVICE_ID = "SIMFAN0000000001"
 
 
 @pytest.fixture(scope="session")
-def browser_context_args(browser_context_args):
+def browser_context_args(browser_context_args, web_proc):  # noqa: ARG001  – start backend before browser tests
     return {**browser_context_args, "base_url": BASE}
 
 
@@ -112,7 +112,9 @@ def test_save_scenario_modal(page: Page):
     """'Save as Scenario' opens the save dialog."""
     page.goto("/")
     _connect(page)
-    page.get_by_role("button", name=re.compile(r"Scenario", re.IGNORECASE)).click(timeout=10_000)
+    _open_details(page)
+    page.get_by_role("button", name="Scenario ▾").click(timeout=10_000)
+    page.get_by_role("button", name="Create new scenario…").click()
     expect(page.get_by_role("dialog", name="Save scenario")).to_be_visible()
 
 
@@ -120,9 +122,12 @@ def test_save_scenario_and_appears_in_list(page: Page):
     """A saved scenario appears in the scenario list."""
     page.goto("/")
     _connect(page)
-    page.get_by_role("button", name=re.compile(r"Scenario", re.IGNORECASE)).click(timeout=10_000)
+    _open_details(page)
+    page.get_by_role("button", name="Scenario ▾").click(timeout=10_000)
+    page.get_by_role("button", name="Create new scenario…").click()
     page.get_by_label("Name").fill("E2E Test Scenario")
     page.get_by_role("button", name="Save").click()
+    _open_details(page)
     expect(page.get_by_text("E2E Test Scenario")).to_be_visible(timeout=5_000)
 
 
@@ -159,29 +164,29 @@ def test_switch_between_fans(page: Page):
     page.goto("/")
 
     # Connect to first fan
-    _connect(page, "127.0.0.1", "VENT-SIM-1")
-    expect(page.get_by_text("VENT-SIM-1")).to_be_visible(timeout=10_000)
+    _connect(page, "127.0.0.1", "SIMFAN0000000001")
+    expect(page.get_by_role("banner").get_by_text("SIMFAN0000000001")).to_be_visible(timeout=10_000)
 
     # Switch to second fan
     page.get_by_role("button", name="Switch").click()
     expect(page.get_by_role("dialog", name="Connect to device")).to_be_visible(timeout=5_000)
-    _connect(page, "127.0.0.1", "VENT-SIM-2")
+    _connect(page, "127.0.0.1", "SIMFAN0000000002")
 
     # Dashboard must now show the second fan's device ID, not the first
-    expect(page.get_by_text("VENT-SIM-2")).to_be_visible(timeout=10_000)
-    expect(page.get_by_text("VENT-SIM-1")).not_to_be_visible()
+    expect(page.get_by_role("banner").get_by_text("SIMFAN0000000002")).to_be_visible(timeout=10_000)
+    expect(page.get_by_text("SIMFAN0000000001")).not_to_be_visible()
 
 
 def test_switch_connect_dialog_is_prefilled_with_current_device(page: Page):
     """The connect dialog opened via 'Switch…' must pre-populate the current device's IP and ID."""
     page.goto("/")
     _connect(page)
-    expect(page.get_by_text("VENT-SIM")).to_be_visible(timeout=10_000)
+    expect(page.get_by_role("banner").get_by_text("SIMFAN0000000001")).to_be_visible(timeout=10_000)
 
     page.get_by_role("button", name="Switch").click()
 
     expect(page.get_by_placeholder("IP address")).to_have_value("127.0.0.1", timeout=5_000)
-    expect(page.get_by_placeholder("Device ID")).to_have_value("VENT-SIM", timeout=5_000)
+    expect(page.get_by_placeholder("Device ID")).to_have_value("SIMFAN0000000001", timeout=5_000)
 
 
 # ── Details modal ───────────────────────────────────────────────────────────────
@@ -195,21 +200,21 @@ def _open_details(page: Page) -> None:
 def test_details_button_visible_when_connected(page: Page):
     """Details… button is rendered after connecting."""
     page.goto("/")
-    _connect(page, "127.0.0.1", "VENT-SIM")
+    _connect(page, "127.0.0.1", "SIMFAN0000000001")
     expect(page.get_by_role("button", name="Details…")).to_be_visible(timeout=10_000)
 
 
 def test_details_modal_opens(page: Page):
     """Clicking Details… opens the fan details modal."""
     page.goto("/")
-    _connect(page, "127.0.0.1", "VENT-SIM")
+    _connect(page, "127.0.0.1", "SIMFAN0000000001")
     _open_details(page)
 
 
 def test_details_modal_closes_on_x(page: Page):
     """Clicking the close button hides the fan details modal."""
     page.goto("/")
-    _connect(page, "127.0.0.1", "VENT-SIM")
+    _connect(page, "127.0.0.1", "SIMFAN0000000001")
     _open_details(page)
     page.get_by_role("button", name="Close details").click()
     expect(page.get_by_role("dialog", name="Fan details")).not_to_be_visible(timeout=5_000)
@@ -220,7 +225,7 @@ def test_details_modal_closes_on_x(page: Page):
 def test_schedule_section_visible_in_details(page: Page):
     """Schedule controls are visible inside the fan details modal."""
     page.goto("/")
-    _connect(page, "127.0.0.1", "VENT-SIM")
+    _connect(page, "127.0.0.1", "SIMFAN0000000001")
     _open_details(page)
 
     expect(page.get_by_role("button", name=re.compile(r"Schedule:", re.IGNORECASE))).to_be_visible(timeout=5_000)
@@ -231,7 +236,7 @@ def test_schedule_section_visible_in_details(page: Page):
 def test_schedule_enable_toggle(page: Page):
     """Clicking the Schedule toggle in the details modal changes its pressed state."""
     page.goto("/")
-    _connect(page, "127.0.0.1", "VENT-SIM")
+    _connect(page, "127.0.0.1", "SIMFAN0000000001")
     _open_details(page)
 
     toggle = page.get_by_role("button", name=re.compile(r"Schedule:", re.IGNORECASE))
@@ -247,7 +252,7 @@ def test_schedule_enable_toggle(page: Page):
 def test_schedule_editor_opens(page: Page):
     """Clicking 'Edit…' in the details modal opens the schedule editor dialog."""
     page.goto("/")
-    _connect(page, "127.0.0.1", "VENT-SIM")
+    _connect(page, "127.0.0.1", "SIMFAN0000000001")
     _open_details(page)
 
     page.get_by_role("button", name="Edit…").click()
@@ -257,7 +262,7 @@ def test_schedule_editor_opens(page: Page):
 def test_sync_rtc_button_clickable(page: Page):
     """Sync RTC button in the details modal responds to a click without error."""
     page.goto("/")
-    _connect(page, "127.0.0.1", "VENT-SIM")
+    _connect(page, "127.0.0.1", "SIMFAN0000000001")
     _open_details(page)
 
     sync_btn = page.get_by_role("button", name="Sync RTC")

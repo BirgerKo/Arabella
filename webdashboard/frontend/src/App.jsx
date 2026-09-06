@@ -125,6 +125,11 @@ export default function App() {
     dispatch({ type: 'DEVICE_STATE', payload: newState })
   }, [])
 
+  const handleCreateNewScenario = useCallback(() => {
+    dispatch({ type: 'HIDE_DETAILS' })
+    dispatch({ type: 'SHOW_SAVE' })
+  }, [])
+
   const handleSaveScenario = useCallback(async (name) => {
     await api.saveScenario(name)
     const list = await api.listScenarios()
@@ -175,6 +180,8 @@ export default function App() {
         <ConnectDialog
           onConnect={handleConnect}
           onCancel={connected ? () => dispatch({ type: 'HIDE_CONNECT' }) : undefined}
+          initialIp={deviceState?.ip ?? ''}
+          initialDeviceId={deviceState?.device_id ?? ''}
         />
       )}
       {showDetails && (
@@ -189,7 +196,7 @@ export default function App() {
           onScheduleEnable={handleScheduleEnable}
           onScheduleEdit={handleScheduleEdit}
           onSyncRtc={handleSyncRtc}
-          onCreateNewScenario={() => dispatch({ type: 'SHOW_SAVE' })}
+          onCreateNewScenario={handleCreateNewScenario}
           onAddToExisting={handleAddToScenario}
           onApplyScenario={handleApply}
           onDeleteScenario={handleDelete}
