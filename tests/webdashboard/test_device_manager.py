@@ -2,7 +2,6 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 from blauberg_vento.models import DeviceState, DiscoveredDevice
 from webdashboard.backend.device_manager import DeviceManager, _state_to_dict
 
@@ -204,7 +203,7 @@ async def test_sync_rtc(manager):
 
 
 def test_state_to_dict_includes_schedule_fields():
-    from blauberg_vento.models import RtcTime, RtcCalendar
+    from blauberg_vento.models import RtcCalendar, RtcTime
     state = _make_state(
         weekly_schedule_enabled=True,
         rtc_time=RtcTime(hours=14, minutes=30, seconds=0),
@@ -275,6 +274,31 @@ async def test_connect_replaces_active_device(manager):
     assert poll_task_a.done(), "Poller for device A must be cancelled after switching"
     assert manager._poll_task is not poll_task_a, "A new poll task must be created for device B"
 
+    manager.disconnect()
+
+
+@pytest.mark.asyncio
+async def test_failed_reconnect_preserves_active_device(manager):
+    state_a = _make_state(ip="10.0.0.1", device_id="FAN-A")
+    client_a = MagicMock()
+    client_a.get_state = AsyncMock(return_value=state_a)
+    client_b = MagicMock()
+    client_b.get_state = AsyncMock(side_effect=RuntimeError("unreachable"))
+
+    clients = iter([client_a, client_b])
+    with patch(
+        "webdashboard.backend.device_manager.AsyncVentoClient",
+        side_effect=lambda *a, **kw: next(clients),
+    ):
+        await manager.connect("10.0.0.1", "FAN-A")
+        poll_task_a = manager._poll_task
+
+        with pytest.raises(RuntimeError, match="unreachable"):
+            await manager.connect("10.0.0.2", "FAN-B")
+
+    assert manager.current_state is state_a
+    assert manager._client is client_a
+    assert manager._poll_task is poll_task_a
     manager.disconnect()
 
 

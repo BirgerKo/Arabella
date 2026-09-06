@@ -99,6 +99,22 @@ def _parse_discovery_item(item: DiscoveryItem) -> DiscoveredDevice | None:
         return None
 
 
+def _parse_discovery_items(items: list[DiscoveryItem]) -> list[DiscoveredDevice]:
+    """Parse discovery responses and remove duplicate device advertisements."""
+    devices: list[DiscoveredDevice] = []
+    seen: set[str] = set()
+    for item in items:
+        device = _parse_discovery_item(item)
+        if device is None:
+            continue
+        identity = device.device_id or device.ip
+        if identity in seen:
+            continue
+        seen.add(identity)
+        devices.append(device)
+    return devices
+
+
 class _DeviceStateBuilder:
     """Assembles a DeviceState from the raw parameter dict returned by the device."""
 
@@ -487,7 +503,7 @@ class VentoClient:
     ) -> list[DiscoveredDevice]:
         transport = VentoTransport(timeout=timeout)
         raw_items = transport.discover(build_discovery(), broadcast, port, timeout)
-        return [device for item in raw_items if (device := _parse_discovery_item(item)) is not None]
+        return _parse_discovery_items(raw_items)
 
     def __repr__(self) -> str:
         return f"<VentoClient host={self.host!r} id={self.device_id!r}>"
@@ -668,7 +684,7 @@ class AsyncVentoClient:
     ) -> list[DiscoveredDevice]:
         transport = AsyncVentoTransport(timeout=timeout)
         raw_items = await transport.discover(build_discovery(), broadcast, port, timeout)
-        return [device for item in raw_items if (device := _parse_discovery_item(item)) is not None]
+        return _parse_discovery_items(raw_items)
 
     def __repr__(self) -> str:
         return f"<AsyncVentoClient host={self.host!r} id={self.device_id!r}>"

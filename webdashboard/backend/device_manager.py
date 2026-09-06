@@ -11,10 +11,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from dataclasses import asdict
-from typing import Any, Optional
+from typing import Any
 
-from blauberg_vento.client import AsyncVentoClient, VentoClient
+from blauberg_vento.client import AsyncVentoClient
 from blauberg_vento.models import DeviceState, DiscoveredDevice
 
 log = logging.getLogger(__name__)
@@ -51,10 +50,10 @@ class DeviceManager:
     """Manages the connection to a single Vento fan device."""
 
     def __init__(self) -> None:
-        self._client: Optional[AsyncVentoClient] = None
-        self._state: Optional[DeviceState] = None
-        self._poll_task: Optional[asyncio.Task] = None
-        self._broadcast_callback: Optional[Any] = None  # async callable(dict)
+        self._client: AsyncVentoClient | None = None
+        self._state: DeviceState | None = None
+        self._poll_task: asyncio.Task | None = None
+        self._broadcast_callback: Any | None = None  # async callable(dict)
 
     def set_broadcast_callback(self, callback) -> None:
         """Register the async callback that receives state-update dicts."""
@@ -63,10 +62,16 @@ class DeviceManager:
     # ── Connection ────────────────────────────────────────────────────────────
 
     async def connect(self, ip: str, device_id: str, password: str = "1111") -> DeviceState:
-        """Connect to a device and perform an initial state fetch."""
+        """Connect to a device after its initial state fetch succeeds.
+
+        The existing connection remains active if the replacement device cannot
+        be reached, which makes reconnect and fan switching failure-safe.
+        """
+        candidate = AsyncVentoClient(ip, device_id, password)
+        state = await candidate.get_state()
         await self._stop_polling()
-        self._client = AsyncVentoClient(ip, device_id, password)
-        self._state = await self._client.get_state()
+        self._client = candidate
+        self._state = state
         self._start_polling()
         return self._state
 
@@ -80,7 +85,7 @@ class DeviceManager:
         return self._client is not None and self._state is not None
 
     @property
-    def current_state(self) -> Optional[DeviceState]:
+    def current_state(self) -> DeviceState | None:
         return self._state
 
     # ── Commands ──────────────────────────────────────────────────────────────

@@ -910,3 +910,15 @@ Playwright E2E tests for the scenario manager and quick slots.
 | `Q2 and Q3 slots are empty and disabled` | Unassigned slots → buttons are disabled | Q2 and Q3 buttons disabled |
 | `clicking Q1 sends apply scenario request` | Click Q1 → `POST /api/scenarios/Night/apply` | Applied name = "Night" |
 | `assigning a scenario to a slot calls setQuickSlots` | Select Q2 for "Boost" → `PUT /api/scenarios/quick-slots/…` | Body `slots[1] == "Boost"` |
+
+---
+
+## tests/test_client_discovery.py
+
+Discovery tests ensure repeated UDP advertisements do not produce duplicate
+devices in the public client API.
+
+| Test | Purpose | Expected result |
+|------|---------|----------------|
+| `test_parse_discovery_items_deduplicates_device_advertisements` | Remove repeated advertisements for the same device | One device remains |
+| `test_discover_returns_unique_devices` | Apply duplicate filtering through the synchronous discovery API | One device is returned |
