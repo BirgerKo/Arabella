@@ -3,7 +3,6 @@ import socket
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from blauberg_vento.exceptions import VentoConnectionError, VentoTimeoutError
 from blauberg_vento.transport import AsyncVentoTransport, VentoTransport
 
@@ -11,7 +10,7 @@ from blauberg_vento.transport import AsyncVentoTransport, VentoTransport
 def test_sync_send_recv_raises_timeout_error() -> None:
     fake_socket = MagicMock()
     fake_socket.__enter__.return_value = fake_socket
-    fake_socket.recvfrom.side_effect = socket.timeout()
+    fake_socket.recvfrom.side_effect = TimeoutError()
 
     with patch("blauberg_vento.transport.socket.socket", return_value=fake_socket):
         with pytest.raises(VentoTimeoutError):

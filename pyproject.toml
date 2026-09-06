@@ -27,6 +27,7 @@ packages = ["blauberg_vento", "ventocontrol", "webdashboard"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths    = ["tests"]
+norecursedirs = ["webdashboard/e2e"]
 
 [tool.coverage.run]
 source = ["blauberg_vento"]
@@ -37,6 +38,10 @@ src = ["blauberg_vento", "ventocontrol", "webdashboard"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+"blauberg_vento/parameters.py" = ["E501"]
+"tests/test_protocol.py" = ["E701", "E702"]
 
 [tool.mypy]
 python_version = "3.11"

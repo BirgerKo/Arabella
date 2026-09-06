@@ -1,5 +1,4 @@
 import pytest
-
 from blauberg_vento.exceptions import VentoChecksumError, VentoProtocolError
 from blauberg_vento.protocol import parse_response, verify_checksum
 

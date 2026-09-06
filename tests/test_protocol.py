@@ -1,12 +1,21 @@
 import pytest
+from blauberg_vento.exceptions import VentoChecksumError, VentoUnsupportedParamError
+from blauberg_vento.parameters import Func, Param
 from blauberg_vento.protocol import (
-    build_read, build_write_resp, build_discovery, build_packet,
-    parse_response, verify_checksum,
-    decode_firmware, decode_ip, decode_machine_hours, decode_rtc_time,
-    decode_rtc_calendar, decode_schedule, decode_timer_countdown,
-    decode_filter_countdown, encode_ip)
-from blauberg_vento.parameters import Param, Func
-from blauberg_vento.exceptions import VentoChecksumError, VentoProtocolError, VentoUnsupportedParamError
+    build_discovery,
+    build_packet,
+    build_read,
+    decode_filter_countdown,
+    decode_firmware,
+    decode_ip,
+    decode_machine_hours,
+    decode_rtc_calendar,
+    decode_rtc_time,
+    decode_schedule,
+    encode_ip,
+    parse_response,
+    verify_checksum,
+)
 
 NULL_ID  = b'\x00' * 16
 NULL_PWD = '1111'

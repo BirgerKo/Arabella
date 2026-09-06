@@ -5,8 +5,17 @@ from typing import NamedTuple
 
 from .exceptions import VentoChecksumError, VentoProtocolError, VentoUnsupportedParamError
 from .parameters import (
-    CMD_NOT_SUP, CMD_PAGE, CMD_SIZE, CMD_FUNC, DEFAULT_DEVICE_ID,
-    MAX_PACKET_SIZE, PACKET_START, PROTOCOL_TYPE, Func, Param, param_size,
+    CMD_FUNC,
+    CMD_NOT_SUP,
+    CMD_PAGE,
+    CMD_SIZE,
+    DEFAULT_DEVICE_ID,
+    MAX_PACKET_SIZE,
+    PACKET_START,
+    PROTOCOL_TYPE,
+    Func,
+    Param,
+    param_size,
 )
 
 ParamValue = int | bytes

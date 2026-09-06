@@ -77,6 +77,29 @@ ventosim --count 3
 pytest
 ```
 
+## Code Quality
+
+Install the development tools with:
+
+```bash
+python -m pip install -e ".[dev]"
+```
+
+Run the same checks used by CI:
+
+```bash
+python -m ruff check blauberg_vento tests/test_protocol.py tests/test_protocol_invalid.py tests/test_transport.py
+python -m mypy blauberg_vento
+```
+
+The default run excludes browser E2E tests because the synchronous Playwright
+plugin and pytest-asyncio cannot share one pytest event loop on Python 3.13.
+Run the browser tests separately:
+
+```bash
+pytest tests/webdashboard/e2e --browser chromium
+```
+
 ## Features
 
 Both the desktop GUI and web dashboard provide full fan control parity with a clean

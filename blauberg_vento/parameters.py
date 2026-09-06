@@ -1,5 +1,5 @@
 from enum import IntEnum
-from typing import cast
+from typing import TypedDict
 
 
 class Func(IntEnum):
@@ -78,12 +78,21 @@ class Param(IntEnum):
     PARTY_TIMER = 0x0303
 
 
+class ParamMeta(TypedDict):
+    func: frozenset[str]
+    size: int | None
+    not_a30: bool
+    desc: str
+    values: dict[int, str] | None
+    range: tuple[int, int] | None
+
+
 _READ_ONLY = frozenset(['R'])
 _WRITE_ONLY = frozenset(['W'])
 _READ_WRITE = frozenset(['R', 'W', 'RW'])
 _READ_WRITE_INC_DEC = frozenset(['R', 'W', 'RW', 'INC', 'DEC'])
 
-PARAM_META = { # pyright: ignore[reportUnknownVariableType]
+PARAM_META: dict[Param, ParamMeta] = {
     Param.POWER:             {'func': _READ_WRITE,         'size': 1,    'not_a30': False, 'desc': 'Unit On/Off',              'values': {0: 'Off', 1: 'On', 2: 'Invert'},                                'range': None},
     Param.SPEED:             {'func': _READ_WRITE_INC_DEC, 'size': 1,    'not_a30': False, 'desc': 'Speed number',             'values': {1: 'Speed 1', 2: 'Speed 2', 3: 'Speed 3', 255: 'Manual'},     'range': None},
     Param.BOOST_STATUS:      {'func': _READ_ONLY,          'size': 1,    'not_a30': False, 'desc': 'Boost status',             'values': {0: 'Off', 1: 'On'},                                            'range': None},
@@ -139,7 +148,7 @@ PARAM_META = { # pyright: ignore[reportUnknownVariableType]
 
 
 def param_size(p: Param) -> int | None:
-    return PARAM_META[p]['size'] # type: ignore
+    return PARAM_META[p]['size']
 
 
 def is_readable(p: Param) -> bool:
@@ -155,4 +164,4 @@ def is_incrementable(p: Param) -> bool:
 
 
 def is_not_a30(p: Param) -> bool:
-    return cast(bool, PARAM_META[p]['not_a30'])
+    return PARAM_META[p]['not_a30']

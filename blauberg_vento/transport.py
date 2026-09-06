@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import asyncio
-import socket
 import logging
+import socket
 
 from .exceptions import VentoConnectionError, VentoDiscoveryError, VentoTimeoutError
 from .parameters import DEFAULT_PORT
@@ -28,7 +28,7 @@ class VentoTransport:
                 s.sendto(packet, (host, port))
                 data, _ = s.recvfrom(_UDP_BUFFER_SIZE)
                 return data
-        except socket.timeout:
+        except TimeoutError:
             raise VentoTimeoutError(f"Timeout from {host}:{port}")
         except OSError as e:
             raise VentoConnectionError(f"Socket error {host}:{port}: {e}") from e
@@ -59,7 +59,7 @@ class VentoTransport:
                     try:
                         data, addr = s.recvfrom(_UDP_BUFFER_SIZE)
                         results.append({'ip': addr[0], 'raw': data})
-                    except socket.timeout:
+                    except TimeoutError:
                         break
         except OSError as e:
             raise VentoDiscoveryError(f"Discovery error: {e}") from e
@@ -95,7 +95,13 @@ class AsyncVentoTransport:
     def __init__(self, timeout: float = 3.0) -> None:
         self.timeout = timeout
 
-    async def send_recv(self, host: str, packet: bytes, port: int = DEFAULT_PORT, timeout: float | None = None) -> bytes:
+    async def send_recv(
+        self,
+        host: str,
+        packet: bytes,
+        port: int = DEFAULT_PORT,
+        timeout: float | None = None,
+    ) -> bytes:
         t = timeout if timeout is not None else self.timeout
         loop = asyncio.get_running_loop()
         future: asyncio.Future[DatagramResponse] = loop.create_future()
@@ -110,7 +116,7 @@ class AsyncVentoTransport:
             transport.sendto(packet)
             data, _ = await asyncio.wait_for(future, timeout=t)
             return data
-        except asyncio.TimeoutError:
+        except TimeoutError:
             raise VentoTimeoutError(f"Async timeout {host}:{port}")
         finally:
             transport.close()
@@ -156,7 +162,7 @@ class AsyncVentoTransport:
                     break
                 try:
                     results.append(await asyncio.wait_for(queue.get(), timeout=remaining))
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     break
         finally:
             transport.close()
