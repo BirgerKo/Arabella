@@ -6,8 +6,12 @@ from typing import NamedTuple
 from .exceptions import VentoChecksumError, VentoProtocolError, VentoUnsupportedParamError
 from .parameters import (
     CMD_NOT_SUP, CMD_PAGE, CMD_SIZE, CMD_FUNC, DEFAULT_DEVICE_ID,
-    MAX_PACKET_SIZE, PACKET_START, PARAM_META, PROTOCOL_TYPE, Func, Param,
+    MAX_PACKET_SIZE, PACKET_START, PROTOCOL_TYPE, Func, Param, param_size,
 )
+
+ParamValue = int | bytes
+ParamValues = dict[Param, ParamValue]
+ResponseValues = dict[Param | int, bytes]
 
 
 def _encode_id(device_id: str | bytes) -> bytes:
@@ -60,12 +64,12 @@ def _build_read_data(params: list[Param]) -> bytes:
     return bytes(data)
 
 
-def _build_write_data(param_values: dict) -> bytes:
+def _build_write_data(param_values: dict[Param, int | bytes]) -> bytes:
     data = bytearray()
     page = 0x00
     for p, val in param_values.items():
         high, low = _param_high_low(p)
-        expected_size = PARAM_META[p]['size']
+        expected_size = param_size(p)
         if isinstance(val, int):
             if expected_size is None:
                 raise VentoProtocolError(f"{p.name} needs bytes, not int")
@@ -87,11 +91,11 @@ def build_read(device_id: str | bytes, password: str, params: list[Param]) -> by
     return build_packet(device_id, password, Func.READ, _build_read_data(params))
 
 
-def build_write(device_id: str | bytes, password: str, pv: dict) -> bytes:
+def build_write(device_id: str | bytes, password: str, pv: ParamValues) -> bytes:
     return build_packet(device_id, password, Func.WRITE, _build_write_data(pv))
 
 
-def build_write_resp(device_id: str | bytes, password: str, pv: dict) -> bytes:
+def build_write_resp(device_id: str | bytes, password: str, pv: ParamValues) -> bytes:
     return build_packet(device_id, password, Func.WRITE_RESP, _build_write_data(pv))
 
 
@@ -145,7 +149,7 @@ def _parse_packet_header(raw: bytes) -> _PacketHeader:
     )
 
 
-def parse_response(raw: bytes) -> dict:
+def parse_response(raw: bytes) -> ResponseValues:
     verify_checksum(raw)
     header = _parse_packet_header(raw)
     if header.func_byte != int(Func.RESPONSE):
@@ -153,10 +157,10 @@ def parse_response(raw: bytes) -> dict:
     return _parse_data_bytes(raw[header.data_start:-2])
 
 
-def _parse_data_bytes(data: bytes) -> dict:
+def _parse_data_bytes(data: bytes) -> ResponseValues:
     """Walk the TLV-like data section of a response packet and return a param → bytes mapping."""
-    result: dict = {}
-    unsupported: list = []
+    result: ResponseValues = {}
+    unsupported: list[int] = []
     page = 0x00
     i = 0
     param_size = 1
@@ -231,7 +235,7 @@ def decode_text(val: bytes) -> str:
     return val.decode('ascii', errors='replace')
 
 
-def decode_firmware(val: bytes) -> dict:
+def decode_firmware(val: bytes) -> dict[str, int]:
     if len(val) != 6:
         raise VentoProtocolError("Firmware must be 6 bytes")
     return {
@@ -241,25 +245,25 @@ def decode_firmware(val: bytes) -> dict:
     }
 
 
-def decode_machine_hours(val: bytes) -> dict:
+def decode_machine_hours(val: bytes) -> dict[str, int]:
     if len(val) != 4:
         raise VentoProtocolError("Machine hours must be 4 bytes")
     return {'minutes': val[0], 'hours': val[1], 'days': int.from_bytes(val[2:4], 'little')}
 
 
-def decode_rtc_time(val: bytes) -> dict:
+def decode_rtc_time(val: bytes) -> dict[str, int]:
     if len(val) != 3:
         raise VentoProtocolError("RTC time must be 3 bytes")
     return {'seconds': val[0], 'minutes': val[1], 'hours': val[2]}
 
 
-def decode_rtc_calendar(val: bytes) -> dict:
+def decode_rtc_calendar(val: bytes) -> dict[str, int]:
     if len(val) != 4:
         raise VentoProtocolError("RTC calendar must be 4 bytes")
     return {'day': val[0], 'day_of_week': val[1], 'month': val[2], 'year': 2000 + val[3]}
 
 
-def decode_schedule(val: bytes) -> dict:
+def decode_schedule(val: bytes) -> dict[str, int]:
     if len(val) != 6:
         raise VentoProtocolError("Schedule must be 6 bytes")
     return {
@@ -268,13 +272,13 @@ def decode_schedule(val: bytes) -> dict:
     }
 
 
-def decode_timer_countdown(val: bytes) -> dict:
+def decode_timer_countdown(val: bytes) -> dict[str, int]:
     if len(val) != 3:
         raise VentoProtocolError("Timer countdown must be 3 bytes")
     return {'seconds': val[0], 'minutes': val[1], 'hours': val[2]}
 
 
-def decode_filter_countdown(val: bytes) -> dict:
+def decode_filter_countdown(val: bytes) -> dict[str, int]:
     if len(val) != 3:
         raise VentoProtocolError("Filter countdown must be 3 bytes")
     return {'minutes': val[0], 'hours': val[1], 'days': val[2]}
