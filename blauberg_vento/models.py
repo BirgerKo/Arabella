@@ -1,3 +1,21 @@
+"""
+Blauberg Vento Data Models
+
+This module defines dataclasses and named tuples to represent:
+- Device state (`DeviceState`): Current status of a Vento device (e.g., power, speed, sensors).
+- Configuration models (`FirmwareVersion`, `WifiConfig`, `RtcTime`, etc.).
+- Unit type metadata (`_UNIT_TYPE_INFO`): Maps unit type IDs to human-readable names.
+
+Key Classes:
+- `DeviceState`: Aggregates all readable parameters from a device.
+- `DiscoveredDevice`: Represents a device found during UDP discovery.
+- `FirmwareVersion`, `RtcTime`, `RtcCalendar`: Structured representations of device metadata.
+
+Usage Example:
+    state = client.get_state()
+    print(f"Device: {state.device_id}, Power: {'ON' if state.power else 'OFF'}")
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

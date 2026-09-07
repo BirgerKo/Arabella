@@ -1,3 +1,24 @@
+"""
+Blauberg Vento Protocol Implementation
+
+This module handles the low-level protocol for communicating with Blauberg Vento devices.
+It includes:
+- Packet construction (`build_packet`, `build_read`, `build_write`).
+- Response parsing (`parse_response`, `_parse_data_bytes`).
+- Checksum verification (`verify_checksum`).
+- Data encoding/decoding (e.g., `decode_int`, `decode_ip`, `decode_firmware`).
+
+Key Functions:
+- `build_read(device_id, password, params)`: Build a packet to read parameters.
+- `build_write(device_id, password, param_values)`: Build a packet to write parameters.
+- `parse_response(raw)`: Parse a raw response packet into a dictionary of parameter values.
+
+Usage Example:
+    packet = build_read(device_id="DEVICE_ID", password="1111", params=[Param.POWER])
+    response = transport.send_recv("192.168.1.100", packet)
+    parsed = parse_response(response)
+"""
+
 from __future__ import annotations
 
 import struct

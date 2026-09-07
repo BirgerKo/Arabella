@@ -1,3 +1,26 @@
+"""
+Blauberg Vento Protocol Parameters
+
+This module defines:
+- `Param`: Enum of all supported Blauberg Vento protocol parameters (e.g., `POWER`, `SPEED`, `HUMIDITY_SENSOR`).
+- `Func`: Enum of protocol functions (e.g., `READ`, `WRITE`, `INCREMENT`).
+- `PARAM_META`: Metadata for each parameter, including:
+  - Supported functions (`func`).
+  - Size in bytes (`size`).
+  - Whether the parameter is unsupported on A30 units (`not_a30`).
+  - Human-readable description (`desc`).
+  - Valid values or ranges (`values`, `range`).
+
+Helper Functions:
+- `is_readable(param)`: Check if a parameter can be read.
+- `is_writable(param)`: Check if a parameter can be written.
+- `param_size(param)`: Get the size of a parameter in bytes.
+
+Usage Example:
+    from parameters import Param, is_readable
+    if is_readable(Param.POWER):
+        print("POWER can be read from the device.")
+"""
 from enum import IntEnum
 from typing import TypedDict
 

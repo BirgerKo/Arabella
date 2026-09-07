@@ -1,3 +1,22 @@
+"""
+Blauberg Vento Exception Hierarchy
+
+This module defines custom exceptions for the Blauberg Vento protocol.
+All exceptions inherit from `VentoError` and cover:
+- Connection/timeout errors (`VentoConnectionError`, `VentoTimeoutError`).
+- Protocol errors (`VentoProtocolError`, `VentoChecksumError`, `VentoInvalidResponseError`).
+- Authentication errors (`VentoAuthError`).
+- Parameter errors (`VentoValueError`, `VentoUnsupportedParamError`).
+- Discovery errors (`VentoDiscoveryError`).
+
+Usage Example:
+    try:
+        client.get_state()
+    except VentoTimeoutError:
+        print("Device did not respond in time.")
+    except VentoAuthError:
+        print("Authentication failed.")
+"""
 class VentoError(Exception):
     """Base exception for all Blauberg Vento client failures."""
 

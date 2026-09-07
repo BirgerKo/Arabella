@@ -1,3 +1,23 @@
+"""
+Blauberg Vento Client Implementation
+
+This module provides the main client classes for interacting with Blauberg Vento devices.
+It supports:
+- Synchronous (`VentoClient`) and asynchronous (`AsyncVentoClient`) communication.
+- Reading and writing device parameters (e.g., power, speed, timers, sensors).
+- Device discovery via UDP broadcast.
+- Helper methods for common operations (e.g., turning on/off, setting speed, configuring Wi-Fi).
+
+Key Classes:
+- `VentoClient`: Synchronous client for direct device control.
+- `AsyncVentoClient`: Asynchronous client for non-blocking operations.
+- `_DeviceStateBuilder`: Internal helper to construct `DeviceState` from raw parameter data.
+
+Usage Example:
+    client = VentoClient(host="192.168.1.100", device_id="DEVICE_ID", password="1111")
+    state = client.get_state()
+    client.turn_on()
+"""
 from __future__ import annotations
 
 import logging

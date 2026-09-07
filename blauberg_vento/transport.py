@@ -1,3 +1,21 @@
+"""
+Blauberg Vento Transport Layer
+
+This module provides the UDP transport layer for communicating with Blauberg Vento devices.
+It supports:
+- Synchronous (`VentoTransport`) and asynchronous (`AsyncVentoTransport`) UDP operations.
+- Device discovery via UDP broadcast (`discover` method).
+- Timeout and error handling for socket operations.
+
+Key Classes:
+- `VentoTransport`: Synchronous UDP client for sending/receiving packets.
+- `AsyncVentoTransport`: Asynchronous UDP client for non-blocking operations.
+
+Usage Example:
+    transport = VentoTransport(timeout=3.0)
+    response = transport.send_recv("192.168.1.100", packet, port=4000)
+"""
+
 from __future__ import annotations
 
 import asyncio
