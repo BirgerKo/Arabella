@@ -175,11 +175,13 @@ client.turn_on()  # Blocks until command is sent
 import asyncio
 from blauberg_vento import AsyncVentoClient
 
+
 async def monitor_device():
     async with AsyncVentoClient(host="192.168.1.100", device_id="DEVICE_ID") as client:
         state = await client.get_state()  # Non-blocking: allows other tasks to run
         print(f"Power: {'ON' if state.power else 'OFF'}")
         await client.turn_on()  # Non-blocking
+
 
 # Run multiple device interactions concurrently
 async def main():
@@ -189,6 +191,7 @@ async def main():
     ]
     tasks = [monitor_device(device[0], device[1]) for device in devices]
     await asyncio.gather(*tasks)  # Runs concurrently
+
 
 asyncio.run(main())
 ```
