@@ -1,0 +1,20 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "description": "Connect to your Blauberg Vento fan.",
+        "data": {
+          "host": "Host",
+          "device_id": "Device ID",
+          "password": "Password"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to the device. Check host, device ID, and password."
+    },
+    "abort": {
+      "already_configured": "This device is already configured."
+    }
+  }
+}
