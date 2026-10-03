@@ -1,7 +1,8 @@
-"""FanDetailsDialog — non-modal detail view for a single fan."""
+"""FanDetailsWindow — non-modal detail view for a single fan."""
 
 from __future__ import annotations
 
+from blauberg_vento.models import DeviceState
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QDialog,
@@ -13,13 +14,14 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
-from blauberg_vento.models import DeviceState
+from ventocontrol.app import WARNING
 from ventocontrol.scenarios import ScenarioStore
+from ventocontrol.widgets.airflow_fan_icon import attention_reason
 from ventocontrol.widgets.humidity_widget import HumidityWidget
 from ventocontrol.widgets.rpm_display import RPMDisplay
 
 
-class FanDetailsDialog(QDialog):
+class FanDetailsWindow(QDialog):
     """Shows boost, humidity, RPM, schedule and scenario controls for one fan."""
 
     boost_changed = Signal(bool)
@@ -50,6 +52,13 @@ class FanDetailsDialog(QDialog):
         layout.setContentsMargins(16, 16, 16, 16)
 
         layout.addLayout(self._build_boost_row())
+        # The reason the window's health colour is yellow, e.g. an alarm or
+        # an expired filter timer — shown only while the fan needs attention.
+        self._attention_lbl = QLabel("")
+        self._attention_lbl.setObjectName("AttentionLbl")
+        self._attention_lbl.setStyleSheet(f"QLabel {{ color: {WARNING}; font-weight: 600; }}")
+        self._attention_lbl.setVisible(False)
+        layout.addWidget(self._attention_lbl)
         layout.addWidget(self._build_humidity_box())
         layout.addWidget(self._build_rpm_box())
         layout.addWidget(self._build_schedule_box())
@@ -157,6 +166,10 @@ class FanDetailsDialog(QDialog):
 
     def refresh(self, state: DeviceState) -> None:
         """Update all detail widgets from the latest device state."""
+        reason = attention_reason(state)
+        self._attention_lbl.setText(reason or "")
+        self._attention_lbl.setVisible(reason is not None)
+
         if state.boost_active is not None:
             self._boost_btn.setChecked(state.boost_active)
             self._boost_btn.setText("ON" if state.boost_active else "OFF")

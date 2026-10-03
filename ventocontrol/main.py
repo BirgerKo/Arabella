@@ -7,7 +7,7 @@ import sys
 from ventocontrol.app import VentoApp
 from ventocontrol.history import DeviceHistory
 from ventocontrol.registry import WindowRegistry
-from ventocontrol.ui.main_window import MainWindow
+from ventocontrol.ui.overview_window import OverviewWindow
 
 
 def main():
@@ -16,14 +16,9 @@ def main():
     history = DeviceHistory()
     registry = WindowRegistry()
 
-    entry = history.last_used
-    win = MainWindow(
-        host=entry.ip if entry else "",
-        device_id=entry.device_id if entry else "",
-        password=entry.password if entry else "",
-        history=history,
-        registry=registry,
-    )
+    # The Overview window is the opening screen; clicking a fan card
+    # opens that fan's control window.
+    win = OverviewWindow(history=history, registry=registry)
     win.show()
 
     sys.exit(app.exec())

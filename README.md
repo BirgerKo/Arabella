@@ -72,6 +72,10 @@ commands below will work directly.
 ventocontrol
 ```
 
+The app opens on the Overview window; click a fan card to open that fan's
+control window. Closing the Overview closes every open fan window and exits
+the app.
+
 ## Run the Simulator
 
 ```bash
@@ -121,6 +125,37 @@ two-level layout: daily controls on the main view, deeper settings in a "Details
 | Operation mode (Ventilation / Heat Recovery / Supply) | ✓ | ✓ |
 | Quick-scenario slots (Q1–Q3) | ✓ | ✓ |
 | Connection / alarm status | ✓ | ✓ |
+
+The per-fan window's power button follows the same colour rules as the
+Overview tiles — green when the fan is connected and all is OK, yellow on
+alarm or expired filter timer, grey while unconnected; the glow still shows
+the power state. When it is yellow, the details window states the reason
+("Alarm" and/or "Filter timer expired") above the Humidity section. The fan name sits beside it with the Details button
+directly under the name. Fan switching happens from the Overview window,
+not from the per-fan window.
+
+### Overview — the opening window (Desktop GUI)
+VentoControl opens on the Overview: the same portrait "mobile" format as the
+per-fan window, showing two live tiles per line, one per fan you have
+connected to before.
+
+| Element | Content |
+|---------|---------|
+| Airflow icon | Green when the fan is reachable, grey when not, yellow on alarm or expired filter timer |
+| Airflow arrows | Supply: air into the house · Ventilation: air out · Heat Recovery: both |
+| Fan name | Truncated with an ellipsis when too long for the tile |
+| Humidity | Printed just below the icon, e.g. "57% RH" |
+| Time / date | The fan's internal RTC time above its date |
+
+Clicking a tile opens that fan's control window (the serial number stays in
+the per-fan window's status bar). Right-clicking a tile offers **Open…**,
+**Details…** (opens the fan window and its Details dialog), **Rename…**,
+**Scenario…** (manage scenarios with this fan's quick-slots enabled),
+**Sync Clock to PC** (this fan only) and **Remove from List**. Tiles
+auto-refresh every 10 seconds and grey out when a fan is unreachable. The
+bottom bar keeps **Refresh**, **Sync All Clocks to PC** (sets every fan's
+clock from this computer's system time), and **Connect New Fan…** for
+discovery.
 
 ### Details modal (click "Details…" in the device header)
 | Feature | Desktop GUI | Web Dashboard |

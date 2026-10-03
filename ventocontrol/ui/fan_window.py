@@ -1,10 +1,10 @@
-"""MainWindow — the fan control dashboard."""
+"""FanWindow — the fan control dashboard."""
 
 from __future__ import annotations
 
 import time
-from typing import Optional
 
+from blauberg_vento.models import DeviceState
 from PySide6.QtCore import Qt, QThread, QTimer, Signal, Slot
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
@@ -20,9 +20,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from blauberg_vento.models import DeviceState
 from ventocontrol.app import ACCENT, BORDER, TEXT, TEXT2
 from ventocontrol.controllers.device_worker import DeviceWorker
+from ventocontrol.controllers.poller import Poller
 from ventocontrol.history import DeviceHistory
 from ventocontrol.registry import WindowRegistry
 from ventocontrol.scenarios import (
@@ -31,15 +31,15 @@ from ventocontrol.scenarios import (
     ScenarioSettings,
     ScenarioStore,
 )
-from ventocontrol.controllers.poller import Poller
 from ventocontrol.ui.connect_dialog import ConnectDialog
-from ventocontrol.ui.fan_details_dialog import FanDetailsDialog
+from ventocontrol.ui.fan_details_window import FanDetailsWindow
 from ventocontrol.ui.rename_dialog import RenameDialog
-from ventocontrol.ui.schedule_dialog import ScheduleDialog
 from ventocontrol.ui.scenario_dialog import (
     ManageScenariosDialog,
     SaveScenarioDialog,
 )
+from ventocontrol.ui.schedule_dialog import ScheduleDialog
+from ventocontrol.widgets.airflow_fan_icon import needs_attention
 from ventocontrol.widgets.mode_selector import ModeSelector
 from ventocontrol.widgets.power_button import PowerButton
 from ventocontrol.widgets.speed_control import SpeedControl
@@ -54,7 +54,7 @@ def _schedule_btn_text(enabled: bool) -> str:
     return f"Schedule\n{'ON' if enabled else 'OFF'}"
 
 
-class MainWindow(QMainWindow):
+class FanWindow(QMainWindow):
     # ── Command signals (emitted on main thread, received on worker thread) ──
     _sig_connect = Signal(str, str, str)
     _sig_poll = Signal()
@@ -86,16 +86,16 @@ class MainWindow(QMainWindow):
         self._history = history
         self._registry = registry
         self._current_device_id = ""
-        self._last_state: Optional[DeviceState] = None
-        self._last_poll_time: Optional[float] = None
-        self._child_windows: list[MainWindow] = []
+        self._last_state: DeviceState | None = None
+        self._last_poll_time: float | None = None
+        self._child_windows: list[FanWindow] = []
 
         # Global scenario store (shared across all windows via same file)
         self._scenarios = ScenarioStore()
         # Quick-slot buttons — built in _build_ui
         self._quick_btns: list[QPushButton] = []
-        self._fan_details_dlg: Optional[FanDetailsDialog] = None
-        self._schedule_dlg: Optional[ScheduleDialog] = None
+        self._fan_details_dlg: FanDetailsWindow | None = None
+        self._schedule_dlg: ScheduleDialog | None = None
 
         # Register with the window registry so multi-fan scenarios can find us
         if self._registry is not None:
@@ -161,28 +161,30 @@ class MainWindow(QMainWindow):
         root.setContentsMargins(16, 16, 16, 16)
         root.setSpacing(12)
 
-        # Device header row
-        device_row = QHBoxLayout()
+        # Header row: power toggle (colour = health) with the fan name and
+        # the Details button stacked beside it.
+        header_row = QHBoxLayout()
+        header_row.setSpacing(12)
+        self._power_btn = PowerButton()
+        self._power_btn.toggled_power.connect(self._on_power_toggled)
+        header_row.addWidget(self._power_btn, 0, Qt.AlignmentFlag.AlignVCenter)
+
+        name_col = QVBoxLayout()
+        name_col.setSpacing(4)
         self._device_lbl = QLabel("Connecting…")
         self._device_lbl.setObjectName("DeviceHeader")
-        device_row.addWidget(self._device_lbl)
-        device_row.addStretch()
+        name_col.addWidget(self._device_lbl)
+
         self._details_btn = QPushButton("Details…")
         self._details_btn.setObjectName("DetailsBtn")
         self._details_btn.setToolTip("Show fan details: boost, humidity, RPM, schedule, scenarios")
         self._details_btn.setEnabled(False)
         self._details_btn.clicked.connect(self._open_fan_details)
-        device_row.addWidget(self._details_btn)
-        self._switch_btn = QPushButton("Switch…")
-        self._switch_btn.setObjectName("SwitchBtn")
-        self._switch_btn.setToolTip("Connect to a different device")
-        self._switch_btn.clicked.connect(self._switch_device)
-        device_row.addWidget(self._switch_btn)
-        root.addLayout(device_row)
+        name_col.addWidget(self._details_btn)
+        header_row.addLayout(name_col)
 
-        self._power_btn = PowerButton()
-        self._power_btn.toggled_power.connect(self._on_power_toggled)
-        root.addWidget(self._power_btn, 0, Qt.AlignmentFlag.AlignLeft)
+        header_row.addStretch()
+        root.addLayout(header_row)
 
         speed_box = QGroupBox("Speed")
         speed_layout = QVBoxLayout(speed_box)
@@ -225,27 +227,6 @@ class MainWindow(QMainWindow):
             quick_layout.addWidget(btn)
         root.addWidget(quick_box)
 
-        # Status group box
-        stat_box = QGroupBox("Status")
-        stat_layout = QVBoxLayout(stat_box)
-
-        conn_row = QHBoxLayout()
-        self._conn_led = StatusLED("grey")
-        conn_row.addWidget(self._conn_led)
-        self._conn_lbl = QLabel("Not connected")
-        conn_row.addWidget(self._conn_lbl)
-        conn_row.addStretch()
-        stat_layout.addLayout(conn_row)
-
-        alarm_row = QHBoxLayout()
-        self._alarm_led = StatusLED("grey")
-        alarm_row.addWidget(self._alarm_led)
-        self._alarm_lbl = QLabel("—")
-        alarm_row.addWidget(self._alarm_lbl)
-        alarm_row.addStretch()
-        stat_layout.addLayout(alarm_row)
-
-        root.addWidget(stat_box)
         root.addStretch()
 
     def _build_status_bar(self):
@@ -264,11 +245,6 @@ class MainWindow(QMainWindow):
 
     def _build_menu_bar(self):
         dev_menu = self.menuBar().addMenu("Device")
-
-        act_switch = QAction("Switch Device…", self)
-        act_switch.setShortcut("Ctrl+D")
-        act_switch.triggered.connect(self._switch_device)
-        dev_menu.addAction(act_switch)
 
         act_new = QAction("Open in New Window…", self)
         act_new.setShortcut("Ctrl+N")
@@ -329,11 +305,11 @@ class MainWindow(QMainWindow):
         """Handle a failed connection attempt.
 
         Resets the window to an unconnected state and shows a clear
-        message so the user knows they can use Switch… to retry.
+        message so the user knows they can reopen the fan from the Overview.
         """
         self._go_to_unconnected()
         self._device_lbl.setText("Device not found or connected yet…")
-        self.statusBar().showMessage("Connection failed — use Switch… to try again", 0)
+        self.statusBar().showMessage("Connection failed — reopen the fan from the Overview to retry", 0)
 
     # ------------------------------------------------------------------
     # State → UI
@@ -367,23 +343,14 @@ class MainWindow(QMainWindow):
         if self._fan_details_dlg is not None and self._fan_details_dlg.isVisible():
             self._fan_details_dlg.refresh(s)
 
-        if s.alarm_status == 0:
-            self._alarm_led.set_ok()
-            self._alarm_lbl.setText("OK")
-        elif s.alarm_status == 1:
-            self._alarm_led.set_error()
-            self._alarm_lbl.setText("ALARM")
-        elif s.alarm_status == 2:
-            self._alarm_led.set_warning()
-            self._alarm_lbl.setText("Warning")
-        else:
-            self._alarm_led.set_inactive()
-            self._alarm_lbl.setText("—")
+        # Power button colour: green when healthy, yellow on alarm or
+        # expired filter, grey while unconnected.
+        self._power_btn.set_available(True)
+        self._power_btn.set_warning(needs_attention(s))
 
     def _set_status(self, text: str, colour: str):
-        self._conn_led.set_colour(colour)
-        self._conn_lbl.setText(text)
         self._sb_conn_led.set_colour(colour)
+        self.statusBar().showMessage(text, 0)
 
     def _update_poll_age(self):
         if self._last_poll_time is None:
@@ -421,7 +388,7 @@ class MainWindow(QMainWindow):
             return
 
         display_name = self._get_display_name(self._last_state) if self._last_state else "Fan Details"
-        dlg = FanDetailsDialog(
+        dlg = FanDetailsWindow(
             title=display_name,
             scenarios=self._scenarios,
             parent=self,
@@ -760,7 +727,7 @@ class MainWindow(QMainWindow):
         btn = self._quick_btns[index]
         menu.exec(btn.mapToGlobal(pos))
 
-    def _assign_quick_slot(self, index: int, name: Optional[str]) -> None:
+    def _assign_quick_slot(self, index: int, name: str | None) -> None:
         slots = self._scenarios.get_quick_slots(self._current_device_id)
         slots[index] = name
         self._scenarios.set_quick_slots(self._current_device_id, slots)
@@ -811,6 +778,9 @@ class MainWindow(QMainWindow):
         for btn in self._quick_btns:
             btn.setEnabled(False)
         self._set_status("No fan connected", "grey")
+        self._power_btn.set_on(False)
+        self._power_btn.set_available(False)
+        self._power_btn.set_warning(False)
         self.setWindowTitle("VentoControl")
         self._device_lbl.setText("No fan connected")
         self._sb_id_lbl.setText("—")
@@ -826,38 +796,23 @@ class MainWindow(QMainWindow):
         for btn in self._quick_btns:
             btn.setEnabled(False)
         self._set_status("Connecting…", "amber")
+        self._power_btn.set_available(False)
+        self._power_btn.set_warning(False)
         self.setWindowTitle("VentoControl — Connecting…")
         self._sb_id_lbl.setText("—")
         self._sb_ip_lbl.setText(ip)
         self._last_poll_time = None
 
     def _open_initial_connect_dialog(self) -> None:
-        """Auto-open connect dialog on first launch when no fan is pre-selected."""
-        dlg = ConnectDialog(self, history=self._history)
-        result = dlg.exec()
-        if result == ConnectDialog.DialogCode.Accepted:
-            host, device_id, password = dlg.connection_params()
-        elif self._history and self._history.last_used:
-            entry = self._history.last_used
-            host, device_id, password = entry.ip, entry.device_id, entry.password
-        else:
-            self.close()
-            return
-        self._host = host
-        self._password = password
-        self._start_connecting(host)
-        self._sig_connect.emit(host, device_id, password)
+        """Auto-open connect dialog on first launch when no fan is pre-selected.
 
-    def _switch_device(self) -> None:
-        """Show the connect dialog and, if accepted, reconnect in-place."""
-        self._poller.stop()
+        Cancelling the dialog closes this window — the blank window is only
+        created via the Overview's "Connect New Fan…", so silently connecting
+        to the last-used fan instead would surprise the user.
+        """
         dlg = ConnectDialog(self, history=self._history)
         if dlg.exec() != ConnectDialog.DialogCode.Accepted:
-            if not self._history or not self._history.last_used:
-                self._go_to_unconnected()
-                self._open_initial_connect_dialog()
-            else:
-                self._poller.start()
+            self.close()
             return
         host, device_id, password = dlg.connection_params()
         self._host = host
@@ -871,7 +826,7 @@ class MainWindow(QMainWindow):
         if dlg.exec() != ConnectDialog.DialogCode.Accepted:
             return
         host, device_id, password = dlg.connection_params()
-        win = MainWindow(
+        win = FanWindow(
             host=host,
             device_id=device_id,
             password=password,

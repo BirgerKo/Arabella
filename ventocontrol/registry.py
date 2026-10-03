@@ -1,16 +1,16 @@
-"""WindowRegistry — tracks all open MainWindow instances for cross-window dispatch."""
+"""WindowRegistry — tracks all open FanWindow instances for cross-window dispatch."""
 
 from __future__ import annotations
 
 
 class WindowRegistry:
     """
-    Maintains a list of MainWindow instances so multi-fan scenarios
+    Maintains a list of FanWindow instances so multi-fan scenarios
     can target the correct window for each device.
     """
 
     def __init__(self):
-        self._windows = []  # list[MainWindow]
+        self._windows = []  # list[FanWindow]
 
     def register(self, window) -> None:
         """Add a window to the registry (idempotent)."""

@@ -10,12 +10,8 @@ never touch ~/.ventocontrol/.
 
 from __future__ import annotations
 
-import json
-
 import pytest
-
-from ventocontrol.history import DeviceHistory, HistoryEntry, _MAX_ENTRIES
-
+from ventocontrol.history import _MAX_ENTRIES, DeviceHistory, HistoryEntry
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -94,6 +90,20 @@ class TestDeviceHistoryBasics:
         history.clear()
         assert history.entries == []
         assert history.last_used is None
+
+    def test_remove_drops_entry_and_persists(self, history):
+        _record(history, device_id="DEV1")
+        _record(history, device_id="DEV2")
+        history.remove("DEV1")
+        assert [e.device_id for e in history.entries] == ["DEV2"]
+        # Persisted: a fresh instance sees the same state
+        reloaded = DeviceHistory()
+        assert [e.device_id for e in reloaded.entries] == ["DEV2"]
+
+    def test_remove_unknown_is_noop(self, history):
+        _record(history)
+        history.remove("GHOST")
+        assert len(history.entries) == 1
 
     def test_missing_file(self, tmp_path, monkeypatch):
         monkeypatch.setattr("ventocontrol.history._HISTORY_FILE", tmp_path / "no_file.json")

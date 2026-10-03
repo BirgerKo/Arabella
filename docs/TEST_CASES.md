@@ -36,13 +36,14 @@ cd /Users/birger/Python/Arabella && python3.11 -m pytest -q
 
 | Test file | Classes | Tests | Area covered |
 |-----------|---------|-------|--------------|
-| `tests/test_history.py` | 4 | 18 | Device connection history, fan renaming, persistence |
+| `tests/test_history.py` | 4 | 20 | Device connection history, fan renaming, removal, persistence |
 | `tests/test_protocol.py` | 5 | 28 | UDP packet building, parsing, decoders, input validation |
 | `tests/test_protocol_invalid.py` | 2 | 13 | Malformed, truncated, and invalid packet construction rejection |
 | `tests/test_transport.py` | — | 3 | Sync/async timeout and socket error semantics |
 | `tests/test_scenarios.py` | 6 | 32 | Scenario store CRUD, quick-slots, v1→v2 migration |
 | `tests/test_simulator.py` | 13 | 75 | Simulator ID generation, protocol helpers, SimDevice physics, VentoFanSim routing |
-| `tests/test_main_window.py` | 4 | 15 | MainWindow UI: IP-on-hover label, Scenario operations, Details button; FanDetailsDialog: schedule/RTC/boost signals and refresh |
+| `tests/test_fan_window.py` | 8 | 29 | FanWindow UI: IP-on-hover label, Scenario operations, Details button, power-button health colours, removed status box / Switch; FanDetailsWindow: schedule/RTC/boost signals and refresh |
+| `tests/test_overview.py` | 13 | 54 | Overview launch window: formatting + attention rules, AirflowFanIcon, clickable two-per-line tiles, history observer, clock sync, fan-window opening, background polling + RTC-sync worker |
 | `tests/webdashboard/test_hub.py` | — | 5 | WebSocket broadcast hub: connect, disconnect, broadcast, dead socket cleanup |
 | `tests/webdashboard/test_device_manager.py` | — | 22 | DeviceManager connect/disconnect, power/speed/mode/boost/humidity/schedule/RTC commands, fan switching, broadcast callback, discovery, reconnect safety, and polling retry/backoff |
 | `tests/webdashboard/test_routers_commands.py` | — | 18 | Command HTTP endpoints (power/speed/mode/boost/humidity/schedule_enable/schedule_period/sync_rtc), 503 when disconnected, 422 validation |
@@ -60,7 +61,7 @@ cd /Users/birger/Python/Arabella && python3.11 -m pytest -q
 | `arabella_mobile/viewmodel/tests/tst_DeviceViewModel` | — | 5 | Qt/C++ device view model: properties, firmware, disconnect, error, commands |
 | `arabella_mobile/viewmodel/tests/tst_ScheduleViewModel` | — | 6 | Qt/C++ schedule view model: load lifecycle, row count, model data, optimistic update |
 | `arabella_mobile/viewmodel/tests/tst_ScenarioViewModel` | — | 6 | Qt/C++ scenario view model: save, delete, apply, quick-slot, rename, device-id signal |
-| **Total** | **30+** | **297+** | |
+| **Total** | **30+** | **367+** | |
 
 ---
 
@@ -96,6 +97,8 @@ Core behaviour of `DeviceHistory` — adding, ordering, capping, and clearing en
 | `test_record_moves_existing_to_front` | Re-recording a device that is already in history moves it to position 0 — no duplicate is created | After re-connecting DEV1, `entries[0].device_id == "DEV1"` and `len(entries) == 2` |
 | `test_record_cap` | History is capped at `_MAX_ENTRIES`; recording more than the cap drops the oldest | `len(entries) == _MAX_ENTRIES` after adding `_MAX_ENTRIES + 3` devices |
 | `test_clear` | `clear()` wipes all entries and resets `last_used` | `entries == []` and `last_used is None` |
+| `test_remove_drops_entry_and_persists` | `remove()` drops one device and persists the change | Only the other device remains; a fresh instance agrees |
+| `test_remove_unknown_is_noop` | Removing a device that is not in the history changes nothing | Entry count unchanged |
 | `test_missing_file` | If the JSON file does not exist, `DeviceHistory` starts empty without raising | `entries == []` |
 | `test_malformed_json` | If the JSON file is corrupt, `DeviceHistory` starts empty without raising | `entries == []` |
 
@@ -516,9 +519,9 @@ simulated discovery responses.
 
 ---
 
-## tests/test_main_window.py
+## tests/test_fan_window.py
 
-Tests for `ventocontrol.ui.main_window.MainWindow` — the PySide6 desktop GUI. All tests
+Tests for `ventocontrol.ui.fan_window.FanWindow` — the PySide6 desktop GUI. All tests
 run with `QT_QPA_PLATFORM=offscreen` to avoid requiring a real display.
 
 ---
@@ -538,7 +541,7 @@ address available only as a tooltip (hover-visible), not as permanent label text
 
 ### TestScenarioButton
 
-Verifies the `_add_to_scenario()` logic in MainWindow.
+Verifies the `_add_to_scenario()` logic in FanWindow.
 
 | Test | Purpose | Expected result |
 |------|---------|----------------|
@@ -559,9 +562,9 @@ Verifies the "Details…" button lifecycle on the main window.
 
 ---
 
-### TestFanDetailsDialog
+### TestFanDetailsWindow
 
-Verifies the `FanDetailsDialog` — the non-modal dialog that shows boost, humidity, RPM,
+Verifies the `FanDetailsWindow` — the non-modal dialog that shows boost, humidity, RPM,
 schedule and scenario controls.
 
 | Test | Purpose | Expected result |
@@ -573,6 +576,240 @@ schedule and scenario controls.
 | `test_refresh_reflects_schedule_disabled` | `refresh()` with `weekly_schedule_enabled=False` unchecks toggle and sets label "OFF" | `isChecked() == False`; `text() == "OFF"` |
 | `test_refresh_updates_boost` | `refresh()` with `boost_active=True` checks the boost button and sets label "ON" | `isChecked() == True`; `text() == "ON"` |
 | `test_boost_emits_signal` | `_on_boost_clicked()` with checked state emits `boost_changed` with `True` | Signal received with value `True` |
+
+---
+
+---
+
+### TestPowerButtonHealth
+
+Verifies the power button's health colours in the FanWindow — green when
+connected and healthy, yellow on alarm or expired filter, grey unconnected.
+
+| Test | Purpose | Expected result |
+|------|---------|------------------|
+| `test_button_green_after_connect` | `_apply_state()` with a healthy state makes the button available and un-warned | Available, not warning |
+| `test_button_yellow_on_alarm` | An alarm state raises the button warning flag | `is_warning() == True` |
+| `test_button_yellow_on_expired_filter` | A zero filter countdown raises the button warning flag | `is_warning() == True` |
+| `test_button_grey_when_unconnected` | `_go_to_unconnected()` greys the button out | Not available, not warning |
+| `test_no_airflow_icon_in_fan_window` | The per-fan window has no separate airflow icon widget | `_airflow_icon` attribute absent |
+
+---
+
+### TestInitialConnectDialog
+
+Verifies the blank fan window opened by the Overview's "Connect New Fan…".
+
+| Test | Purpose | Expected result |
+|------|---------|------------------|
+| `test_cancel_closes_window_without_connecting` | Cancelling the connect dialog must not silently connect to the last-used fan | No `_sig_connect` emission; window closed |
+
+---
+
+### TestAttentionReason
+
+Verifies that the details window states why the fan needs attention, above
+the Humidity section, whenever the health colour is yellow.
+
+| Test | Purpose | Expected result |
+|------|---------|------------------|
+| `test_alarm_reason_shown_above_humidity` | An alarm state shows "Alarm" in the attention label | Text "Alarm"; label shown |
+| `test_filter_reason_shown` | A zero filter countdown shows "Filter timer expired" | Text "Filter timer expired"; label shown |
+| `test_both_reasons_joined` | Alarm and expired filter together list both reasons, joined with " · " | "Alarm · Filter timer expired" |
+| `test_healthy_fan_hides_reason` | A healthy fan shows no attention label | Label empty and hidden |
+| `test_reason_clears_after_alarm_resolves` | The label hides again once the alarm clears on a later refresh | Label hidden |
+
+---
+
+### TestRemovedRedundancy
+
+Verifies the removed redundant UI: the Status group box and the Switch button.
+
+| Test | Purpose | Expected result |
+|------|---------|------------------|
+| `test_no_status_group_box` | The connection/alarm LEDs from the old Status box no longer exist | Neither attribute present |
+| `test_no_switch_button_or_menu_action` | The Switch button, handler and menu action are gone | Neither attribute present; Device menu intact |
+| `test_details_button_under_fan_name` | The header places the power button first, then a column stacking the fan name over the Details button | Power button first; name above Details |
+
+---
+
+## tests/test_overview.py
+
+Tests for the Overview launch window (`ventocontrol.ui.overview_window`) — the
+opening screen with two clickable status tiles per line, one per fan in the
+device history, plus the background worker that polls and syncs all fans.
+All tests run with `QT_QPA_PLATFORM=offscreen`.
+
+---
+
+### TestFormatting
+
+Verifies the pure formatting helpers that turn a `DeviceState` into tile text.
+
+| Test | Purpose | Expected result |
+|------|---------|------------------|
+| `test_time` | Time label shows the RTC time, "—" when missing | `"14:30:05"`, `"—"` |
+| `test_date` | Date label shows the RTC calendar date, "—" when missing | `"2026-10-03 (Sat)"`, `"—"` |
+| `test_humidity` | Humidity text shows current RH percentage and "—" when absent | `"57% RH"`, `"—"` |
+| `test_needs_attention_on_alarm` | An alarm status marks the fan as needing attention | `True` |
+| `test_needs_attention_on_expired_filter` | A zero filter countdown marks the fan as needing attention | `True` |
+| `test_needs_attention_on_replacement_flag` | The device's filter-replacement flag marks the fan as needing attention | `True` |
+| `test_needs_attention_healthy_fan` | A healthy fan does not need attention | `False` |
+
+---
+
+### TestAirflowFanIcon
+
+Verifies `AirflowFanIcon` — the per-fan house icon with airflow arrows.
+
+| Test | Purpose | Expected result |
+|------|---------|------------------|
+| `test_starts_unavailable_with_unknown_mode` | A new icon is unavailable with no mode | `is_available() == False`; `mode() is None` |
+| `test_availability_warning_and_mode_track_setters` | Setters update availability, warning and mode state | Getters return the set values |
+| `test_paints_without_error_for_every_state` | `grab()` forces a synchronous paint for every availability/warning/mode combination | Non-null pixmap, no exception |
+
+---
+
+### TestFanCard
+
+Verifies `FanCard` — one fan's clickable narrow tile in the Overview.
+
+| Test | Purpose | Expected result |
+|------|---------|------------------|
+| `test_card_starts_offline_with_placeholder_labels` | A new tile is offline with "—" placeholders, title and device ID set | `is_online() == False`; labels "—"; title/device ID correct |
+| `test_refresh_updates_labels_and_icon` | `refresh()` with a polled state fills time/date/humidity and sets icon availability + mode | Labels filled; icon available, mode 1 |
+| `test_alarm_marks_icon_yellow` | An alarm state raises the icon warning flag | `is_warning() == True` |
+| `test_expired_filter_marks_icon_yellow` | A zero filter countdown raises the icon warning flag | `is_warning() == True` |
+| `test_healthy_fan_icon_not_yellow` | A healthy fan keeps the icon un-warned | `is_warning() == False` |
+| `test_power_state_does_not_change_icon_colour` | The icon colour encodes availability, not power — an off-but-reachable fan stays green | `is_available() == True` |
+| `test_mark_offline_greys_icon_and_clears_labels` | `mark_offline()` resets labels to "—" and the icon to grey/no-mode/no-warning | All labels "—"; icon unavailable |
+| `test_long_title_is_elided_but_kept_in_full` | A long fan name is ellipsized on the tile while the full name is preserved | Visible text ends with "…"; `title` is the full name |
+| `test_left_click_emits_activated` | A left mouse press on the tile emits `activated` with the device ID | `["DEV1"]` |
+| `test_right_click_does_not_open_fan_window` | A right mouse press does NOT emit `activated` — right-click belongs to the context menu | No emission |
+| `test_set_title` | `set_title()` updates the displayed title | Title text updated |
+
+---
+
+### TestOverviewWindowEmptyState
+
+Verifies the empty-history state of the launch window.
+
+| Test | Purpose | Expected result |
+|------|---------|------------------|
+| `test_empty_history_shows_hint_and_disables_actions` | With no known fans the hint shows and Refresh/Sync are disabled, Connect New Fan… stays enabled | Hint label present; buttons disabled/enabled as specified |
+| `test_cards_enable_refresh_and_sync` | With at least one fan the Refresh and Sync buttons enable | Both buttons enabled |
+
+---
+
+### TestOverviewWindowCards
+
+Verifies tile wiring in the Overview window (constructed with polling disabled).
+
+| Test | Purpose | Expected result |
+|------|---------|------------------|
+| `test_one_card_per_history_entry` | One tile is built per history entry, titled by user name or unit type | Tile set matches device IDs; titles correct |
+| `test_fan_state_updates_matching_card` | A polled state updates only the tile with the matching device ID | Target tile updated; other tile untouched |
+| `test_cards_lay_out_two_per_line` | Tiles are placed into a grid two per line in history order | Positions `(0,0) (0,1) (1,0)` for three fans |
+| `test_unreachable_fan_marked_offline` | A reachability failure marks the matching tile offline | `is_online() == False` |
+| `test_unknown_device_id_is_ignored` | States for devices not in the history are ignored | No crash; existing tile unchanged |
+
+---
+
+### TestOverviewWindowHistorySync
+
+Verifies the history observer: the window follows history changes live.
+
+| Test | Purpose | Expected result |
+|------|---------|------------------|
+| `test_new_history_entry_gains_a_card` | `history.record()` for a new device triggers a new tile via the observer | New device ID in `_cards` |
+| `test_rename_updates_card_title` | `history.rename()` retitles the matching tile via the observer | Tile title updated |
+
+---
+
+### TestOverviewWindowSync
+
+Verifies the "Sync All Clocks to PC" flow.
+
+| Test | Purpose | Expected result |
+|------|---------|------------------|
+| `test_sync_click_shows_progress_and_finish_reenables` | Clicking Sync shows progress, counts synced clocks, and re-enables the button when the pass finishes | Label "Syncing clocks…" → "Clocks synced: 1 … (1 offline)"; button re-enabled |
+| `test_sync_finished_all_online` | The final sync label omits the offline note when every fan synced | No "offline" in label |
+
+---
+
+### TestFanWindowOpening
+
+Verifies that clicking a tile opens the per-fan control window (FanWindow faked).
+
+| Test | Purpose | Expected result |
+|------|---------|------------------|
+| `test_card_click_opens_fan_window_with_entry_params` | `_open_fan_window()` creates a fan window with the history entry's IP, device ID and password | One window; parameters match the entry |
+| `test_second_click_raises_existing_window` | Clicking a tile whose window is already visible raises it instead of creating a duplicate | One window; `raised` flag set |
+| `test_unknown_device_opens_nothing` | A device ID not in the history opens no window | No window created |
+| `test_connect_new_opens_blank_window` | "Connect New Fan…" opens a blank fan window that runs the connect dialog | One window with empty host |
+
+---
+
+### TestFanCardContextMenu
+
+Verifies the right-click action menu on a fan tile.
+
+| Test | Purpose | Expected result |
+|------|---------|------------------|
+| `test_menu_offers_all_six_actions` | The menu lists Open, Details, Rename, Scenario, Sync Clock, Remove in order | Exact label list |
+| `test_triggering_menu_action_emits_key` | Triggering a menu action emits `action_requested` with the tile's device ID and action key | `("DEV1", "remove")` |
+
+---
+
+### TestTileActions
+
+Verifies the Overview window's handling of the tile menu actions (dialogs and worker faked).
+
+| Test | Purpose | Expected result |
+|------|---------|------------------|
+| `test_unknown_action_is_ignored` | An unrecognised action key does nothing | No exception |
+| `test_details_opens_fan_window_and_its_dialog` | Details opens the fan window and calls its details dialog | `_open_fan_details` called for the device |
+| `test_rename_updates_tile_title` | Rename applies the dialog result via the history observer | Tile title updated to the new name |
+| `test_scenario_dialog_gets_device_id` | Scenario opens ManageScenariosDialog with the tile's device ID and the shared store | Dialog receives both |
+| `test_sync_fan_clock_emits_without_label_text` | Sync Clock emits the single-fan sync signal without writing the bottom label | Signal with device ID; label empty |
+| `test_single_fan_sync_does_not_write_sync_label` | A single-fan `rtc_synced` result does not update the all-fans progress label | Label empty; counter unchanged |
+| `test_sync_fan_clock_without_worker_is_noop` | Sync Clock with no running worker does nothing | Label unchanged |
+| `test_remove_fan_drops_tile` | Remove drops the fan from the history; the observer removes the tile | One tile remains |
+| `test_card_action_signal_reaches_handler` | The card's `action_requested` signal is wired to the window handler | Handler called with device and action |
+
+---
+
+### TestCloseClosesAllWindows
+
+Verifies that closing the Overview closes every window it opened.
+
+| Test | Purpose | Expected result |
+|------|---------|------------------|
+| `test_closing_overview_closes_fan_and_connect_windows` | `closeEvent` closes all fan windows and blank connect windows, then clears the references | Both windows closed; both lists empty |
+
+---
+
+### TestOverviewWorkerSingleSync
+
+Verifies single-fan RTC syncing.
+
+| Test | Purpose | Expected result |
+|------|---------|------------------|
+| `test_sync_rtc_syncs_only_target_fan` | `do_sync_rtc()` syncs and re-polls only the named fan | Only the target synced and polled |
+| `test_sync_rtc_unknown_fan_is_noop` | An unknown device ID creates no client and raises nothing | No exception |
+
+---
+
+### TestOverviewWorker
+
+Verifies `OverviewWorker` — sequential fan polling and RTC syncing with faked clients.
+
+| Test | Purpose | Expected result |
+|------|---------|------------------|
+| `test_poll_all_emits_state_per_fan` | `do_poll_all()` emits one state per reachable fan, in order | Device IDs `["DEV1", "DEV2"]` |
+| `test_unreachable_fan_reported` | A fan that raises on connect is reported unreachable without aborting the cycle | `["DEAD"]` unreachable; `["ALIVE"]` updated |
+| `test_sync_all_rtc_syncs_each_fan_then_repolls` | `do_sync_all_rtc()` sets every fan's RTC, emits per-fan and finished signals, then re-polls all clocks | Sync called for both; re-poll states for both |
+| `test_sync_failure_reports_unreachable_and_finishes` | A fan failing during RTC sync is reported unreachable and the sync pass still finishes | `["DEAD", "DEAD"]` unreachable; finished emitted |
 
 ---
 
