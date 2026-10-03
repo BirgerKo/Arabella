@@ -54,3 +54,6 @@ arabella_mobile/vendor/
 # User-local CMake presets (machine-specific paths, not committed)
 CMakeUserPresets.json
 arabella_mobile/CMakeUserPresets.json
+
+# Claude Code local settings (machine-specific, not committed)
+.claude/
