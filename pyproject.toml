@@ -3,13 +3,13 @@ requires      = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name        = "blauberg-vento"
+name        = "Arabella"
 version     = "1.0.0"
-description = "Python API for Blauberg Vento Expert Wi-Fi fans"
+description = "Cross-platform support for Blauberg Vento Expert Wi-Fi fans"
 readme      = "README.md"
 license     = { text = "MIT" }
 requires-python = ">=3.11"
-dependencies    = []
+dependencies    = ["blauberg-vento>=1.0.2"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "pytest-cov>=5.0",
@@ -22,7 +22,7 @@ ventocontrol = "ventocontrol.main:main"
 ventosim     = "ventocontrol.simulator:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["blauberg_vento", "ventocontrol", "webdashboard"]
+packages = ["ventocontrol", "webdashboard"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
@@ -30,17 +30,16 @@ testpaths    = ["tests"]
 norecursedirs = ["webdashboard/e2e"]
 
 [tool.coverage.run]
-source = ["blauberg_vento"]
+source = ["ventocontrol", "webdashboard"]
 
 [tool.ruff]
 line-length = 120
-src = ["blauberg_vento", "ventocontrol", "webdashboard"]
+src = ["ventocontrol", "webdashboard"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP"]
 
 [tool.ruff.lint.per-file-ignores]
-"blauberg_vento/parameters.py" = ["E501"]
 "tests/test_protocol.py" = ["E701", "E702"]
 
 [tool.mypy]

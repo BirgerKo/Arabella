@@ -5,7 +5,7 @@ on:
   pull_request:
 
 jobs:
-  library:
+  quality:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -18,12 +18,12 @@ jobs:
       - name: Install development dependencies
         run: python -m pip install --upgrade pip && python -m pip install -e ".[dev]"
       - name: Lint
-        run: python -m ruff check blauberg_vento tests/test_protocol.py tests/test_protocol_invalid.py tests/test_transport.py
+        run: python -m ruff check tests/test_protocol.py tests/test_protocol_invalid.py tests/test_transport.py
       - name: Format check
         run: python -m ruff format --check .
       - name: Type check
-        run: python -m mypy blauberg_vento
-      - name: Run library tests
+        run: python -m mypy .
+      - name: Run protocol library smoke tests (exercises the blauberg-vento PyPI dependency)
         run: python -m pytest -q tests/test_protocol.py tests/test_protocol_invalid.py tests/test_transport.py
       - name: Coverage report
         run: python -m pytest --cov=blauberg_vento --cov-report=term-missing tests/test_protocol.py tests/test_protocol_invalid.py tests/test_transport.py

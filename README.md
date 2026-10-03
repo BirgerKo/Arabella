@@ -8,10 +8,14 @@ Development is assisted by AI language models.
 
 | Package | Description |
 |---------|-------------|
-| `blauberg_vento/` | Pure-Python UDP API library (no dependencies) |
 | `ventocontrol/` | PySide6 desktop GUI — macOS, Windows, Linux |
 | `ventocontrol/simulator.py` | Software fan simulator for development without hardware |
 | `webdashboard/` | React + FastAPI web dashboard — same palette as the desktop GUI |
+
+The UDP API library is the separately published
+[`blauberg-vento`](https://pypi.org/project/blauberg-vento/) PyPI package
+([source](https://github.com/BirgerKo/blauberg_vento_api)); it is installed
+automatically as a dependency of Arabella.
 
 ## Install
 
@@ -34,6 +38,8 @@ print(state)
 client.turn_on()
 client.set_speed(2)
 ```
+
+The library can also be used standalone: `pip install blauberg-vento`.
 
 # Running the applications
 
@@ -65,7 +71,7 @@ commands below will work directly.
 ```bash
 ventocontrol
 ```
-nnnnnn
+
 ## Run the Simulator
 
 ```bash
@@ -89,8 +95,9 @@ python -m pip install -e ".[dev]"
 Run the same checks used by CI:
 
 ```bash
-python -m ruff check blauberg_vento tests/test_protocol.py tests/test_protocol_invalid.py tests/test_transport.py
-python -m mypy blauberg_vento
+python -m ruff check tests/test_protocol.py tests/test_protocol_invalid.py tests/test_transport.py
+python -m ruff format --check .
+python -m mypy .
 ```
 
 The default run excludes browser E2E tests because the synchronous Playwright
