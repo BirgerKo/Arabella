@@ -1,0 +1,65 @@
+app-id: io.github.BirgerKo.VentoControl
+runtime: org.kde.Platform
+runtime-version: "6.8"
+sdk: org.kde.Sdk
+command: ventocontrol
+
+finish-args:
+  # UDP broadcast discovery and LAN communication with the fans
+  - --share=network
+  - --share=ipc
+  # GUI
+  - --socket=wayland
+  - --socket=fallback-x11
+  # Fan history and scenarios are stored in ~/.ventocontrol
+  - --filesystem=home/.ventocontrol:create
+
+modules:
+  # Python dependencies, installed offline from pinned PyPI sources.
+  # The Flatpak build sandbox has no network, so wheels/sdists are
+  # declared as sources and fetched by flatpak-builder on the host.
+  - name: python-deps
+    buildsystem: simple
+    build-commands:
+      # PySide6 is NOT included in the KDE runtime — bundle the wheels.
+      # Essentials covers QtCore/QtGui/QtWidgets/QtNetwork (all the app
+      # uses); Addons is skipped to keep the flatpak small.
+      - pip3 install --prefix=/app --no-index --find-links=. \
+          shiboken6-6.8.2-cp39-abi3-manylinux_2_28_x86_64.whl \
+          PySide6_Essentials-6.8.2-cp39-abi3-manylinux_2_28_x86_64.whl
+      - pip3 install --prefix=/app --no-index --find-links=. blauberg_vento-1.0.4-py3-none-any.whl
+      # netifaces is a C extension: compile from sdist (SDK provides gcc).
+      # --no-build-isolation because the sandbox cannot fetch setuptools.
+      - pip3 install --prefix=/app --no-index --no-build-isolation netifaces-0.11.0.tar.gz
+    sources:
+      - type: file
+        url: https://files.pythonhosted.org/packages/77/79/204d6d8d9892f36d46b40815aab770620191c141ab98851eb708683588f9/shiboken6-6.8.2-cp39-abi3-manylinux_2_28_x86_64.whl
+        sha256: 924c23bed7c0b6ff8a308f4e12e5a9681f720c22d1be339cac01591feb7ebb32
+      - type: file
+        url: https://files.pythonhosted.org/packages/f9/4c/ce3dc6a71161b6fd8c007051729914cc79c049b33f041adca1db46d31f1d/PySide6_Essentials-6.8.2-cp39-abi3-manylinux_2_28_x86_64.whl
+        sha256: 341d3023da4d74605e354974346234007065208b40740732c6f69e1d33e70835
+      - type: file
+        url: https://files.pythonhosted.org/packages/7b/9c/f7ec0b8c87a5ab61d23bd9ed40827ba7c0a156806d62b8e72961998070a2/blauberg_vento-1.0.4-py3-none-any.whl
+        sha256: 43fbaf81e7fdbb1e4b9c42850689f46e94a2ea9b41d63e97f30e45f546889c8e
+      - type: file
+        url: https://files.pythonhosted.org/packages/a6/91/86a6eac449ddfae239e93ffc1918cf33fd9bab35c04d1e963b311e347a73/netifaces-0.11.0.tar.gz
+        sha256: 043a79146eb2907edf439899f262b3dfe41717d34124298ed281139a8b93ca32
+
+  # The app itself: copy the package and install desktop integration.
+  # (Copied directly instead of pip-installed so no build backend is
+  # needed inside the offline sandbox.)
+  - name: ventocontrol
+    buildsystem: simple
+    build-commands:
+      - install -d /app/lib/python3.12/site-packages
+      - cp -r ventocontrol /app/lib/python3.12/site-packages/
+      - install -Dm755 packaging/ventocontrol-launcher.sh /app/bin/ventocontrol
+      - install -Dm644 packaging/io.github.BirgerKo.VentoControl.desktop
+        /app/share/applications/io.github.BirgerKo.VentoControl.desktop
+      - install -Dm644 packaging/io.github.BirgerKo.VentoControl.svg
+        /app/share/icons/hicolor/scalable/apps/io.github.BirgerKo.VentoControl.svg
+      - install -Dm644 packaging/io.github.BirgerKo.VentoControl.metainfo.xml
+        /app/share/metainfo/io.github.BirgerKo.VentoControl.metainfo.xml
+    sources:
+      - type: dir
+        path: ..   # project root (manifest lives in packaging/)

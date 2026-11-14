@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=VentoControl
+Comment=Control Blauberg Vento Expert Wi-Fi fans
+Exec=ventocontrol
+Icon=io.github.BirgerKo.VentoControl
+Terminal=false
+Categories=Utility;Network;
+Keywords=fan;ventilation;blauberg;vento;

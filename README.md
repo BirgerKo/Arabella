@@ -164,7 +164,7 @@ discovery.
 | Humidity sensor (Off / On / Invert) + threshold | ✓ | ✓ |
 | Real-time fan 1 / fan 2 RPM display | ✓ | ✓ |
 | Weekly schedule enable / disable | ✓ | ✓ |
-| Weekly schedule editor (8 day-groups × 4 periods) | ✓ | ✓ |
+| Weekly schedule editor (7 days × 4 periods) | ✓ | ✓ |
 | Sync device RTC to system time | ✓ | ✓ |
 | Scenario save / apply / manage | ✓ | ✓ |
 | Add current fan to existing scenario | ✓ | ✓ |
@@ -215,6 +215,30 @@ cd webdashboard/frontend
 npm install
 npm test
 ```
+
+---
+
+## Flatpak (Linux desktop install)
+
+The desktop GUI can be packaged and installed as a Flatpak. The packaging
+files live in `packaging/` (manifest, `.desktop` entry, icon, AppStream
+metainfo).
+
+```bash
+# One-time: install the Flatpak build tools and the KDE runtime/SDK
+flatpak install flathub org.kde.Platform//6.8 org.kde.Sdk//6.8
+
+# Build and install for your user
+flatpak-builder --user --install --force-clean \
+    build-dir packaging/io.github.BirgerKo.VentoControl.yml
+
+# Run
+flatpak run io.github.BirgerKo.VentoControl
+```
+
+The manifest uses the KDE runtime (which provides Qt6/PySide6) and grants
+network access so the app can discover fans on your LAN via UDP broadcast.
+Fan history and scenarios are stored in `~/.ventocontrol`.
 
 ---
 

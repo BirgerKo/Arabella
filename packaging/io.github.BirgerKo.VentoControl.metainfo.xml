@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.BirgerKo.VentoControl</id>
+  <name>VentoControl</name>
+  <summary>Control Blauberg Vento Expert Wi-Fi fans</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <description>
+    <p>
+      VentoControl is a desktop application for controlling Blauberg Vento Expert
+      Wi-Fi ventilation fans on your local network. It discovers fans via UDP
+      broadcast and provides power, speed, mode and schedule control, plus an
+      overview of all connected fans.
+    </p>
+  </description>
+  <launchable type="desktop-id">io.github.BirgerKo.VentoControl.desktop</launchable>
+  <url type="homepage">https://github.com/BirgerKo/Arabella</url>
+  <provides>
+    <binary>ventocontrol</binary>
+  </provides>
+  <content_rating type="oars-1.1"/>
+</component>
