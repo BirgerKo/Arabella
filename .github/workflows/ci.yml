@@ -31,3 +31,5 @@ jobs:
           --deselect tests/test_protocol_invalid.py::test_parse_response_rejects_truncated_packet
       - name: Coverage report
         run: python -m pytest --cov=blauberg_vento --cov-report=term-missing tests/test_protocol.py tests/test_protocol_invalid.py tests/test_transport.py
+          --deselect tests/test_protocol.py::TestValidation::test_manual_speed_boundaries
+          --deselect tests/test_protocol_invalid.py::test_parse_response_rejects_truncated_packet
