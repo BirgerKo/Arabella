@@ -16,7 +16,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install development dependencies
-        run: python -m pip install --upgrade pip && python -m pip install -e ".[dev]"
+        run: python -m pip install --upgrade pip && python -m pip install -e ".[dev,web,gui]"
       - name: Lint
         run: python -m ruff check tests/test_protocol.py tests/test_protocol_invalid.py tests/test_transport.py
       - name: Format check
